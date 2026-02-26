@@ -180,7 +180,7 @@ public class EndpointAnalysisList {
     // System.out.println("EndpointAnalysisList: getCategorySetList - ID: "+ id);
     EntityManager entityManager = TIMAATApp.emf.createEntityManager();
     MediumAnalysisList mediumAnalysisList = entityManager.find(MediumAnalysisList.class, id);
-    List<CategorySet> categorySetList = mediumAnalysisList.getCategorySets();
+    List<CategorySet> categorySetList = mediumAnalysisList.getRestrictedCategorySets();
 
     return Response.ok().entity(categorySetList).build();
   }
@@ -354,8 +354,8 @@ public class EndpointAnalysisList {
         mediumAnalysisList.setText(trans.getText(), trans.getLanguage().getCode());
       }
     }
-    List<CategorySet> oldCategorySets = mediumAnalysisList.getCategorySets();
-    mediumAnalysisList.setCategorySets(updatedList.getCategorySets());
+    List<CategorySet> oldCategorySets = mediumAnalysisList.getRestrictedCategorySets();
+    mediumAnalysisList.setRestrictedCategorySets(updatedList.getRestrictedCategorySets());
     List<Tag> oldTags = mediumAnalysisList.getTags();
     mediumAnalysisList.setTags(updatedList.getTags());
     mediumAnalysisList.setGlobalPermission(updatedList.getGlobalPermission());
@@ -380,7 +380,7 @@ public class EndpointAnalysisList {
     entityManager.persist(mediumAnalysisList);
     entityTransaction.commit();
     entityManager.refresh(mediumAnalysisList);
-    for (CategorySet categorySet : mediumAnalysisList.getCategorySets()) {
+    for (CategorySet categorySet : mediumAnalysisList.getRestrictedCategorySets()) {
       entityManager.refresh(categorySet);
     }
     for (CategorySet categorySet : oldCategorySets) {
@@ -2132,7 +2132,7 @@ public class EndpointAnalysisList {
     // attach categorySet to annotation and vice versa
     EntityTransaction entityTransaction = entityManager.getTransaction();
     entityTransaction.begin();
-    mediumAnalysisList.getCategorySets().add(categorySet);
+    mediumAnalysisList.getRestrictedCategorySets().add(categorySet);
     categorySet.getMediumAnalysisLists().add(mediumAnalysisList);
     entityManager.merge(categorySet);
     entityManager.merge(mediumAnalysisList);
@@ -2295,7 +2295,7 @@ public class EndpointAnalysisList {
 
     // attach categorySet to annotation and vice versa
     entityTransaction.begin();
-    mediumAnalysisList.getCategorySets().remove(categorySet);
+    mediumAnalysisList.getRestrictedCategorySets().remove(categorySet);
     categorySet.getMediumAnalysisLists().remove(mediumAnalysisList);
     entityManager.merge(categorySet);
     entityManager.merge(mediumAnalysisList);

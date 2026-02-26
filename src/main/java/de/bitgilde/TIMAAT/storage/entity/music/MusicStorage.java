@@ -320,7 +320,7 @@ public class MusicStorage extends DbStorage<Music, MusicFilterCriteria, MusicSor
       Music music = entityManager.find(Music.class, musicId);
       List<CategorySet> updatedCategorySets = categorySetIds.stream().map(currentCategorySetId -> entityManager.find(
               CategorySet.class, currentCategorySetId)).collect(Collectors.toList());
-      music.setCategorySets(updatedCategorySets);
+      music.setRestrictedCategorySets(updatedCategorySets);
 
       return updatedCategorySets;
     });

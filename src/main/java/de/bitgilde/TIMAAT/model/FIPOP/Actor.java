@@ -137,7 +137,7 @@ public class Actor implements Serializable {
 
   @ManyToMany
   @JoinTable(
-          name="actor_has_category_set"
+          name="actor_restricted_category_set"
           , joinColumns={
           @JoinColumn(name="actor_id")
   }
@@ -145,7 +145,7 @@ public class Actor implements Serializable {
           @JoinColumn(name="category_set_id")
   }
   )
-  private List<CategorySet> categorySets;
+  private List<CategorySet> restrictedCategorySets;
 
   @ManyToMany
   @JoinTable(
@@ -599,11 +599,11 @@ public class Actor implements Serializable {
     this.categories = categories;
   }
 
-  public List<CategorySet> getCategorySets() {
-    return categorySets;
+  public List<CategorySet> getRestrictedCategorySets() {
+    return restrictedCategorySets;
   }
 
-  public void setCategorySets(List<CategorySet> categorySets) {
-    this.categorySets = categorySets;
+  public void setRestrictedCategorySets(List<CategorySet> categorySets) {
+    this.restrictedCategorySets = categorySets;
   }
 }

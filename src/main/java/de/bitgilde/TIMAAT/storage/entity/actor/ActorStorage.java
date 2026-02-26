@@ -97,7 +97,7 @@ public class ActorStorage extends DbStorage<Actor, ActorFilterCriteria, ActorSor
   }
 
   public Collection<CategorySet> getCategorySetsOfActor(int actorId) {
-    return executeDbTransaction(entityManager -> entityManager.getReference(Actor.class, actorId).getCategorySets());
+    return executeDbTransaction(entityManager -> entityManager.getReference(Actor.class, actorId).getRestrictedCategorySets());
   }
 
   public Collection<Category> getCategoriesOfActor(int actorId) {
@@ -109,7 +109,7 @@ public class ActorStorage extends DbStorage<Actor, ActorFilterCriteria, ActorSor
       Actor actor = entityManager.find(Actor.class, actorId, LockModeType.PESSIMISTIC_WRITE);
 
       List<Category> categories = categoryIds.isEmpty() ? Collections.emptyList() : entityManager.createQuery(
-              "select category from Actor actor join actor.categorySets categorySets join categorySets.categorySetHasCategories cshc join cshc.category category where category.id in :categoryIds",
+              "select category from Actor actor join actor.restrictedCategorySets categorySets join categorySets.categorySetHasCategories cshc join cshc.category category where category.id in :categoryIds",
               Category.class).setParameter("categoryIds", categoryIds).getResultList();
       actor.setCategories(categories);
       return categories;
@@ -118,7 +118,7 @@ public class ActorStorage extends DbStorage<Actor, ActorFilterCriteria, ActorSor
 
   public Stream<Category> getAssignableCategoriesOfActor(int actorId) {
     return executeStreamDbTransaction(entityManager -> entityManager.createQuery(
-            "select distinct category from Actor actor join actor.categorySets categorySet join categorySet.categorySetHasCategories cshc join cshc.category category where actor.id = :actorId",
+            "select distinct category from Actor actor join actor.restrictedCategorySets categorySet join categorySet.categorySetHasCategories cshc join cshc.category category where actor.id = :actorId",
             Category.class).setParameter("actorId", actorId).getResultStream());
   }
 
@@ -129,7 +129,7 @@ public class ActorStorage extends DbStorage<Actor, ActorFilterCriteria, ActorSor
       List<CategorySet> categorySets = categorySetIds.isEmpty() ? Collections.emptyList() : entityManager.createQuery(
               "select categorySet from CategorySet categorySet where categorySet.id in :categorySetIds",
               CategorySet.class).setParameter("categorySetIds", categorySetIds).getResultList();
-      actor.setCategorySets(categorySets);
+      actor.setRestrictedCategorySets(categorySets);
 
       //Delete categories not part of the new assigned category sets
       if (categorySetIds.isEmpty()) {

@@ -461,7 +461,7 @@ public class EndpointMusic {
     // System.out.println("EndpointMusic: getCategorySetList - ID: "+ id);
     EntityManager entityManager = TIMAATApp.emf.createEntityManager();
     Music music = entityManager.find(Music.class, id);
-    List<CategorySet> categorySetList = music.getCategorySets();
+    List<CategorySet> categorySetList = music.getRestrictedCategorySets();
 
     return Response.ok().entity(categorySetList).build();
   }
@@ -487,7 +487,7 @@ public class EndpointMusic {
 
     EntityManager entityManager = TIMAATApp.emf.createEntityManager();
     Music music = entityManager.find(Music.class, id);
-    List<CategorySet> categorySetList = music.getCategorySets();
+    List<CategorySet> categorySetList = music.getRestrictedCategorySets();
     List<Category> categoryList = new ArrayList<>();
     List<SelectElement> categorySelectList = new ArrayList<>();
 
@@ -1553,7 +1553,7 @@ public class EndpointMusic {
     // attach categorySet to annotation and vice versa
     EntityTransaction entityTransaction = entityManager.getTransaction();
     entityTransaction.begin();
-    music.getCategorySets().add(categorySet);
+    music.getRestrictedCategorySets().add(categorySet);
     categorySet.getMusicList().add(music);
     entityManager.merge(categorySet);
     entityManager.merge(music);
@@ -1605,7 +1605,7 @@ public class EndpointMusic {
 
     // attach categorySet to music and vice versa
     entityTransaction.begin();
-    music.getCategorySets().remove(categorySet);
+    music.getRestrictedCategorySets().remove(categorySet);
     categorySet.getMusicList().remove(music);
     entityManager.merge(categorySet);
     entityManager.merge(music);

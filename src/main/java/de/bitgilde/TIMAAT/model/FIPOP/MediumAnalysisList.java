@@ -1,14 +1,8 @@
 package de.bitgilde.TIMAAT.model.FIPOP;
 
-import java.io.Serializable;
-import java.sql.Timestamp;
-import java.util.List;
-import java.util.Objects;
-
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import com.fasterxml.jackson.annotation.JsonManagedReference;
 import com.fasterxml.jackson.annotation.JsonProperty;
-
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -24,6 +18,11 @@ import jakarta.persistence.OneToMany;
 import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
 import jakarta.persistence.Transient;
+
+import java.io.Serializable;
+import java.sql.Timestamp;
+import java.util.List;
+import java.util.Objects;
 
 /*
  Licensed under the Apache License, Version 2.0 (the "License");
@@ -92,7 +91,7 @@ public class MediumAnalysisList implements Serializable {
 	//bi-directional many-to-many association to CategorySet
 	@ManyToMany
 	@JoinTable(
-		name="medium_analysis_list_has_category_set"
+		name="medium_analysis_list_restricted_category_set"
 		, inverseJoinColumns={
 			@JoinColumn(name="category_set_id")
 			}
@@ -100,7 +99,7 @@ public class MediumAnalysisList implements Serializable {
 			@JoinColumn(name="medium_analysis_list_id")
 			}
 		)
-	private List<CategorySet> categorySets;
+	private List<CategorySet> restrictedCategorySets;
 
 	//bi-directional many-to-one association to MediaCollectionAnalysisList
 	// @ManyToOne
@@ -248,12 +247,12 @@ public class MediumAnalysisList implements Serializable {
 		return annotation;
 	}
 
-	public List<CategorySet> getCategorySets() {
-		return this.categorySets;
+	public List<CategorySet> getRestrictedCategorySets() {
+		return this.restrictedCategorySets;
 	}
 
-	public void setCategorySets(List<CategorySet> categorySets) {
-		this.categorySets = categorySets;
+	public void setRestrictedCategorySets(List<CategorySet> categorySets) {
+		this.restrictedCategorySets = categorySets;
 	}
 
 	// public MediaCollectionAnalysisList getMediaCollectionAnalysisList() {

@@ -655,7 +655,7 @@ public class EndpointAnnotation {
     EntityManager entityManager = TIMAATApp.emf.createEntityManager();
     Annotation annotation = entityManager.find(Annotation.class, id);
     MediumAnalysisList mediumAnalysisList = annotation.getMediumAnalysisList();
-    List<CategorySet> categorySetList = mediumAnalysisList.getCategorySets();
+    List<CategorySet> categorySetList = mediumAnalysisList.getRestrictedCategorySets();
     List<Category> categoryList = new ArrayList<>();
     // List<Category> annotationCategories = annotation.getCategories();
     List<SelectElement> categorySelectList = new ArrayList<>();

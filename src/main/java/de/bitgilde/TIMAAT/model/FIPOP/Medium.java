@@ -184,7 +184,7 @@ public class Medium implements Serializable {
 	//bi-directional many-to-many association to CategorySet
 	@ManyToMany
 	@JoinTable(
-		name="medium_has_category_set"
+		name="medium_restricted_category_set"
 		, joinColumns={
 			@JoinColumn(name="medium_id")
 			}
@@ -192,7 +192,7 @@ public class Medium implements Serializable {
 			@JoinColumn(name="category_set_id")
 			}
 		)
-	private List<CategorySet> categorySets;
+	private List<CategorySet> restrictedCategorySets;
 
 	//bi-directional many-to-many association to Category
 	@ManyToMany
@@ -539,12 +539,12 @@ public class Medium implements Serializable {
 		this.actorHasRoles = actorHasRoles;
 	}
 
-	public List<CategorySet> getCategorySets() {
-		return this.categorySets;
+	public List<CategorySet> getRestrictedCategorySets() {
+		return this.restrictedCategorySets;
 	}
 
-	public void setCategorySets(List<CategorySet> categorySets) {
-		this.categorySets = categorySets;
+	public void setRestrictedCategorySets(List<CategorySet> categorySets) {
+		this.restrictedCategorySets = categorySets;
 	}
 
 	public List<Category> getCategories() {

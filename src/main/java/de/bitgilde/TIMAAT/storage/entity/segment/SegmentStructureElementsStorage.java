@@ -68,7 +68,7 @@ public class SegmentStructureElementsStorage extends DbStorage<AnalysisSegmentSt
       int mediumAnalysisListId = segmentStructureEntity.getMediumAnalysisList().getId();
 
       List<Category> categories = categoryIds.isEmpty() ? Collections.emptyList() : entityManager.createQuery(
-              "select category from Category category where category.id in (select cshs.category.id from MediumAnalysisList mediumAnalysisList join mediumAnalysisList.categorySets categorySets join categorySets.categorySetHasCategories cshs where mediumAnalysisList.id = :mediumAnalysisListId and cshs.category.id in :categoryIds)",
+              "select category from Category category where category.id in (select cshs.category.id from MediumAnalysisList mediumAnalysisList join mediumAnalysisList.restrictedCategorySets categorySets join categorySets.categorySetHasCategories cshs where mediumAnalysisList.id = :mediumAnalysisListId and cshs.category.id in :categoryIds)",
               Category.class).setParameter("categoryIds", categoryIds).setParameter("mediumAnalysisListId",
               mediumAnalysisListId).getResultList();
 
@@ -98,7 +98,7 @@ public class SegmentStructureElementsStorage extends DbStorage<AnalysisSegmentSt
       Class<? extends SegmentStructureEntity> segmentTypeEntityClass = SEGMENT_STRUCTURE_ENTITY_CLASS_BY_SEGMENT_STRUCTURE_TYPE.get(
               segmentStructureElementType);
       SegmentStructureEntity segmentStructureEntity = entityManager.find(segmentTypeEntityClass, segmentStructureId);
-      return segmentStructureEntity.getMediumAnalysisList().getCategorySets().stream()
+      return segmentStructureEntity.getMediumAnalysisList().getRestrictedCategorySets().stream()
                                    .flatMap(categorySet -> categorySet.getCategorySetHasCategories().stream())
                                    .map(CategorySetHasCategory::getCategory).collect(Collectors.toList());
     });

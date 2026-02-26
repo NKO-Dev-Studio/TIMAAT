@@ -1051,7 +1051,7 @@ public class EndpointMedium {
     // System.out.println("EndpointMedium: getCategorySetList - ID: "+ id);
     EntityManager entityManager = TIMAATApp.emf.createEntityManager();
     Medium medium = entityManager.find(Medium.class, id);
-    List<CategorySet> categorySetList = medium.getCategorySets();
+    List<CategorySet> categorySetList = medium.getRestrictedCategorySets();
 
     return Response.ok().entity(categorySetList).build();
   }
@@ -1077,7 +1077,7 @@ public class EndpointMedium {
 
     EntityManager entityManager = TIMAATApp.emf.createEntityManager();
     Medium medium = entityManager.find(Medium.class, id);
-    List<CategorySet> categorySetList = medium.getCategorySets();
+    List<CategorySet> categorySetList = medium.getRestrictedCategorySets();
     List<Category> categoryList = new ArrayList<>();
     List<SelectElement> categorySelectList = new ArrayList<>();
 
@@ -1326,8 +1326,8 @@ public class EndpointMedium {
     }
     medium.setMusic(updatedMedium.getMusic());
     medium.setOriginalTitle(updatedMedium.getOriginalTitle()); // originalTitle can be set to null
-    List<CategorySet> oldCategorySets = medium.getCategorySets();
-    medium.setCategorySets(updatedMedium.getCategorySets());
+    List<CategorySet> oldCategorySets = medium.getRestrictedCategorySets();
+    medium.setRestrictedCategorySets(updatedMedium.getRestrictedCategorySets());
     List<Category> oldCategories = medium.getCategories();
     medium.setCategories(updatedMedium.getCategories());
     List<Tag> oldTags = medium.getTags();
@@ -1354,7 +1354,7 @@ public class EndpointMedium {
     entityManager.persist(medium);
     entityTransaction.commit();
     entityManager.refresh(medium);
-    for (CategorySet categorySet : medium.getCategorySets()) {
+    for (CategorySet categorySet : medium.getRestrictedCategorySets()) {
       entityManager.refresh(categorySet);
     }
     for (CategorySet categorySet : oldCategorySets) {
@@ -3916,7 +3916,7 @@ public class EndpointMedium {
     // attach categorySet to annotation and vice versa
     EntityTransaction entityTransaction = entityManager.getTransaction();
     entityTransaction.begin();
-    medium.getCategorySets().add(categorySet);
+    medium.getRestrictedCategorySets().add(categorySet);
     categorySet.getMediums().add(medium);
     entityManager.merge(categorySet);
     entityManager.merge(medium);
@@ -3967,7 +3967,7 @@ public class EndpointMedium {
 
     // attach categorySet to medium and vice versa
     entityTransaction.begin();
-    medium.getCategorySets().remove(categorySet);
+    medium.getRestrictedCategorySets().remove(categorySet);
     categorySet.getMediums().remove(medium);
     entityManager.merge(categorySet);
     entityManager.merge(medium);

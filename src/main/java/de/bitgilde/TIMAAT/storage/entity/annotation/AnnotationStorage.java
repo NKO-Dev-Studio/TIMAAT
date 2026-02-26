@@ -113,7 +113,7 @@ public class AnnotationStorage extends DbStorage<Annotation, AnnotationFilterCri
       Annotation currentAnnotation = entityManager.find(Annotation.class, annotationId);
 
       List<Category> categories = categoryIds.isEmpty() ? Collections.emptyList() : entityManager.createQuery(
-              "select category from Category category where category.id in (select categorySetHasCategories.category.id from MediumAnalysisList mediumAnalysisList join mediumAnalysisList.categorySets categorySets join categorySets.categorySetHasCategories categorySetHasCategories where categorySetHasCategories.category.id in :categoryIds)",
+              "select category from Category category where category.id in (select categorySetHasCategories.category.id from MediumAnalysisList mediumAnalysisList join mediumAnalysisList.restrictedCategorySets categorySets join categorySets.categorySetHasCategories categorySetHasCategories where categorySetHasCategories.category.id in :categoryIds)",
               Category.class).setParameter("categoryIds", categoryIds).getResultList();
 
       currentAnnotation.setCategories(categories);

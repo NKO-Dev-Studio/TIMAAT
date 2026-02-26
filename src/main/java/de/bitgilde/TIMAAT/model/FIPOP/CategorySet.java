@@ -98,17 +98,17 @@ public class CategorySet implements Serializable {
 	private Set<CategorySetHasCategory> categorySetHasCategories;
 
 	//bi-directional many-to-many association to Medium
-	@ManyToMany(mappedBy="categorySets")
+	@ManyToMany(mappedBy= "restrictedCategorySets")
 	@JsonIgnore
 	private List<Medium> mediums;
 
 	//bi-directional many-to-many association to Music
-	@ManyToMany(mappedBy="categorySets")
+	@ManyToMany(mappedBy= "restrictedCategorySets")
 	@JsonIgnore
 	private List<Music> musicList;
 
 	//bi-directional many-to-one association to UserAccountHasCategorySet
-	@ManyToMany(mappedBy="categorySets")
+	@ManyToMany(mappedBy= "restrictedCategorySets")
 	@JsonIgnore
 	private List<MediumAnalysisList> mediumAnalysisLists;
 

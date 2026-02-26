@@ -38,7 +38,7 @@ public class AnalysisListStorage extends DbAccessComponent {
               "select categorySet from CategorySet categorySet where categorySet.id in :categorySetIds",
               CategorySet.class).setParameter("categorySetIds", categorySetIds).getResultList();
 
-      analysisList.setCategorySets(categorySets);
+      analysisList.setRestrictedCategorySets(categorySets);
 
       //TODO: add cleanup for segment structures
       if (categorySetIds.isEmpty()) {

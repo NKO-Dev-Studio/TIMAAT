@@ -133,7 +133,7 @@ public class Music implements Serializable {
 	//bi-directional many-to-many association to CategorySet
 	@ManyToMany
 	@JoinTable(
-		name="music_has_category_set"
+		name="music_restricted_category_set"
 		, joinColumns={
 			@JoinColumn(name="music_id")
 			}
@@ -141,7 +141,7 @@ public class Music implements Serializable {
 			@JoinColumn(name="category_set_id")
 			}
 		)
-	private List<CategorySet> categorySets;
+	private List<CategorySet> restrictedCategorySets;
 
 	//bi-directional many-to-many association to Category
 	@ManyToMany
@@ -444,12 +444,12 @@ public class Music implements Serializable {
 		this.originalTitle = title;
 	}
 
-	public List<CategorySet> getCategorySets() {
-		return this.categorySets;
+	public List<CategorySet> getRestrictedCategorySets() {
+		return this.restrictedCategorySets;
 	}
 
-	public void setCategorySets(List<CategorySet> categorySets) {
-		this.categorySets = categorySets;
+	public void setRestrictedCategorySets(List<CategorySet> categorySets) {
+		this.restrictedCategorySets = categorySets;
 	}
 
 	public List<Category> getCategories() {
