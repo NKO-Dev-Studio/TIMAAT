@@ -50,3 +50,7 @@ The versioning of the database schema follows the following pattern:
 * Removed unused column `category_set_id` from table `annotation_has_category`
 * Added tables `actor_has_category_set` and `actor_has_category` to link actors with categories
 * Added view `analysis_segment_structure_element` which combines information of all segment structure type tables
+
+### 0.15.2
+
+* Renamed all `*.has_category_set`-table to  `*.restricted_category_set`

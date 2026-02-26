@@ -447,6 +447,32 @@ END
 $$
 DELIMITER ;
 
+DELIMITER $$
+CREATE PROCEDURE update_to_0_15_2()
+BEGIN
+    DECLARE db_major_version int;
+    DECLARE db_minor_version int;
+    DECLARE db_patch_version int;
+
+    SELECT major_version, minor_version, patch_version
+    INTO db_major_version, db_minor_version, db_patch_version
+    FROM db_version
+    LIMIT 1;
+
+    IF db_major_version = 0 AND db_minor_version = 15 AND db_patch_version = 1 THEN
+        SELECT 'execute update to 0.15.2' AS log_message;
+        DELETE FROM db_version;
+        INSERT INTO db_version (major_version, minor_version, patch_version) VALUES (0, 15, 2);
+
+        ALTER TABLE actor_has_category_set RENAME actor_restricted_category_set;
+        ALTER TABLE medium_analysis_list_has_category_set RENAME medium_analysis_list_restricted_category_set;
+        ALTER TABLE medium_has_category_set RENAME medium_restricted_category_set;
+        ALTER TABLE music_has_category_set RENAME music_restricted_category_set;
+    END IF;
+END $$
+
+
+
 /**
  * Call update functions
  */
@@ -455,6 +481,7 @@ CALL update_to_0_14_1();
 CALL update_to_0_14_2();
 CALL update_to_0_15_0();
 CALL update_to_0_15_1();
+CALL update_to_0_15_2();
 
 /*
  * Delete update functions after finishing update script
@@ -464,3 +491,4 @@ DROP PROCEDURE update_to_0_14_1;
 DROP PROCEDURE update_to_0_14_2;
 DROP PROCEDURE update_to_0_15_0;
 DROP PROCEDURE update_to_0_15_1;
+DROP PROCEDURE update_to_0_15_2;

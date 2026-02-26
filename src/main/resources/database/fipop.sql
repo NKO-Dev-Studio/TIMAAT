@@ -2651,28 +2651,28 @@ CREATE UNIQUE INDEX `name_UNIQUE` ON `FIPOP`.`category_set` (`name` ASC);
 
 
 -- -----------------------------------------------------
--- Table `FIPOP`.`actor_has_category_set`
+-- Table `FIPOP`.`actor_restricted_category_set`
 -- -----------------------------------------------------
-CREATE TABLE `fipop`.`actor_has_category_set`
+CREATE TABLE `fipop`.`actor_restricted_category_set`
 (
     `actor_id`        INT NOT NULL,
     `category_set_id` INT NOT NULL,
-    CONSTRAINT `fk_actor_has_category_set_actor`
+    CONSTRAINT `fk_actor_restricted_category_set_actor`
         FOREIGN KEY (`actor_id`)
             REFERENCES `fipop`.`actor` (`id`)
             ON DELETE CASCADE
             ON UPDATE NO ACTION,
-    CONSTRAINT `fk_actor_has_category_set_category_set`
+    CONSTRAINT `fk_actor_restricted_category_set_category_set`
         FOREIGN KEY (`category_set_id`)
             REFERENCES `fipop`.`category_set` (`id`)
             ON DELETE CASCADE
             ON UPDATE NO ACTION,
-    CONSTRAINT `pk_actor_has_category_set` PRIMARY KEY (actor_id, category_set_id)
+    CONSTRAINT `pk_actor_restricted_category_set` PRIMARY KEY (actor_id, category_set_id)
 ) ENGINE = InnoDB;
 
 
-CREATE INDEX fk_actor_has_category_set_actor1_idx ON `fipop`.`actor_has_category_set` (actor_id ASC);
-CREATE INDEX fk_actor_has_category_set_category_set1_idx ON `fipop`.`actor_has_category_set` (category_set_id ASC);
+CREATE INDEX fk_actor_restricted_category_set_actor1_idx ON `fipop`.`actor_restricted_category_set` (actor_id ASC);
+CREATE INDEX fk_actor_restricted_category_set_category_set1_idx ON `fipop`.`actor_restricted_category_set` (category_set_id ASC);
 
 -- -----------------------------------------------------
 -- Table `FIPOP`.`actor_has_category`
@@ -2691,7 +2691,7 @@ CREATE TABLE `fipop`.`actor_has_category`
             REFERENCES `fipop`.`category` (`id`)
             ON DELETE CASCADE
             ON UPDATE NO ACTION,
-    CONSTRAINT `pk_actor_has_category_set` PRIMARY KEY (actor_id, category_id)
+    CONSTRAINT `pk_actor_has_category` PRIMARY KEY (actor_id, category_id)
 );
 
 CREATE INDEX fk_actor_has_category_actor1_idx ON `fipop`.`actor_has_category` (actor_id ASC);
@@ -5259,19 +5259,19 @@ CREATE TABLE IF NOT EXISTS `FIPOP`.`medium_analysis_list`
 
 
 -- -----------------------------------------------------
--- Table `FIPOP`.`medium_analysis_list_has_category_set`
+-- Table `FIPOP`.`medium_analysis_list_restricted_category_set`
 -- -----------------------------------------------------
-CREATE TABLE IF NOT EXISTS `FIPOP`.`medium_analysis_list_has_category_set`
+CREATE TABLE IF NOT EXISTS `FIPOP`.`medium_analysis_list_restricted_category_set`
 (
     `medium_analysis_list_id` INT NOT NULL,
     `category_set_id`         INT NOT NULL,
     PRIMARY KEY (`medium_analysis_list_id`, `category_set_id`),
-    CONSTRAINT `fk_medium_analysis_list_has_category_set_medium_analysis_list1`
+    CONSTRAINT `fk_mal_restricted_category_set_medium_analysis_list1`
         FOREIGN KEY (`medium_analysis_list_id`)
             REFERENCES `FIPOP`.`medium_analysis_list` (`id`)
             ON DELETE CASCADE
             ON UPDATE NO ACTION,
-    CONSTRAINT `fk_medium_analysis_list_has_category_set_category_set1`
+    CONSTRAINT `fk_mal_restricted_category_set_category_set1`
         FOREIGN KEY (`category_set_id`)
             REFERENCES `FIPOP`.`category_set` (`id`)
             ON DELETE CASCADE
@@ -5455,19 +5455,19 @@ CREATE TABLE IF NOT EXISTS `FIPOP`.`medium_has_category`
 
 
 -- -----------------------------------------------------
--- Table `FIPOP`.`medium_has_category_set`
+-- Table `FIPOP`.`medium_restricted_category_set`
 -- -----------------------------------------------------
-CREATE TABLE IF NOT EXISTS `FIPOP`.`medium_has_category_set`
+CREATE TABLE IF NOT EXISTS `FIPOP`.`medium_restricted_category_set`
 (
     `medium_id`       INT NOT NULL,
     `category_set_id` INT NOT NULL,
     PRIMARY KEY (`medium_id`, `category_set_id`),
-    CONSTRAINT `fk_medium_has_category_set_medium1`
+    CONSTRAINT `fk_medium_restricted_category_set_medium1`
         FOREIGN KEY (`medium_id`)
             REFERENCES `FIPOP`.`medium` (`id`)
             ON DELETE CASCADE
             ON UPDATE NO ACTION,
-    CONSTRAINT `fk_medium_has_category_set_category_set1`
+    CONSTRAINT `fk_medium_restricted_category_set_category_set1`
         FOREIGN KEY (`category_set_id`)
             REFERENCES `FIPOP`.`category_set` (`id`)
             ON DELETE CASCADE
@@ -6458,19 +6458,19 @@ CREATE TABLE IF NOT EXISTS `FIPOP`.`music_has_category`
 
 
 -- -----------------------------------------------------
--- Table `FIPOP`.`music_has_category_set`
+-- Table `FIPOP`.`music_restricted_category_set`
 -- -----------------------------------------------------
-CREATE TABLE IF NOT EXISTS `FIPOP`.`music_has_category_set`
+CREATE TABLE IF NOT EXISTS `FIPOP`.`music_restricted_category_set`
 (
     `music_id`        INT NOT NULL,
     `category_set_id` INT NOT NULL,
     PRIMARY KEY (`music_id`, `category_set_id`),
-    CONSTRAINT `fk_music_has_category_set_music1`
+    CONSTRAINT `fk_music_restricted_category_set_music1`
         FOREIGN KEY (`music_id`)
             REFERENCES `FIPOP`.`music` (`id`)
             ON DELETE CASCADE
             ON UPDATE NO ACTION,
-    CONSTRAINT `fk_music_has_category_set_category_set1`
+    CONSTRAINT `fk_music_restricted_category_set_category_set1`
         FOREIGN KEY (`category_set_id`)
             REFERENCES `FIPOP`.`category_set` (`id`)
             ON DELETE CASCADE
@@ -8784,7 +8784,7 @@ CREATE TABLE `FIPOP`.`annotation_has_music_translation_area`
 START TRANSACTION;
 USE `FIPOP`;
 INSERT INTO `FIPOP`.`db_version` (major_version, minor_version, patch_version)
-VALUES (0, 14, 2);
+VALUES (0, 15, 2);
 COMMIT;
 
 
