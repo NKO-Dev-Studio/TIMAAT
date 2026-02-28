@@ -331,7 +331,7 @@ public class AnnotationStorage extends DbStorage<Annotation, AnnotationFilterCri
 
       if (categorySetFilterActive) {
         Join<MediumAnalysisList, CategorySet> categorySetJoin = root.join(Annotation_.mediumAnalysisList)
-                                                                    .join(MediumAnalysisList_.categorySets);
+                                                                    .join(MediumAnalysisList_.restrictedCategorySets);
         predicates.add(categorySetJoin.get(CategorySet_.id).in(filter.getCategorySetIds().get()));
       }
 

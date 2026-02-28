@@ -115,7 +115,7 @@ public class MediumStorage extends DbStorage<Medium, MediumFilterCriteria, Mediu
 
       if (filter.getCategorySetIds().isPresent() && !filter.getCategorySetIds().get().isEmpty()) {
         Collection<Integer> categorySetIds = filter.getCategorySetIds().get();
-        Join<Medium, CategorySet> categorySetJoin = root.join(Medium_.categorySets);
+        Join<Medium, CategorySet> categorySetJoin = root.join(Medium_.restrictedCategorySets);
 
         predicates.add(categorySetJoin.get(CategorySet_.id).in(categorySetIds));
       }

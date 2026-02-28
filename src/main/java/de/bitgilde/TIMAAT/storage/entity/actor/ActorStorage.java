@@ -82,7 +82,7 @@ public class ActorStorage extends DbStorage<Actor, ActorFilterCriteria, ActorSor
       }
 
       if (categorySetFilterActive) {
-        Join<Actor, CategorySet> actorCategorySetJoin = root.join(Actor_.categorySets);
+        Join<Actor, CategorySet> actorCategorySetJoin = root.join(Actor_.restrictedCategorySets);
         predicates.add(actorCategorySetJoin.get(CategorySet_.id).in(filter.getCategorySetIds().get()));
       }
 

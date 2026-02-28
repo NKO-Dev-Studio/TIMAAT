@@ -127,7 +127,7 @@ public class SegmentStructureElementsStorage extends DbStorage<AnalysisSegmentSt
         Join<AnalysisSegmentStructureElement, MediumAnalysisList> mediumAnalysisListJoin = root.join(
                 AnalysisSegmentStructureElement_.mediumAnalysisList);
         Join<MediumAnalysisList, CategorySet> categorySetJoin = mediumAnalysisListJoin.join(
-                MediumAnalysisList_.categorySets);
+                MediumAnalysisList_.restrictedCategorySets);
         predicates.add(categorySetJoin.get(CategorySet_.id).in(filter.getCategorySetIds().get()));
       }
 
