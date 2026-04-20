@@ -2,7 +2,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>TIMAATTest</groupId>
   <artifactId>TIMAATTest</artifactId>
-  <version>0.15.0-SNAPSHOT</version>
+  <version>1.0.0-SNAPSHOT</version>
   <packaging>war</packaging>
   <properties>
     <!-- <buildDirectory>c:\xampp\tomcat-1\webapps</buildDirectory> -->
