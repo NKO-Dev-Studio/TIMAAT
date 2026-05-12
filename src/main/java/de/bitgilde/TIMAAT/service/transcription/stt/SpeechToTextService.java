@@ -18,11 +18,13 @@ public class SpeechToTextService {
     this.speechToTextServiceClient = speechToTextServiceClient;
   }
 
-  public void startSpeechToTextTaskForTranscription(Transcription transcription){
+  public void startSpeechToTextTask(Transcription transcription){
 
   }
 
-  public void monitorSpeechToTextTask(long speechToTextTaskId){
+  public void resumeSpeechToTextTask(Transcription transcription){
 
   }
+
+
 }

@@ -7,7 +7,7 @@ package de.bitgilde.TIMAAT.storage.entity.transcription.api;
  * @since 12.05.26
  */
 public enum TranscriptionState {
-  PREPARING(1), PENDING(2), RUNNING(3), COMPLETED(4), FAILED(5);
+  WAITING_FOR_PREPARATION(1), PREPARING(2), PENDING(3), RUNNING(4), COMPLETED(5), FAILED(6);
 
   private final int databaseId;
 

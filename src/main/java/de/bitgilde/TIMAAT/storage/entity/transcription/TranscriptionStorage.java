@@ -2,12 +2,14 @@ package de.bitgilde.TIMAAT.storage.entity.transcription;
 
 import de.bitgilde.TIMAAT.model.FIPOP.Transcription;
 import de.bitgilde.TIMAAT.model.FIPOP.TranscriptionState_;
+import de.bitgilde.TIMAAT.model.FIPOP.TranscriptionType_;
 import de.bitgilde.TIMAAT.model.FIPOP.Transcription_;
 import de.bitgilde.TIMAAT.model.FIPOP.UserAccount;
 import de.bitgilde.TIMAAT.storage.db.DbStorage;
 import de.bitgilde.TIMAAT.storage.entity.transcription.api.TranscriptionFilterCriteria;
 import de.bitgilde.TIMAAT.storage.entity.transcription.api.TranscriptionSortingField;
 import de.bitgilde.TIMAAT.storage.entity.transcription.api.TranscriptionState;
+import de.bitgilde.TIMAAT.storage.entity.transcription.api.TranscriptionType;
 import jakarta.inject.Inject;
 import jakarta.persistence.EntityManagerFactory;
 import jakarta.persistence.criteria.CriteriaBuilder;
@@ -38,7 +40,7 @@ public class TranscriptionStorage extends DbStorage<Transcription, Transcription
   @Override
   protected List<Predicate> createPredicates(@Nullable TranscriptionFilterCriteria filter, Root<Transcription> root, CriteriaBuilder criteriaBuilder, CriteriaQuery<?> criteriaQuery, @Nullable UserAccount userAccount) {
     if (filter != null) {
-      List<Predicate> predicates = new ArrayList<>(1);
+      List<Predicate> predicates = new ArrayList<>(2);
 
       if (filter.getTranscriptionStates().isPresent()) {
         Collection<Integer> transcriptionStateIds = filter.getTranscriptionStates().get().stream()
@@ -46,6 +48,15 @@ public class TranscriptionStorage extends DbStorage<Transcription, Transcription
                                                           .collect(Collectors.toSet());
         predicates.add(
                 root.get(Transcription_.transcriptionState).get(TranscriptionState_.id).in(transcriptionStateIds));
+      }
+
+
+      if (filter.getTranscriptionTypes().isPresent()) {
+        Collection<Integer> transcriptionTypeIds = filter.getTranscriptionTypes().get().stream()
+                                                          .map(TranscriptionType::getDatabaseId)
+                                                          .collect(Collectors.toSet());
+        predicates.add(
+                root.get(Transcription_.transcriptionType).get(TranscriptionType_.id).in(transcriptionTypeIds));
       }
 
       return predicates;

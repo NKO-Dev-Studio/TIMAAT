@@ -24,17 +24,23 @@ import java.util.Optional;
  * @since 27.12.25
  */
 public interface TranscriptionFilterCriteria {
-  /**
-   * @return the category ids the returning actor should belong to
-   */
+
   Optional<Collection<TranscriptionState>> getTranscriptionStates();
+
+  Optional<Collection<TranscriptionType>> getTranscriptionTypes();
 
   class Builder {
 
     private Collection<TranscriptionState> transcriptionStates = null;
+    private Collection<TranscriptionType> transcriptionTypes = null;
 
     public TranscriptionFilterCriteria.Builder transcriptionStates(Collection<TranscriptionState> transcriptionStates) {
       this.transcriptionStates = transcriptionStates;
+      return this;
+    }
+
+    public TranscriptionFilterCriteria.Builder transcriptionTypes(Collection<TranscriptionType> transcriptionTypes) {
+      this.transcriptionTypes = transcriptionTypes;
       return this;
     }
 
@@ -43,6 +49,11 @@ public interface TranscriptionFilterCriteria {
         @Override
         public Optional<Collection<TranscriptionState>> getTranscriptionStates() {
           return Optional.ofNullable(transcriptionStates);
+        }
+
+        @Override
+        public Optional<Collection<TranscriptionType>> getTranscriptionTypes() {
+          return Optional.ofNullable(transcriptionTypes);
         }
       };
     }

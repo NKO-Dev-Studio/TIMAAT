@@ -112,6 +112,10 @@ public class VideoFileStorage implements AudioContainingMediumFileStorage {
         return thumbnailFilePath;
     }
 
+    public Path persistAudioMonoFile(Path srcMediumFile, int mediumId) throws IOException {
+      return null;
+    }
+
     /**
      * Returns the path to the original video file for the specified medium
      *
