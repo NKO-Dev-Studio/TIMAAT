@@ -50,3 +50,12 @@ The versioning of the database schema follows the following pattern:
 * Removed unused column `category_set_id` from table `annotation_has_category`
 * Added tables `actor_has_category_set` and `actor_has_category` to link actors with categories
 * Added view `analysis_segment_structure_element` which combines information of all segment structure type tables
+
+### 1.0.0
+* Added table `transcription` which is holding information about the available transcriptions
+  * Each transcription is related to one medium
+* Added column `default_transcription_id` to table `medium` defining the transcription which is currently the default transcription of that medium
+* Added tables `transcription_engine` and `transcription_model` giving information about all engines which are currently or previously usable with the connected speech-to-text infrastructure
+* Added table `transcription_state` holding the difference states a transcription can have. The table `transcription_state_translation` contains the translation strings of the states
+* Added table `system_settings` containing the runtime changeable configuration parameters related to the whole TIMAAT system.
+  ![db_update_1_0_0_transcriptions.png](img/db_update_1_0_0_transcriptions.png)

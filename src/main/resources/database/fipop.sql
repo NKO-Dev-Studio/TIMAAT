@@ -8777,6 +8777,163 @@ CREATE TABLE `FIPOP`.`annotation_has_music_translation_area`
 ) ENGINE = InnoDB;
 
 
+-- -----------------------------------------------------
+-- Table `FIPOP`.`transcription_engine`
+-- -----------------------------------------------------
+CREATE TABLE `fipop`.`transcription_engine`
+(
+    `engine_identifier` VARCHAR(45) primary key,
+    `engine_name`       VARCHAR(45) not null,
+    `active`            BOOL        not null default true
+)
+    ENGINE = InnoDB;
+
+-- -----------------------------------------------------
+-- Table `FIPOP`.`transcription_model`
+-- -----------------------------------------------------
+CREATE TABLE `fipop`.`transcription_model`
+(
+    `model_identifier`  VARCHAR(45) primary key,
+    `engine_identifier` VARCHAR(45) not null,
+    `default`           bool        not null default false,
+    `active`            bool        not null default true,
+    CONSTRAINT `fk_transcription_model_transcription_engine`
+        FOREIGN KEY (`engine_identifier`)
+            REFERENCES `fipop`.`transcription_engine` (`engine_identifier`)
+            ON DELETE CASCADE
+            ON UPDATE NO ACTION
+)
+    ENGINE = InnoDB;
+
+-- -----------------------------------------------------
+-- Table `FIPOP`.`transcription_state`
+-- -----------------------------------------------------
+CREATE TABLE `fipop`.`transcription_state`
+(
+    `id` int primary key
+)
+    ENGINE = InnoDB;
+
+-- -----------------------------------------------------
+-- Table `FIPOP`.`transcription_state_translation`
+-- -----------------------------------------------------
+CREATE TABLE `fipop`.`transcription_state_translation`
+(
+    `id`                     int primary key,
+    `transcription_state_id` int not null,
+    `language_id`            int not null,
+    `state_name`             varchar(20),
+    CONSTRAINT `fk_transcription_state_translation_transcription_state`
+        FOREIGN KEY (`transcription_state_id`)
+            REFERENCES `fipop`.`transcription_state` (`id`)
+            ON DELETE CASCADE
+            ON UPDATE NO ACTION,
+    CONSTRAINT `fk_transcription_state_translation_language`
+        FOREIGN KEY (`language_id`)
+            REFERENCES `fipop`.`language` (`id`)
+            ON DELETE CASCADE
+            ON UPDATE NO ACTION
+)
+    ENGINE = InnoDB;
+
+-- -----------------------------------------------------
+-- Table `FIPOP`.`transcription`
+-- -----------------------------------------------------
+CREATE TABLE `fipop`.`transcription`
+(
+    `id`                             int primary key,
+    `name`                           varchar(150) not null,
+    `model_identifier`               varchar(45),
+    `engine_identifier`              varchar(45),
+    `medium_id`                      int          not null,
+    `transcription_state_id`         int          not null,
+    `transcription_task_id`          bigint,
+    `created_at`                     timestamp    not null default CURRENT_TIMESTAMP,
+    `last_edited_at`                 timestamp,
+    `created_by_user_account_id`     int,
+    `last_edited_by_user_account_id` int,
+    CONSTRAINT `fk_transcription_transcription_model`
+        FOREIGN KEY (`model_identifier`)
+            REFERENCES `fipop`.`transcription_model` (`model_identifier`)
+            ON DELETE SET NULL
+            ON UPDATE NO ACTION,
+    CONSTRAINT `fk_transcription_transcription_engine`
+        FOREIGN KEY (`engine_identifier`)
+            REFERENCES `fipop`.`transcription_engine` (`engine_identifier`)
+            ON DELETE SET NULL
+            ON UPDATE NO ACTION,
+    CONSTRAINT `fk_transcription_medium`
+        FOREIGN KEY (`medium_id`)
+            REFERENCES `fipop`.`medium` (`id`)
+            ON DELETE CASCADE
+            ON UPDATE NO ACTION,
+    CONSTRAINT `fk_transcription_transcription_state`
+        FOREIGN KEY (`transcription_state_id`)
+            REFERENCES `fipop`.`transcription_state` (`id`),
+    CONSTRAINT `fk_transcription_creation_user`
+        FOREIGN KEY (`created_by_user_account_id`)
+            REFERENCES `fipop`.`user_account` (`id`)
+            ON DELETE SET NULL
+            ON UPDATE NO ACTION,
+    CONSTRAINT `fk_transcription_edit_user`
+        FOREIGN KEY (`last_edited_by_user_account_id`)
+            REFERENCES `fipop`.`user_account` (`id`)
+            ON DELETE SET NULL
+            ON UPDATE NO ACTION
+)
+    ENGINE = InnoDB;
+
+-- -----------------------------------------------------
+-- Table `FIPOP`.`system_settings`
+-- -----------------------------------------------------
+CREATE TABLE `fipop`.`system_settings`
+(
+    `id`                             smallint primary key default 1,
+    `auto_transcribe_uploads`        bool      not null   default false,
+    `created_at`                     timestamp not null   default CURRENT_TIMESTAMP,
+    `last_edited_at`                 timestamp,
+    `last_edited_by_user_account_id` int,
+    CONSTRAINT `fk_system_settings_user`
+        FOREIGN KEY (`last_edited_by_user_account_id`)
+            REFERENCES `fipop`.`user_account` (`id`)
+            ON DELETE SET NULL
+            ON UPDATE NO ACTION,
+    CONSTRAINT system_settings_singleton CHECK (id = 1)
+)
+    ENGINE = InnoDB;
+
+-- -----------------------------------------------------
+-- Add foreign key to `FIPOP`.`medium`
+-- -----------------------------------------------------
+ALTER TABLE `fipop`.`medium`
+    ADD COLUMN `default_transcription_id` int;
+ALTER TABLE `fipop`.`medium`
+    ADD CONSTRAINT `fk_medium_transcription` FOREIGN KEY (`default_transcription_id`)
+        REFERENCES `fipop`.`transcription` (`id`)
+        ON DELETE SET NULL
+        ON UPDATE NO ACTION;
+CREATE INDEX `fk_medium_transcription_idx` on `fipop`.`medium` (`default_transcription_id` ASC);
+
+
+-- -----------------------------------------------------
+-- Data for table `FIPOP`.`transcription_state`
+-- -----------------------------------------------------
+INSERT INTO transcription_state VALUES (1), (2), (3), (4), (5);
+
+-- -----------------------------------------------------
+-- Data for table `FIPOP`.`transcription_state_translation`
+-- -----------------------------------------------------
+INSERT INTO transcription_state_translation (id, transcription_state_id, language_id, state_name)
+VALUES (1, 1, 1, 'pending'),
+       (2, 2, 1, 'running'),
+       (3, 3, 1, 'completed'),
+       (4, 4, 1, 'failed'),
+       (5, 5, 1, 'imported');
+
+-- -----------------------------------------------------
+-- Data for table `FIPOP`.`system_settings`
+-- -----------------------------------------------------
+INSERT INTO system_settings(id, auto_transcribe_uploads) VALUES (1, TRUE);
 
 -- -----------------------------------------------------
 -- Data for table `FIPOP`.`db_version`
@@ -8784,7 +8941,7 @@ CREATE TABLE `FIPOP`.`annotation_has_music_translation_area`
 START TRANSACTION;
 USE `FIPOP`;
 INSERT INTO `FIPOP`.`db_version` (major_version, minor_version, patch_version)
-VALUES (0, 14, 2);
+VALUES (1, 0, 0);
 COMMIT;
 
 
