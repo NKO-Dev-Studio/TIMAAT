@@ -42,6 +42,11 @@ public class Transcription {
   @JoinColumn(name = "transcription_state_id", nullable = false)
   private TranscriptionState transcriptionState;
 
+  @NotNull
+  @ManyToOne(optional = false)
+  @JoinColumn(name = "transcription_type_id", nullable = false)
+  private TranscriptionType transcriptionType;
+
   @Column(name = "transcription_task_id")
   private Long transcriptionTaskId;
 
@@ -140,4 +145,11 @@ public class Transcription {
     this.lastEditedByUserAccount = lastEditedByUserAccount;
   }
 
+  public TranscriptionType getTranscriptionType() {
+    return transcriptionType;
+  }
+
+  public void setTranscriptionType(TranscriptionType transcriptionType) {
+    this.transcriptionType = transcriptionType;
+  }
 }

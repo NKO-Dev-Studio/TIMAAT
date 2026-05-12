@@ -1,4 +1,7 @@
-package de.bitgilde.TIMAAT.task.exception;
+package de.bitgilde.TIMAAT.service.task.storage;
+
+import de.bitgilde.TIMAAT.service.task.api.Task;
+import de.bitgilde.TIMAAT.service.task.api.TaskState;
 
 /*
  Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,14 +18,18 @@ package de.bitgilde.TIMAAT.task.exception;
  */
 
 /**
- * This type of exception will be thrown when an error occurred during using the {@link de.bitgilde.TIMAAT.task.storage.TaskStorage}
+ * Component offers methods to update the {@link TaskState} of a {@link Task}
  *
  * @author Nico Kotlenga
  * @since 20.07.25
  */
-public class TaskStorageException extends Exception {
+public interface TaskStateUpdater {
 
-    public TaskStorageException(String message, Throwable cause) {
-        super(message, cause);
-    }
+    /**
+     * Updates the {@link TaskState} of a {@link Task} to the specified value
+     *
+     * @param task      which state will be updated
+     * @param taskState to which the task will be set to
+     */
+    void updateTaskState(Task task, TaskState taskState);
 }

@@ -1,4 +1,4 @@
-package de.bitgilde.TIMAAT.task.exception;
+package de.bitgilde.TIMAAT.service.task.exception;
 
 /*
  Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,18 +14,17 @@ package de.bitgilde.TIMAAT.task.exception;
    limitations under the License.
  */
 
+import de.bitgilde.TIMAAT.service.task.storage.TaskStorage;
+
 /**
- * This exception will be thrown when an error occurred during using the {@link de.bitgilde.TIMAAT.task.TaskService}
+ * This type of exception will be thrown when an error occurred during using the {@link TaskStorage}
  *
  * @author Nico Kotlenga
- * @since 22.07.25
+ * @since 20.07.25
  */
-public class TaskServiceException extends Exception {
-    public TaskServiceException(String message) {
-        super(message);
-    }
+public class TaskStorageException extends Exception {
 
-    public TaskServiceException(String message, Throwable cause) {
+    public TaskStorageException(String message, Throwable cause) {
         super(message, cause);
     }
 }

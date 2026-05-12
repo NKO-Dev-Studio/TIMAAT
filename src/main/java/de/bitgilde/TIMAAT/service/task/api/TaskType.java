@@ -1,4 +1,4 @@
-package de.bitgilde.TIMAAT.task.api;
+package de.bitgilde.TIMAAT.service.task.api;
 
 /*
  Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,7 +14,7 @@ package de.bitgilde.TIMAAT.task.api;
    limitations under the License.
  */
 
-import de.bitgilde.TIMAAT.task.execution.TaskExecutorService;
+import de.bitgilde.TIMAAT.service.task.execution.TaskExecutorService;
 
 /**
  * This enum describes the different {@link TaskType}s which can be executed by the {@link TaskExecutorService}

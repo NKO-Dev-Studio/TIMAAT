@@ -1,4 +1,4 @@
-package de.bitgilde.TIMAAT.task.execution;
+package de.bitgilde.TIMAAT.service.task.execution;
 
 import de.bitgilde.TIMAAT.processing.audio.FfmpegAudioEngine;
 import de.bitgilde.TIMAAT.storage.entity.AudioAnalysisResultStorage;
@@ -6,10 +6,10 @@ import de.bitgilde.TIMAAT.storage.file.AudioContainingMediumFileStorage;
 import de.bitgilde.TIMAAT.storage.file.AudioFileStorage;
 import de.bitgilde.TIMAAT.storage.file.TemporaryFileStorage;
 import de.bitgilde.TIMAAT.storage.file.VideoFileStorage;
-import de.bitgilde.TIMAAT.task.api.MediumAudioAnalysisTask;
-import de.bitgilde.TIMAAT.task.api.MediumAudioAnalysisTask.SupportedMediumType;
-import de.bitgilde.TIMAAT.task.api.Task;
-import de.bitgilde.TIMAAT.task.api.TaskType;
+import de.bitgilde.TIMAAT.service.task.api.MediumAudioAnalysisTask;
+import de.bitgilde.TIMAAT.service.task.api.MediumAudioAnalysisTask.SupportedMediumType;
+import de.bitgilde.TIMAAT.service.task.api.Task;
+import de.bitgilde.TIMAAT.service.task.api.TaskType;
 import jakarta.inject.Inject;
 
 import java.util.Map;
@@ -29,7 +29,7 @@ import java.util.Map;
  */
 
 /**
- * This factory is responsible to create {@link TaskExecutor} for the passed {@link de.bitgilde.TIMAAT.task.api.Task}
+ * This factory is responsible to create {@link TaskExecutor} for the passed {@link Task}
  *
  * @author Nico Kotlenga
  * @since 20.07.25

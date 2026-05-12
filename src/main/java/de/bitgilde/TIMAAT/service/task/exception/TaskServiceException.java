@@ -1,5 +1,4 @@
-package de.bitgilde.TIMAAT.task.api;
-
+package de.bitgilde.TIMAAT.service.task.exception;
 
 /*
  Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,25 +14,20 @@ package de.bitgilde.TIMAAT.task.api;
    limitations under the License.
  */
 
+import de.bitgilde.TIMAAT.service.task.TaskService;
+
 /**
- * This enum describes the different states of {@link Task}s
+ * This exception will be thrown when an error occurred during using the {@link TaskService}
  *
  * @author Nico Kotlenga
- * @since 18.07.25
+ * @since 22.07.25
  */
-public enum TaskState {
-    PENDING(1),
-    RUNNING(2),
-    FAILED(3),
-    DONE(4);
-
-    private final int databaseId;
-
-    TaskState(int databaseId) {
-        this.databaseId = databaseId;
+public class TaskServiceException extends Exception {
+    public TaskServiceException(String message) {
+        super(message);
     }
 
-    public int getDatabaseId() {
-        return databaseId;
+    public TaskServiceException(String message, Throwable cause) {
+        super(message, cause);
     }
 }

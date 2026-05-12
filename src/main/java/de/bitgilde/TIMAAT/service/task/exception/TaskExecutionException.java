@@ -1,4 +1,4 @@
-package de.bitgilde.TIMAAT.task.exception;
+package de.bitgilde.TIMAAT.service.task.exception;
 
 
 /*
@@ -15,8 +15,10 @@ package de.bitgilde.TIMAAT.task.exception;
    limitations under the License.
  */
 
+import de.bitgilde.TIMAAT.service.task.api.Task;
+
 /**
- * This exception will be thrown when an error occurred during {@link de.bitgilde.TIMAAT.task.api.Task}
+ * This exception will be thrown when an error occurred during {@link Task}
  * execution.
  *
  * @author Nico Kotlenga

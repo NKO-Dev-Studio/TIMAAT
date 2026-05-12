@@ -1,4 +1,4 @@
-package de.bitgilde.TIMAAT.task.execution;
+package de.bitgilde.TIMAAT.service.task.execution;
 
 import de.bitgilde.TIMAAT.processing.audio.FfmpegAudioEngine;
 import de.bitgilde.TIMAAT.processing.audio.api.AudioMetaInformation;
@@ -8,9 +8,9 @@ import de.bitgilde.TIMAAT.storage.entity.AudioAnalysisResultStorage;
 import de.bitgilde.TIMAAT.storage.file.AudioContainingMediumFileStorage;
 import de.bitgilde.TIMAAT.storage.file.TemporaryFileStorage;
 import de.bitgilde.TIMAAT.storage.file.TemporaryFileStorage.TemporaryFile;
-import de.bitgilde.TIMAAT.task.api.MediumAudioAnalysisTask;
-import de.bitgilde.TIMAAT.task.api.MediumAudioAnalysisTask.SupportedMediumType;
-import de.bitgilde.TIMAAT.task.exception.TaskExecutionException;
+import de.bitgilde.TIMAAT.service.task.api.MediumAudioAnalysisTask;
+import de.bitgilde.TIMAAT.service.task.api.MediumAudioAnalysisTask.SupportedMediumType;
+import de.bitgilde.TIMAAT.service.task.exception.TaskExecutionException;
 
 import java.io.IOException;
 import java.nio.file.Path;

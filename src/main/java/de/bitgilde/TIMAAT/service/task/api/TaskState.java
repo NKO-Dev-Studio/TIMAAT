@@ -1,7 +1,5 @@
-package de.bitgilde.TIMAAT.task.execution;
+package de.bitgilde.TIMAAT.service.task.api;
 
-import de.bitgilde.TIMAAT.task.api.Task;
-import de.bitgilde.TIMAAT.task.exception.TaskExecutionException;
 
 /*
  Licensed under the Apache License, Version 2.0 (the "License");
@@ -18,18 +16,24 @@ import de.bitgilde.TIMAAT.task.exception.TaskExecutionException;
  */
 
 /**
- * Execution unit of a {@link Task}
+ * This enum describes the different states of {@link Task}s
  *
  * @author Nico Kotlenga
- * @since 20.07.25
+ * @since 18.07.25
  */
-public abstract class TaskExecutor<T extends Task> {
+public enum TaskState {
+    PENDING(1),
+    RUNNING(2),
+    FAILED(3),
+    DONE(4);
 
-    final T task;
+    private final int databaseId;
 
-    public TaskExecutor(T task) {
-        this.task = task;
+    TaskState(int databaseId) {
+        this.databaseId = databaseId;
     }
 
-    public abstract void execute() throws TaskExecutionException;
+    public int getDatabaseId() {
+        return databaseId;
+    }
 }

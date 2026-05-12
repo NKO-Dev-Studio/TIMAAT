@@ -63,12 +63,8 @@ public abstract class DbStorage<ENTITY_TYPE, FILTER_TYPE, SORTING_FIELD_TYPE ext
    * @param userAccount used to filter entries by authorization
    * @return the resulting {@link Stream}
    */
-  public Stream<ENTITY_TYPE> getEntriesAsStreamRespectingAuthorization(FILTER_TYPE filter, PagingParameter pagingParameter, SortingParameter<SORTING_FIELD_TYPE> sortingParameter, UserAccount userAccount) {
+  public Stream<ENTITY_TYPE> getEntriesAsStream(FILTER_TYPE filter, PagingParameter pagingParameter, SortingParameter<SORTING_FIELD_TYPE> sortingParameter, @Nullable UserAccount userAccount) {
     logger.log(Level.FINER, "Loading  entries matching the specified filter criteria");
-
-    if(userAccount == null) {
-      throw new IllegalArgumentException("user account has to be set for an authorization respecting loading of entities");
-    }
 
     return executeStreamDbTransaction(entityManager -> {
       CriteriaBuilder criteriaBuilder = entityManager.getCriteriaBuilder();

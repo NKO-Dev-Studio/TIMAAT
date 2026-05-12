@@ -1,12 +1,12 @@
-package de.bitgilde.TIMAAT.task;
+package de.bitgilde.TIMAAT.service.task;
 
-import de.bitgilde.TIMAAT.task.api.MediumAudioAnalysisTask;
-import de.bitgilde.TIMAAT.task.api.MediumAudioAnalysisTask.SupportedMediumType;
-import de.bitgilde.TIMAAT.task.api.Task;
-import de.bitgilde.TIMAAT.task.exception.TaskServiceException;
-import de.bitgilde.TIMAAT.task.exception.TaskStorageException;
-import de.bitgilde.TIMAAT.task.execution.TaskExecutorService;
-import de.bitgilde.TIMAAT.task.storage.TaskStorage;
+import de.bitgilde.TIMAAT.service.task.api.MediumAudioAnalysisTask;
+import de.bitgilde.TIMAAT.service.task.api.MediumAudioAnalysisTask.SupportedMediumType;
+import de.bitgilde.TIMAAT.service.task.api.Task;
+import de.bitgilde.TIMAAT.service.task.exception.TaskServiceException;
+import de.bitgilde.TIMAAT.service.task.exception.TaskStorageException;
+import de.bitgilde.TIMAAT.service.task.execution.TaskExecutorService;
+import de.bitgilde.TIMAAT.service.task.storage.TaskStorage;
 import jakarta.annotation.PreDestroy;
 import jakarta.inject.Inject;
 

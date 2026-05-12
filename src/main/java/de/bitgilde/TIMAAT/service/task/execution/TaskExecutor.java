@@ -1,4 +1,7 @@
-package de.bitgilde.TIMAAT.task.api;
+package de.bitgilde.TIMAAT.service.task.execution;
+
+import de.bitgilde.TIMAAT.service.task.api.Task;
+import de.bitgilde.TIMAAT.service.task.exception.TaskExecutionException;
 
 /*
  Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,22 +18,18 @@ package de.bitgilde.TIMAAT.task.api;
  */
 
 /**
- * Defines the basic structure of a task
+ * Execution unit of a {@link Task}
  *
  * @author Nico Kotlenga
- * @since 18.07.25
+ * @since 20.07.25
  */
-public abstract class Task {
-    final TaskType taskType;
+public abstract class TaskExecutor<T extends Task> {
 
-    public Task(TaskType taskType) {
-        this.taskType = taskType;
+    final T task;
+
+    public TaskExecutor(T task) {
+        this.task = task;
     }
 
-    /**
-     * @return the {@link TaskType}
-     */
-    public TaskType getTaskType() {
-        return taskType;
-    }
+    public abstract void execute() throws TaskExecutionException;
 }

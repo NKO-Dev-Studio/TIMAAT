@@ -1,7 +1,7 @@
-package de.bitgilde.TIMAAT.task.storage;
+package de.bitgilde.TIMAAT.service.task.storage;
 
-import de.bitgilde.TIMAAT.task.api.Task;
-import de.bitgilde.TIMAAT.task.exception.TaskStorageException;
+import de.bitgilde.TIMAAT.service.task.api.Task;
+import de.bitgilde.TIMAAT.service.task.exception.TaskStorageException;
 
 import java.util.stream.Stream;
 

@@ -1,10 +1,10 @@
-package de.bitgilde.TIMAAT.task.execution;
+package de.bitgilde.TIMAAT.service.task.execution;
 
 import de.bitgilde.TIMAAT.PropertyConstants;
 import de.bitgilde.TIMAAT.PropertyManagement;
-import de.bitgilde.TIMAAT.task.api.Task;
-import de.bitgilde.TIMAAT.task.api.TaskState;
-import de.bitgilde.TIMAAT.task.storage.TaskStateUpdater;
+import de.bitgilde.TIMAAT.service.task.api.Task;
+import de.bitgilde.TIMAAT.service.task.api.TaskState;
+import de.bitgilde.TIMAAT.service.task.storage.TaskStateUpdater;
 import jakarta.annotation.PreDestroy;
 import jakarta.inject.Inject;
 

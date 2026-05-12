@@ -6,8 +6,11 @@
   <packaging>war</packaging>
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    <maven.compiler.release>11</maven.compiler.release>
+    <maven.compiler.release>25</maven.compiler.release>
+    <eclipselink.version>3.0.2</eclipselink.version>
     <jersey.version>3.1.10</jersey.version>
+    <bytebuddy.version>1.17.5</bytebuddy.version>
+    <mockito.version>5.18.0</mockito.version>
   </properties>
   <build>
     <sourceDirectory>src/main/java</sourceDirectory>
@@ -21,10 +24,18 @@
         <artifactId>maven-compiler-plugin</artifactId>
         <version>3.11.0</version>
         <configuration>
-          <release>11</release>
-          <generatedSourcesDirectory>
-            ${project.build.directory}/generated-sources/annotations
-          </generatedSourcesDirectory>
+          <release>${maven.compiler.release}</release>
+          <generatedSourcesDirectory>${project.build.directory}/generated-sources/annotations</generatedSourcesDirectory>
+          <annotationProcessors>
+            <annotationProcessor>org.eclipse.persistence.internal.jpa.modelgen.CanonicalModelProcessor</annotationProcessor>
+          </annotationProcessors>
+          <annotationProcessorPaths>
+            <path>
+              <groupId>org.eclipse.persistence</groupId>
+              <artifactId>org.eclipse.persistence.jpa.modelgen.processor</artifactId>
+              <version>${eclipselink.version}</version>
+            </path>
+          </annotationProcessorPaths>
         </configuration>
       </plugin>
 
@@ -53,6 +64,9 @@
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-surefire-plugin</artifactId>
         <version>3.1.2</version>
+        <configuration>
+          <argLine>-javaagent:${settings.localRepository}/org/mockito/mockito-core/${mockito.version}/mockito-core-${mockito.version}.jar</argLine>
+        </configuration>
       </plugin>
     </plugins>
   </build>
@@ -96,7 +110,7 @@
     <dependency>
       <groupId>org.glassfish.jersey.media</groupId>
       <artifactId>jersey-media-sse</artifactId>
-      <version>${jersey.version}</version> <!-- oder eine andere Jersey-Version, passend zu deinem Projekt -->
+      <version>${jersey.version}</version>
     </dependency>
     <!-- https://mvnrepository.com/artifact/org.glassfish.jaxb/jaxb-runtime -->
     <dependency>
@@ -170,12 +184,7 @@
     <dependency>
       <groupId>org.eclipse.persistence</groupId>
       <artifactId>eclipselink</artifactId>
-      <version>3.0.2</version>
-    </dependency>
-    <dependency>
-        <groupId>org.eclipse.persistence</groupId>
-        <artifactId>org.eclipse.persistence.jpa.modelgen.processor</artifactId>
-        <version>3.0.2</version>
+      <version>${eclipselink.version}</version>
     </dependency>
     <!-- https://mvnrepository.com/artifact/jakarta.xml.bind/jakarta.xml.bind-api -->
     <dependency>
@@ -221,6 +230,12 @@
       <artifactId>im4java</artifactId>
       <version>1.4.0</version>
     </dependency>
+    <!-- NKO Dev Studio Dependencies -->
+    <dependency>
+      <groupId>studio.nko-dev</groupId>
+      <artifactId>speech-to-text-service-client-uni-erfurt</artifactId>
+      <version>1.0.1</version>
+    </dependency>
     <!-- Test dependencies -->
     <dependency>
       <groupId>org.junit.jupiter</groupId>
@@ -237,7 +252,19 @@
     <dependency>
       <groupId>org.mockito</groupId>
       <artifactId>mockito-core</artifactId>
-      <version>5.18.0</version>
+      <version>${mockito.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>net.bytebuddy</groupId>
+      <artifactId>byte-buddy</artifactId>
+      <version>${bytebuddy.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>net.bytebuddy</groupId>
+      <artifactId>byte-buddy-agent</artifactId>
+      <version>${bytebuddy.version}</version>
       <scope>test</scope>
     </dependency>
   </dependencies>

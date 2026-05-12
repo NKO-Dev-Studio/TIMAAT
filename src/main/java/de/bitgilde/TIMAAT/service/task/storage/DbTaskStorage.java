@@ -1,4 +1,4 @@
-package de.bitgilde.TIMAAT.task.storage;
+package de.bitgilde.TIMAAT.service.task.storage;
 
 import de.bitgilde.TIMAAT.db.DbAccessComponent;
 import de.bitgilde.TIMAAT.db.exception.DbTransactionExecutionException;
@@ -6,11 +6,11 @@ import de.bitgilde.TIMAAT.model.FIPOP.AudioAnalysisState;
 import de.bitgilde.TIMAAT.model.FIPOP.Medium;
 import de.bitgilde.TIMAAT.model.FIPOP.MediumAudioAnalysis;
 import de.bitgilde.TIMAAT.sse.EntityUpdateEventService;
-import de.bitgilde.TIMAAT.task.api.MediumAudioAnalysisTask;
-import de.bitgilde.TIMAAT.task.api.MediumAudioAnalysisTask.SupportedMediumType;
-import de.bitgilde.TIMAAT.task.api.Task;
-import de.bitgilde.TIMAAT.task.api.TaskState;
-import de.bitgilde.TIMAAT.task.exception.TaskStorageException;
+import de.bitgilde.TIMAAT.service.task.api.MediumAudioAnalysisTask;
+import de.bitgilde.TIMAAT.service.task.api.MediumAudioAnalysisTask.SupportedMediumType;
+import de.bitgilde.TIMAAT.service.task.api.Task;
+import de.bitgilde.TIMAAT.service.task.api.TaskState;
+import de.bitgilde.TIMAAT.service.task.exception.TaskStorageException;
 import jakarta.inject.Inject;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityManagerFactory;
@@ -35,7 +35,7 @@ import java.util.stream.Stream;
  */
 
 /**
- * {@link TaskStorage} using the db to persist {@link de.bitgilde.TIMAAT.task.api.Task}
+ * {@link TaskStorage} using the db to persist {@link Task}
  * information
  *
  * @author Nico Kotlenga

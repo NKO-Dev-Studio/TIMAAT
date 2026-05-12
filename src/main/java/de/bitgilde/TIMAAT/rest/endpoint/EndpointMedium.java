@@ -63,10 +63,10 @@ import de.bitgilde.TIMAAT.storage.file.ImageFileStorage.ImageFileType;
 import de.bitgilde.TIMAAT.storage.file.TemporaryFileStorage;
 import de.bitgilde.TIMAAT.storage.file.TemporaryFileStorage.TemporaryFile;
 import de.bitgilde.TIMAAT.storage.file.VideoFileStorage;
-import de.bitgilde.TIMAAT.task.TaskService;
-import de.bitgilde.TIMAAT.task.api.MediumAudioAnalysisTask.SupportedMediumType;
-import de.bitgilde.TIMAAT.task.api.TaskState;
-import de.bitgilde.TIMAAT.task.exception.TaskServiceException;
+import de.bitgilde.TIMAAT.service.task.TaskService;
+import de.bitgilde.TIMAAT.service.task.api.MediumAudioAnalysisTask.SupportedMediumType;
+import de.bitgilde.TIMAAT.service.task.api.TaskState;
+import de.bitgilde.TIMAAT.service.task.exception.TaskServiceException;
 import io.jsonwebtoken.JwtBuilder;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
@@ -181,7 +181,7 @@ public class EndpointMedium {
             AuthenticationFilter.USER_ACCOUNT_PROPERTY_NAME);
     int draw = queryParameter.getDraw().orElse(0);
 
-    List<Medium> matchingMediums = mediumStorage.getEntriesAsStreamRespectingAuthorization(queryParameter, queryParameter, queryParameter,
+    List<Medium> matchingMediums = mediumStorage.getEntriesAsStream(queryParameter, queryParameter, queryParameter,
             userAccount).collect(Collectors.toList());
     long totalMediumEntries = mediumStorage.getNumberOfTotalEntriesRespectingAuthorization(userAccount);
     long filteredMediumEntries = mediumStorage.getNumberOfMatchingEntriesRespectingAuthorization(queryParameter, userAccount);
@@ -200,7 +200,7 @@ public class EndpointMedium {
             AuthenticationFilter.USER_ACCOUNT_PROPERTY_NAME);
     MediumFilterCriteria filterCriteria = new MediumFilterCriteria.Builder().mediumNameSearch(search).build();
 
-    return mediumStorage.getEntriesAsStreamRespectingAuthorization(filterCriteria, PagingParameter.NO_PAGING,
+    return mediumStorage.getEntriesAsStream(filterCriteria, PagingParameter.NO_PAGING,
                                 SortingParameter.defaultSortOrder(), userAccount)
                         .map(currentMedium -> new SelectElement<Integer>(currentMedium.getId(),
                                 currentMedium.getDisplayTitle().getName())).collect(Collectors.toList());

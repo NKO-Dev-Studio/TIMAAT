@@ -8837,6 +8837,37 @@ CREATE TABLE `fipop`.`transcription_state_translation`
     ENGINE = InnoDB;
 
 -- -----------------------------------------------------
+-- Table `FIPOP`.`transcription_type`
+-- -----------------------------------------------------
+CREATE TABLE `fipop`.`transcription_type`
+(
+    `id` int primary key
+)
+    ENGINE = InnoDB;
+
+-- -----------------------------------------------------
+-- Table `FIPOP`.`transcription_type_translation`
+-- -----------------------------------------------------
+CREATE TABLE `fipop`.`transcription_type_translation`
+(
+    `id`                    int primary key,
+    `transcription_type_id` int not null,
+    `language_id`           int not null,
+    `state_name`            varchar(20),
+    CONSTRAINT `fk_transcription_type_translation_transcription_state`
+        FOREIGN KEY (`transcription_type_id`)
+            REFERENCES `fipop`.`transcription_type` (`id`)
+            ON DELETE CASCADE
+            ON UPDATE NO ACTION,
+    CONSTRAINT `fk_transcription_type_translation_language`
+        FOREIGN KEY (`language_id`)
+            REFERENCES `fipop`.`language` (`id`)
+            ON DELETE CASCADE
+            ON UPDATE NO ACTION
+)
+    ENGINE = InnoDB;
+
+-- -----------------------------------------------------
 -- Table `FIPOP`.`transcription`
 -- -----------------------------------------------------
 CREATE TABLE `fipop`.`transcription`
@@ -8846,6 +8877,7 @@ CREATE TABLE `fipop`.`transcription`
     `model_identifier`               varchar(45),
     `engine_identifier`              varchar(45),
     `medium_id`                      int          not null,
+    `transcription_type_id`          int          not null ,
     `transcription_state_id`         int          not null,
     `transcription_task_id`          bigint,
     `created_at`                     timestamp    not null default CURRENT_TIMESTAMP,
@@ -8870,6 +8902,9 @@ CREATE TABLE `fipop`.`transcription`
     CONSTRAINT `fk_transcription_transcription_state`
         FOREIGN KEY (`transcription_state_id`)
             REFERENCES `fipop`.`transcription_state` (`id`),
+    CONSTRAINT `fk_transcription_transcription_type`
+        FOREIGN KEY (`transcription_type_id`)
+            REFERENCES `fipop`.`transcription_type` (`id`),
     CONSTRAINT `fk_transcription_creation_user`
         FOREIGN KEY (`created_by_user_account_id`)
             REFERENCES `fipop`.`user_account` (`id`)
@@ -8919,6 +8954,11 @@ CREATE INDEX `fk_medium_transcription_idx` on `fipop`.`medium` (`default_transcr
 -- Data for table `FIPOP`.`transcription_state`
 -- -----------------------------------------------------
 INSERT INTO transcription_state VALUES (1), (2), (3), (4), (5);
+
+-- -----------------------------------------------------
+-- Data for table `FIPOP`.`transcription_type`
+-- -----------------------------------------------------
+INSERT INTO transcription_state VALUES (1), (2);
 
 
 -- -----------------------------------------------------
@@ -17162,11 +17202,18 @@ COMMIT;
 -- Data for table `FIPOP`.`transcription_state_translation`
 -- -----------------------------------------------------
 INSERT INTO transcription_state_translation (id, transcription_state_id, language_id, state_name)
-VALUES (1, 1, 1, 'pending'),
-       (2, 2, 1, 'running'),
-       (3, 3, 1, 'completed'),
-       (4, 4, 1, 'failed'),
-       (5, 5, 1, 'imported');
+VALUES (1, 1, 1, 'prepare'),
+       (2, 1, 1, 'pending'),
+       (3, 2, 1, 'running'),
+       (4, 3, 1, 'completed'),
+       (5, 4, 1, 'failed');
+
+-- -----------------------------------------------------
+-- Data for table `FIPOP`.`transcription_type_translation`
+-- -----------------------------------------------------
+INSERT INTO transcription_type_translation (id, transcription_type_translation.transcription_type_id, language_id, state_name)
+VALUES (1, 1, 1, 'generated'),
+       (2, 1, 1, 'imported');
 
 -- -----------------------------------------------------
 -- Data for table `FIPOP`.`maqam_subtype_translation`

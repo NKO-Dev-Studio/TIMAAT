@@ -1,4 +1,4 @@
-package de.bitgilde.TIMAAT.task.api;
+package de.bitgilde.TIMAAT.service.task.api;
 
 /*
  Licensed under the Apache License, Version 2.0 (the "License");

@@ -1,7 +1,4 @@
-package de.bitgilde.TIMAAT.task.storage;
-
-import de.bitgilde.TIMAAT.task.api.Task;
-import de.bitgilde.TIMAAT.task.api.TaskState;
+package de.bitgilde.TIMAAT.service.task.api;
 
 /*
  Licensed under the Apache License, Version 2.0 (the "License");
@@ -18,18 +15,22 @@ import de.bitgilde.TIMAAT.task.api.TaskState;
  */
 
 /**
- * Component offers methods to update the {@link TaskState} of a {@link Task}
+ * Defines the basic structure of a task
  *
  * @author Nico Kotlenga
- * @since 20.07.25
+ * @since 18.07.25
  */
-public interface TaskStateUpdater {
+public abstract class Task {
+    final TaskType taskType;
+
+    public Task(TaskType taskType) {
+        this.taskType = taskType;
+    }
 
     /**
-     * Updates the {@link TaskState} of a {@link Task} to the specified value
-     *
-     * @param task      which state will be updated
-     * @param taskState to which the task will be set to
+     * @return the {@link TaskType}
      */
-    void updateTaskState(Task task, TaskState taskState);
+    public TaskType getTaskType() {
+        return taskType;
+    }
 }

@@ -9,16 +9,16 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 
 @Entity
-@Table(name = "transcription_state_translation")
-public class TranscriptionStateTranslation {
+@Table(name = "transcription_type_translation")
+public class TranscriptionTypeTranslation {
   @Id
   @Column(name = "id")
   private Integer id;
 
   @ManyToOne
-  @JoinColumn(name="transcription_state_id")
+  @JoinColumn(name="transcription_type_id")
   @JsonIgnore
-  private TranscriptionState transcriptionState;
+  private TranscriptionType transcriptionType;
 
   @Column(name = "language_id")
   private Integer languageId;
@@ -34,12 +34,12 @@ public class TranscriptionStateTranslation {
     this.id = id;
   }
 
-  public TranscriptionState getTranscriptionState() {
-    return transcriptionState;
+  public TranscriptionType getTranscriptionType() {
+    return transcriptionType;
   }
 
-  public void setTranscriptionState(TranscriptionState transcriptionState) {
-    this.transcriptionState = transcriptionState;
+  public void setTranscriptionType(TranscriptionType transcriptionType) {
+    this.transcriptionType = transcriptionType;
   }
 
   public Integer getLanguageId() {
