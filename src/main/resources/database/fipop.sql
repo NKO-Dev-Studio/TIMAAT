@@ -8920,15 +8920,6 @@ CREATE INDEX `fk_medium_transcription_idx` on `fipop`.`medium` (`default_transcr
 -- -----------------------------------------------------
 INSERT INTO transcription_state VALUES (1), (2), (3), (4), (5);
 
--- -----------------------------------------------------
--- Data for table `FIPOP`.`transcription_state_translation`
--- -----------------------------------------------------
-INSERT INTO transcription_state_translation (id, transcription_state_id, language_id, state_name)
-VALUES (1, 1, 1, 'pending'),
-       (2, 2, 1, 'running'),
-       (3, 3, 1, 'completed'),
-       (4, 4, 1, 'failed'),
-       (5, 5, 1, 'imported');
 
 -- -----------------------------------------------------
 -- Data for table `FIPOP`.`system_settings`
@@ -17166,6 +17157,16 @@ INSERT INTO `FIPOP`.`maqam` (`id`, `maqam_type_id`, `maqam_subtype_id`)
 VALUES (42, 9, 42);
 
 COMMIT;
+
+-- -----------------------------------------------------
+-- Data for table `FIPOP`.`transcription_state_translation`
+-- -----------------------------------------------------
+INSERT INTO transcription_state_translation (id, transcription_state_id, language_id, state_name)
+VALUES (1, 1, 1, 'pending'),
+       (2, 2, 1, 'running'),
+       (3, 3, 1, 'completed'),
+       (4, 4, 1, 'failed'),
+       (5, 5, 1, 'imported');
 
 -- -----------------------------------------------------
 -- Data for table `FIPOP`.`maqam_subtype_translation`

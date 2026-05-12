@@ -25,8 +25,10 @@ import jakarta.persistence.Transient;
 import java.io.Serializable;
 import java.sql.Timestamp;
 import java.util.Date;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 
 /*
  Licensed under the Apache License, Version 2.0 (the "License");
@@ -314,8 +316,16 @@ public class Medium implements Serializable {
 	@Transient
 	private String viewToken;
 
+  @ManyToOne
+  @JoinColumn(name = "default_transcription_id")
+  private Transcription defaultTranscription;
 
-	public Medium() {
+  @OneToMany(mappedBy = "medium")
+  @JsonIgnore
+  private Set<Transcription> transcriptions = new LinkedHashSet<>();
+
+
+  public Medium() {
 	}
 
 	public int getId() {
@@ -843,7 +853,23 @@ public class Medium implements Serializable {
 		this.viewToken = viewToken;
 	}
 
-	public MediumAudioAnalysis getMediumAudioAnalysis() {
+  public Transcription getDefaultTranscription() {
+    return defaultTranscription;
+  }
+
+  public void setDefaultTranscription(Transcription defaultTranscription) {
+    this.defaultTranscription = defaultTranscription;
+  }
+
+  public Set<Transcription> getTranscriptions() {
+    return transcriptions;
+  }
+
+  public void setTranscriptions(Set<Transcription> transcriptions) {
+    this.transcriptions = transcriptions;
+  }
+
+  public MediumAudioAnalysis getMediumAudioAnalysis() {
 		return mediumAudioAnalysis;
 	}
 

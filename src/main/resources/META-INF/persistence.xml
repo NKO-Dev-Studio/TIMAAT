@@ -269,6 +269,7 @@
 		<class>de.bitgilde.TIMAAT.model.FIPOP.Street</class>
 		<class>de.bitgilde.TIMAAT.model.FIPOP.SvgShapeType</class>
 		<class>de.bitgilde.TIMAAT.model.FIPOP.SvgShapeTypeTranslation</class>
+        <class>de.bitgilde.TIMAAT.model.FIPOP.SystemSetting</class>
 		<class>de.bitgilde.TIMAAT.model.FIPOP.Tag</class>
 		<class>de.bitgilde.TIMAAT.model.FIPOP.TakeJunction</class>
 		<class>de.bitgilde.TIMAAT.model.FIPOP.TakeJunctionTranslation</class>
@@ -281,6 +282,11 @@
 		<class>de.bitgilde.TIMAAT.model.FIPOP.TerritoryTranslation</class>
 		<class>de.bitgilde.TIMAAT.model.FIPOP.Timbre</class>
 		<class>de.bitgilde.TIMAAT.model.FIPOP.Title</class>
+        <class>de.bitgilde.TIMAAT.model.FIPOP.Transcription</class>
+        <class>de.bitgilde.TIMAAT.model.FIPOP.TranscriptionEngine</class>
+        <class>de.bitgilde.TIMAAT.model.FIPOP.TranscriptionModel</class>
+        <class>de.bitgilde.TIMAAT.model.FIPOP.TranscriptionState</class>
+        <class>de.bitgilde.TIMAAT.model.FIPOP.TranscriptionStateTranslation</class>
 		<class>de.bitgilde.TIMAAT.model.FIPOP.UserAccount</class>
 		<class>de.bitgilde.TIMAAT.model.FIPOP.UserAccountHasCategorySet</class>
 		<class>de.bitgilde.TIMAAT.model.FIPOP.UserAccountHasCategorySetPK</class>
