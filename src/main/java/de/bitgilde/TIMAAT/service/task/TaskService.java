@@ -3,6 +3,7 @@ package de.bitgilde.TIMAAT.service.task;
 import de.bitgilde.TIMAAT.service.task.api.MediumAudioAnalysisTask;
 import de.bitgilde.TIMAAT.service.task.api.MediumAudioAnalysisTask.SupportedMediumType;
 import de.bitgilde.TIMAAT.service.task.api.Task;
+import de.bitgilde.TIMAAT.service.task.api.TranscriptionMediumPreparationTask;
 import de.bitgilde.TIMAAT.service.task.exception.TaskServiceException;
 import de.bitgilde.TIMAAT.service.task.exception.TaskStorageException;
 import de.bitgilde.TIMAAT.service.task.execution.TaskExecutorService;
@@ -67,6 +68,25 @@ public class TaskService {
         } catch (Exception e) {
             logger.log(Level.SEVERE, "Error while trigger the execution of a medium audio analysis task", e);
             throw new TaskServiceException("Error during trigger the execution of a medium audio analysis task", e);
+        }
+    }
+
+    /**
+     * Triggers the execution of a {@link TranscriptionMediumPreparationTask} for the specified
+     * {@link de.bitgilde.TIMAAT.model.FIPOP.Medium}.
+     *
+     * @param mediumId for which the tasks will be executed
+     */
+    public void executeTranscriptionMediumPreparationTask(int mediumId, SupportedMediumType supportedMediumType) throws TaskServiceException {
+        logger.log(Level.FINE, "Trigger execution of transcription medium preparation task for medium having id {0}", mediumId);
+
+        try {
+            TranscriptionMediumPreparationTask transcriptionMediumPreparationTask = new TranscriptionMediumPreparationTask(mediumId, supportedMediumType);
+            taskStorage.persistTask(transcriptionMediumPreparationTask);
+            taskExecutorService.executeTask(transcriptionMediumPreparationTask);
+        } catch (Exception e) {
+            logger.log(Level.SEVERE, "Error while trigger the execution of a transcription medium preparation task", e);
+            throw new TaskServiceException("Error during trigger the execution of a transcription medium preparation task", e);
         }
     }
 

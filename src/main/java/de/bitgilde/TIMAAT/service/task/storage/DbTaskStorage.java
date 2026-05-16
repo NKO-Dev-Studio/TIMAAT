@@ -5,16 +5,20 @@ import de.bitgilde.TIMAAT.db.exception.DbTransactionExecutionException;
 import de.bitgilde.TIMAAT.model.FIPOP.AudioAnalysisState;
 import de.bitgilde.TIMAAT.model.FIPOP.Medium;
 import de.bitgilde.TIMAAT.model.FIPOP.MediumAudioAnalysis;
+import de.bitgilde.TIMAAT.model.FIPOP.Transcription;
 import de.bitgilde.TIMAAT.sse.EntityUpdateEventService;
 import de.bitgilde.TIMAAT.service.task.api.MediumAudioAnalysisTask;
 import de.bitgilde.TIMAAT.service.task.api.MediumAudioAnalysisTask.SupportedMediumType;
 import de.bitgilde.TIMAAT.service.task.api.Task;
 import de.bitgilde.TIMAAT.service.task.api.TaskState;
+import de.bitgilde.TIMAAT.service.task.api.TranscriptionMediumPreparationTask;
 import de.bitgilde.TIMAAT.service.task.exception.TaskStorageException;
+import de.bitgilde.TIMAAT.storage.entity.transcription.api.TranscriptionState;
 import jakarta.inject.Inject;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityManagerFactory;
 
+import java.util.List;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -56,7 +60,7 @@ public class DbTaskStorage extends DbAccessComponent implements TaskStorage {
     @Override
     public Stream<? extends Task> getUnfinishedTasks() throws TaskStorageException {
         try {
-            return loadUnfinishedMediumAudioAnalysisTasks();
+            return Stream.concat(loadUnfinishedMediumAudioAnalysisTasks(), loadUnfinishedTranscriptionMediumPreparationTasks());
         } catch (DbTransactionExecutionException e) {
             throw new TaskStorageException("Error during loading unfinished tasks", e);
         }
@@ -70,6 +74,9 @@ public class DbTaskStorage extends DbAccessComponent implements TaskStorage {
             switch (task.getTaskType()) {
                 case MEDIUM_AUDIO_ANALYSIS:
                     persistMediumAudioAnalysisTask((MediumAudioAnalysisTask) task);
+                    break;
+                case TRANSCRIPTION_MEDIUM_PREPARATION:
+                    persistTranscriptionMediumPreparationTask((TranscriptionMediumPreparationTask) task);
                     break;
             }
         } catch (Exception e) {
@@ -85,6 +92,9 @@ public class DbTaskStorage extends DbAccessComponent implements TaskStorage {
             switch (task.getTaskType()) {
                 case MEDIUM_AUDIO_ANALYSIS:
                     updateMediumAudioAnalysisTaskState((MediumAudioAnalysisTask) task, taskState);
+                    break;
+                case TRANSCRIPTION_MEDIUM_PREPARATION:
+                    updateTranscriptionMediumPreparationTaskState((TranscriptionMediumPreparationTask) task, taskState);
                     break;
             }
         } catch (Exception e) {
@@ -107,6 +117,20 @@ public class DbTaskStorage extends DbAccessComponent implements TaskStorage {
 
                     return new MediumAudioAnalysisTask(mediumId, supportedMediumType);
                 });
+    }
+
+    private Stream<TranscriptionMediumPreparationTask> loadUnfinishedTranscriptionMediumPreparationTasks() throws DbTransactionExecutionException {
+        logger.log(Level.FINE, "Loading unfinished transcription medium preparation tasks");
+        return executeStreamDbTransaction(entityManager -> entityManager.createQuery("select distinct transcription.medium.id, medium.mediaType.id from Transcription transcription join transcription.medium medium where transcription.transcriptionState.id in :transcriptionStates", Object.class)
+                                                                 .setParameter("transcriptionStates", Set.of(TranscriptionState.WAITING_FOR_PREPARATION.getDatabaseId(), TranscriptionState.PREPARING.getDatabaseId()))
+                                                                 .getResultStream()
+                                                                 .map(result -> {
+                                                                   Object[] row = (Object[]) result;
+                                                                   SupportedMediumType supportedMediumType = ((Integer) row[1]).equals(6) ? SupportedMediumType.VIDEO : SupportedMediumType.AUDIO;
+                                                                   int mediumId = (Integer) row[0];
+
+                                                                   return new TranscriptionMediumPreparationTask(mediumId, supportedMediumType);
+                                                                 }));
     }
 
     private void persistMediumAudioAnalysisTask(MediumAudioAnalysisTask mediumAudioAnalysisTask) throws DbTransactionExecutionException {
@@ -145,5 +169,40 @@ public class DbTaskStorage extends DbAccessComponent implements TaskStorage {
         });
 
         entityUpdateEventService.sendEntityUpdateMessage(MediumAudioAnalysis.class, updatedMediumAudioAnalyses);
+    }
+
+    private void persistTranscriptionMediumPreparationTask(TranscriptionMediumPreparationTask transcriptionMediumPreparationTask) throws DbTransactionExecutionException {
+        logger.log(Level.FINE, "Persist transcription medium preparation task for medium having id {0}", transcriptionMediumPreparationTask.getMediumId());
+        updateTranscriptionsOfPreparationTask(transcriptionMediumPreparationTask, TranscriptionState.WAITING_FOR_PREPARATION);
+    }
+
+    private void updateTranscriptionMediumPreparationTaskState(TranscriptionMediumPreparationTask transcriptionMediumPreparationTask, TaskState taskState) throws DbTransactionExecutionException {
+        logger.log(Level.FINER, "Updating task state of transcription medium preparation task to {0}", taskState);
+
+        TranscriptionState transcriptionState = switch (taskState) {
+            case PENDING -> TranscriptionState.WAITING_FOR_PREPARATION;
+            case RUNNING -> TranscriptionState.PREPARING;
+            case FAILED -> TranscriptionState.FAILED;
+            case DONE -> TranscriptionState.PENDING;
+        };
+
+        updateTranscriptionsOfPreparationTask(transcriptionMediumPreparationTask, transcriptionState)
+                .forEach(transcription -> entityUpdateEventService.sendEntityUpdateMessage(Transcription.class, transcription));
+    }
+
+    private List<Transcription> updateTranscriptionsOfPreparationTask(TranscriptionMediumPreparationTask transcriptionMediumPreparationTask, TranscriptionState transcriptionState) throws DbTransactionExecutionException {
+        return executeDbTransaction(entityManager -> {
+            de.bitgilde.TIMAAT.model.FIPOP.TranscriptionState transcriptionStateEntity = entityManager.getReference(
+                    de.bitgilde.TIMAAT.model.FIPOP.TranscriptionState.class, transcriptionState.getDatabaseId());
+
+            List<Transcription> transcriptions = entityManager.createQuery("select transcription from Transcription transcription where transcription.medium.id = :mediumId and transcription.transcriptionState.id in :preparationStates", Transcription.class)
+                    .setParameter("mediumId", transcriptionMediumPreparationTask.getMediumId())
+                    .setParameter("preparationStates", Set.of(TranscriptionState.WAITING_FOR_PREPARATION.getDatabaseId(), TranscriptionState.PREPARING.getDatabaseId()))
+                    .getResultList();
+
+            transcriptions.forEach(transcription -> transcription.setTranscriptionState(transcriptionStateEntity));
+
+            return transcriptions;
+        });
     }
 }

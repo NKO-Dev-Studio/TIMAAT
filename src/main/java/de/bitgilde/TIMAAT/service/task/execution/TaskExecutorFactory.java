@@ -10,6 +10,7 @@ import de.bitgilde.TIMAAT.service.task.api.MediumAudioAnalysisTask;
 import de.bitgilde.TIMAAT.service.task.api.MediumAudioAnalysisTask.SupportedMediumType;
 import de.bitgilde.TIMAAT.service.task.api.Task;
 import de.bitgilde.TIMAAT.service.task.api.TaskType;
+import de.bitgilde.TIMAAT.service.task.api.TranscriptionMediumPreparationTask;
 import jakarta.inject.Inject;
 
 import java.util.Map;
@@ -54,6 +55,10 @@ public class TaskExecutorFactory {
         if (TaskType.MEDIUM_AUDIO_ANALYSIS.equals(task.getTaskType())) {
             return (TaskExecutor<T>) new MediumAudioAnalysisTaskExecutor(temporaryFileStorage, (MediumAudioAnalysisTask) task,
                     audioContainingMediumFileStorageBySupportedMediumType, audioEngine, audioAnalysisResultStorage);
+        }
+        if (TaskType.TRANSCRIPTION_MEDIUM_PREPARATION.equals(task.getTaskType())) {
+            return (TaskExecutor<T>) new TranscriptionMediumPreparationTaskExecutor((TranscriptionMediumPreparationTask) task,
+                    audioContainingMediumFileStorageBySupportedMediumType, audioEngine);
         }
         return null;
     }

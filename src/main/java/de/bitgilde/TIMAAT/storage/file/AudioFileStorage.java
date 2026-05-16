@@ -103,6 +103,18 @@ public class AudioFileStorage implements AudioContainingMediumFileStorage {
     }
 
     @Override
+    public Optional<Path> getPathToAudioMonoFile(int mediumId) {
+        Path mediumDirectoryPath = createMediumDirectoryPath(mediumId);
+        Path audioMonoFilePath = createAudioMonoFilePath(mediumDirectoryPath, mediumId);
+
+        if (Files.exists(audioMonoFilePath)) {
+            return Optional.of(audioMonoFilePath);
+        }
+
+        return Optional.empty();
+    }
+
+    @Override
     public Path persistWaveformFile(Path srcWaveformFile, int mediumId) throws IOException {
         logger.log(Level.FINE, "Persisting waveform file of medium having id {0}", mediumId);
 
@@ -128,6 +140,19 @@ public class AudioFileStorage implements AudioContainingMediumFileStorage {
         return frequencyFilePath;
     }
 
+    @Override
+    public Path persistAudioMonoFile(Path srcAudioMonoFile, int mediumId) throws IOException {
+        logger.log(Level.FINE, "Persisting audio mono file of medium having id {0}", mediumId);
+
+        Path mediumDirectoryPath = createMediumDirectoryPath(mediumId);
+        Files.createDirectories(mediumDirectoryPath);
+
+        Path audioMonoFilePath = createAudioMonoFilePath(mediumDirectoryPath, mediumId);
+        Files.move(srcAudioMonoFile, audioMonoFilePath, StandardCopyOption.REPLACE_EXISTING);
+
+        return audioMonoFilePath;
+    }
+
     private static Path createAudioFilePath(Path mediumDirectoryPath, int mediumId) {
         return mediumDirectoryPath.resolve(mediumId + "-audio.mp3");
     }
@@ -138,6 +163,10 @@ public class AudioFileStorage implements AudioContainingMediumFileStorage {
 
     private static Path createFrequencyFilePath(Path mediumDirectoryPath, int mediumId) {
         return mediumDirectoryPath.resolve(mediumId + "-frequency.frequency");
+    }
+
+    private static Path createAudioMonoFilePath(Path mediumDirectoryPath, int mediumId) {
+        return mediumDirectoryPath.resolve(mediumId + "-audio-mono.pcm");
     }
 
     private Path createMediumDirectoryPath(int mediumId) {

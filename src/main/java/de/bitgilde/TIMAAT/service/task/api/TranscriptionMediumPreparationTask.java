@@ -8,5 +8,22 @@ package de.bitgilde.TIMAAT.service.task.api;
  * @author Nico Kotlenga (nico@nko-dev.studio) 
  * @since 12.05.26
  */
-public record TranscriptionMediumPreparationTask(long mediumId) {
+public class TranscriptionMediumPreparationTask extends Task {
+
+  private final int mediumId;
+  private final MediumAudioAnalysisTask.SupportedMediumType mediumType;
+
+  public TranscriptionMediumPreparationTask(int mediumId, MediumAudioAnalysisTask.SupportedMediumType mediumType) {
+    super(TaskType.TRANSCRIPTION_MEDIUM_PREPARATION);
+    this.mediumId = mediumId;
+    this.mediumType = mediumType;
+  }
+
+  public int getMediumId() {
+    return mediumId;
+  }
+
+  public MediumAudioAnalysisTask.SupportedMediumType getMediumType() {
+    return mediumType;
+  }
 }

@@ -23,5 +23,6 @@ import de.bitgilde.TIMAAT.service.task.execution.TaskExecutorService;
  * @since 18.07.25
  */
 public enum TaskType {
-    MEDIUM_AUDIO_ANALYSIS;
+    MEDIUM_AUDIO_ANALYSIS,
+    TRANSCRIPTION_MEDIUM_PREPARATION;
 }

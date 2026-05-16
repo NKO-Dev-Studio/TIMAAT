@@ -624,16 +624,17 @@ BEGIN
                 ON UPDATE NO ACTION;
         CREATE INDEX `fk_medium_transcription_idx` on `fipop`.`medium` (`default_transcription_id` ASC);
 
-        INSERT INTO transcription_state VALUES (1), (2), (3), (4), (5);
+        INSERT INTO transcription_state VALUES (1), (2), (3), (4), (5), (6);
         INSERT INTO transcription_state_translation (id, transcription_state_id, language_id, state_name)
-        VALUES (1, 1, 1, 'prepare'),
-               (2, 1, 1, 'pending'),
-               (3, 2, 1, 'running'),
-               (4, 3, 1, 'completed'),
-               (5, 4, 1, 'failed');
+        VALUES (1, 1, 1, 'waiting'),
+               (2, 2, 1, 'preparing'),
+               (3, 3, 1, 'pending'),
+               (4, 4, 1, 'running'),
+               (5, 5, 1, 'completed'),
+               (6, 6, 1, 'failed');
 
         INSERT INTO transcription_type VALUES (1), (2);
-        INSERT INTO transcription_type_translation (id, transcription_type_translation.transcription_type_id, language_id, state_name)
+        INSERT INTO transcription_type_translation (id, transcription_type_id, language_id, state_name)
         VALUES (1, 1, 1, 'generated'),
                (2, 1, 1, 'imported');
 

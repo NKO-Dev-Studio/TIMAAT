@@ -112,8 +112,17 @@ public class VideoFileStorage implements AudioContainingMediumFileStorage {
         return thumbnailFilePath;
     }
 
-    public Path persistAudioMonoFile(Path srcMediumFile, int mediumId) throws IOException {
-      return null;
+    @Override
+    public Path persistAudioMonoFile(Path srcAudioMonoFile, int mediumId) throws IOException {
+        logger.log(Level.FINE, "Persisting audio mono file of medium having id {0}", mediumId);
+
+        Path mediumDirectoryPath = createMediumDirectoryPath(mediumId);
+        Files.createDirectories(mediumDirectoryPath);
+
+        Path audioMonoFilePath = createAudioMonoFilePath(mediumDirectoryPath, mediumId);
+        Files.move(srcAudioMonoFile, audioMonoFilePath, StandardCopyOption.REPLACE_EXISTING);
+
+        return audioMonoFilePath;
     }
 
     /**
@@ -211,6 +220,18 @@ public class VideoFileStorage implements AudioContainingMediumFileStorage {
         return Optional.empty();
     }
 
+    @Override
+    public Optional<Path> getPathToAudioMonoFile(int mediumId) {
+        Path mediumDirectoryPath = createMediumDirectoryPath(mediumId);
+        Path audioMonoFilePath = createAudioMonoFilePath(mediumDirectoryPath, mediumId);
+
+        if (Files.exists(audioMonoFilePath)) {
+            return Optional.of(audioMonoFilePath);
+        }
+
+        return Optional.empty();
+    }
+
 
     private static Path createOrginalVideoFilePath(Path mediumDirectoryPath, int mediumId) {
         return mediumDirectoryPath.resolve(mediumId + "-video-original.mp4");
@@ -236,6 +257,10 @@ public class VideoFileStorage implements AudioContainingMediumFileStorage {
 
     private static Path createFrequencyFilePath(Path mediumDirectoryPath, int mediumId) {
         return mediumDirectoryPath.resolve(mediumId + "-frequency.frequency");
+    }
+
+    private static Path createAudioMonoFilePath(Path mediumDirectoryPath, int mediumId) {
+        return mediumDirectoryPath.resolve(mediumId + "-audio-mono.pcm");
     }
 
     private Path createMediumDirectoryPath(int mediumId) {
