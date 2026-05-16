@@ -5,6 +5,7 @@ import de.bitgilde.TIMAAT.PropertyManagement;
 import de.bitgilde.TIMAAT.service.task.api.Task;
 import de.bitgilde.TIMAAT.service.task.api.TaskState;
 import de.bitgilde.TIMAAT.service.task.storage.TaskStateUpdater;
+import de.bitgilde.TIMAAT.service.task.storage.TaskStateUpdaterRegistry;
 import jakarta.annotation.PreDestroy;
 import jakarta.inject.Inject;
 
@@ -52,13 +53,13 @@ public class TaskExecutorService implements Closeable {
     private static final AtomicInteger THREAD_COUNTER = new AtomicInteger(0);
 
     private final ThreadPoolExecutor executor;
-    private final TaskStateUpdater taskStateUpdater;
+    private final TaskStateUpdaterRegistry taskStateUpdaterRegistry;
     private final TaskExecutorFactory taskExecutorFactory;
 
 
     @Inject
-    public TaskExecutorService(PropertyManagement propertyManagement, TaskStateUpdater taskStateUpdater, TaskExecutorFactory taskExecutorFactory) {
-        this.taskStateUpdater = taskStateUpdater;
+    public TaskExecutorService(PropertyManagement propertyManagement, TaskStateUpdaterRegistry taskStateUpdaterRegistry, TaskExecutorFactory taskExecutorFactory) {
+        this.taskStateUpdaterRegistry = taskStateUpdaterRegistry;
         this.taskExecutorFactory = taskExecutorFactory;
         int coreParallelTask = Integer.parseInt(propertyManagement.getProp(PropertyConstants.TASK_CORE_PARALLEL_COUNT));
         int maxParallelTask = Integer.parseInt(propertyManagement.getProp(PropertyConstants.TASK_MAX_PARALLEL_COUNT));
@@ -82,6 +83,7 @@ public class TaskExecutorService implements Closeable {
     public void executeTask(Task task) {
         logger.log(Level.FINE, "Adding task of type {0} to queue", task.getTaskType());
         TaskExecutor<?> taskExecutor = taskExecutorFactory.createTaskExecutor(task);
+        TaskStateUpdater taskStateUpdater = taskStateUpdaterRegistry.getTaskStateUpdater(task.getTaskType());
         executor.execute(new TaskExecutorRunnable(task, taskStateUpdater, taskExecutor));
     }
 

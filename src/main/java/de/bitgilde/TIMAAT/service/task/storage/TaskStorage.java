@@ -1,6 +1,7 @@
 package de.bitgilde.TIMAAT.service.task.storage;
 
 import de.bitgilde.TIMAAT.service.task.api.Task;
+import de.bitgilde.TIMAAT.service.task.api.TaskType;
 import de.bitgilde.TIMAAT.service.task.exception.TaskStorageException;
 
 import java.util.stream.Stream;
@@ -25,7 +26,12 @@ import java.util.stream.Stream;
  * @author Nico Kotlenga
  * @since 18.07.25
  */
-public interface TaskStorage extends TaskStateUpdater {
+public interface TaskStorage {
+
+    /**
+     * @return the {@link TaskType} which can be handled by this storage.
+     */
+    TaskType getSupportedTaskType();
 
     /**
      * @return a {@link Stream} of unfinished {@link Task}s.

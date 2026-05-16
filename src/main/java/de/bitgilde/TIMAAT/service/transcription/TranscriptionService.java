@@ -1,7 +1,12 @@
 package de.bitgilde.TIMAAT.service.transcription;
 
+import de.bitgilde.TIMAAT.service.task.api.Task;
+import de.bitgilde.TIMAAT.service.task.api.TaskState;
+import de.bitgilde.TIMAAT.service.task.api.TaskType;
+import de.bitgilde.TIMAAT.service.task.api.TranscriptionMediumPreparationTask;
+import de.bitgilde.TIMAAT.service.task.storage.TaskStateUpdater;
 import de.bitgilde.TIMAAT.service.transcription.api.GenerateTranscriptionConfiguration;
-import de.bitgilde.TIMAAT.service.transcription.stt.SpeechToTextService;
+import de.bitgilde.TIMAAT.sse.EntityUpdateEventService;
 import de.bitgilde.TIMAAT.storage.api.PagingParameter;
 import de.bitgilde.TIMAAT.storage.api.SortingParameter;
 import de.bitgilde.TIMAAT.storage.entity.transcription.TranscriptionStorage;
@@ -19,25 +24,45 @@ import java.util.logging.Logger;
  * @author Nico Kotlenga (nico@nko-dev.studio)
  * @since 12.05.26
  */
-public abstract class TranscriptionService {
+public class TranscriptionService implements TaskStateUpdater {
 
   private static final Logger logger = Logger.getLogger(TranscriptionService.class.getName());
 
   private final TranscriptionStorage transcriptionStorage;
-  private final SpeechToTextService speechToTextService;
 
   @Inject
-  public TranscriptionService(TranscriptionStorage transcriptionStorage, SpeechToTextService speechToTextService) {
+  public TranscriptionService(TranscriptionStorage transcriptionStorage, EntityUpdateEventService entityUpdateEventService) {
     this.transcriptionStorage = transcriptionStorage;
-    this.speechToTextService = speechToTextService;
 
     resumeMonitoringOfActiveTranscriptions();
   }
 
-  public void generateTranscription(GenerateTranscriptionConfiguration generateTranscriptionConfiguration) {
+  public void createTranscription(GenerateTranscriptionConfiguration generateTranscriptionConfiguration) {
 
   }
 
+  @Override
+  public TaskType getSupportedTaskType() {
+    return TaskType.TRANSCRIPTION_MEDIUM_PREPARATION;
+  }
+
+  @Override
+  public void updateTaskState(Task task, TaskState taskState) {
+    updateTranscriptionMediumPreparationTaskState((TranscriptionMediumPreparationTask) task, taskState);
+  }
+
+  public void updateTranscriptionMediumPreparationTaskState(TranscriptionMediumPreparationTask transcriptionMediumPreparationTask, TaskState taskState) {
+    logger.info("Updating transcription medium preparation task state");
+
+    TranscriptionState transcriptionState = switch (taskState) {
+      case PENDING -> TranscriptionState.WAITING_FOR_PREPARATION;
+      case RUNNING -> TranscriptionState.PREPARING;
+      case FAILED -> TranscriptionState.FAILED;
+      case DONE -> TranscriptionState.PENDING;
+    };
+
+    transcriptionStorage.updateTranscriptionsStateOfPreparationTask(transcriptionMediumPreparationTask.getMediumId(), transcriptionState);
+  }
 
 
   private void resumeMonitoringOfActiveTranscriptions() {

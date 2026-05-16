@@ -20,6 +20,7 @@ import de.bitgilde.TIMAAT.storage.entity.MediumVideoStorage;
 import de.bitgilde.TIMAAT.storage.entity.music.MusicStorage;
 import de.bitgilde.TIMAAT.storage.entity.TagStorage;
 import de.bitgilde.TIMAAT.storage.entity.segment.SegmentStructureElementsStorage;
+import de.bitgilde.TIMAAT.storage.entity.transcription.TranscriptionStorage;
 import de.bitgilde.TIMAAT.storage.file.AnnotationFileStorage;
 import de.bitgilde.TIMAAT.storage.file.AudioFileStorage;
 import de.bitgilde.TIMAAT.storage.file.ImageFileStorage;
@@ -30,7 +31,10 @@ import de.bitgilde.TIMAAT.service.task.execution.TaskExecutorFactory;
 import de.bitgilde.TIMAAT.service.task.execution.TaskExecutorService;
 import de.bitgilde.TIMAAT.service.task.storage.DbTaskStorage;
 import de.bitgilde.TIMAAT.service.task.storage.TaskStateUpdater;
+import de.bitgilde.TIMAAT.service.task.storage.TaskStateUpdaterRegistry;
 import de.bitgilde.TIMAAT.service.task.storage.TaskStorage;
+import de.bitgilde.TIMAAT.service.task.storage.TaskStorageRegistry;
+import de.bitgilde.TIMAAT.service.transcription.TranscriptionService;
 import jakarta.inject.Singleton;
 import jakarta.persistence.EntityManagerFactory;
 import jakarta.persistence.Persistence;
@@ -71,10 +75,14 @@ public class TIMAATBinder extends AbstractBinder {
             bindAsContract(FfmpegAudioEngine.class).in(Singleton.class);
             bindAsContract(FfmpegVideoEngine.class).in(Singleton.class);
 
-            bind(DbTaskStorage.class).to(TaskStateUpdater.class).to(TaskStorage.class).in(Singleton.class);
+            bind(DbTaskStorage.class).to(DbTaskStorage.class).to(TaskStorage.class).to(TaskStateUpdater.class).in(Singleton.class);
+            bindAsContract(TaskStorageRegistry.class).in(Singleton.class);
+            bindAsContract(TaskStateUpdaterRegistry.class).in(Singleton.class);
             bindAsContract(TaskExecutorFactory.class).in(Singleton.class);
             bindAsContract(TaskExecutorService.class).in(Singleton.class);
             bindAsContract(TaskService.class).in(Singleton.class);
+            bind(TranscriptionStorage.class).to(TranscriptionStorage.class).to(TaskStorage.class).in(Singleton.class);
+            bind(TranscriptionService.class).to(TranscriptionService.class).to(TaskStateUpdater.class).in(Singleton.class);
 
             bindAsContract(MusicStorage.class).in(Singleton.class);
             bindAsContract(AnnotationStorage.class).in(Singleton.class);

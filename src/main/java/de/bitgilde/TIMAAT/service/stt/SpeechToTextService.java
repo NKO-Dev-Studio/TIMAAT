@@ -1,4 +1,4 @@
-package de.bitgilde.TIMAAT.service.transcription.stt;
+package de.bitgilde.TIMAAT.service.stt;
 
 import de.bitgilde.TIMAAT.model.FIPOP.Transcription;
 import studio.nkodev.stt.client.SpeechToTextServiceClient;

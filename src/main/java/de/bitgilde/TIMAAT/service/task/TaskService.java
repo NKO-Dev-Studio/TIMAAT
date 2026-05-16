@@ -7,7 +7,7 @@ import de.bitgilde.TIMAAT.service.task.api.TranscriptionMediumPreparationTask;
 import de.bitgilde.TIMAAT.service.task.exception.TaskServiceException;
 import de.bitgilde.TIMAAT.service.task.exception.TaskStorageException;
 import de.bitgilde.TIMAAT.service.task.execution.TaskExecutorService;
-import de.bitgilde.TIMAAT.service.task.storage.TaskStorage;
+import de.bitgilde.TIMAAT.service.task.storage.TaskStorageRegistry;
 import jakarta.annotation.PreDestroy;
 import jakarta.inject.Inject;
 
@@ -42,12 +42,12 @@ import java.util.stream.Stream;
 public class TaskService {
     private static final Logger logger = Logger.getLogger(TaskService.class.getName());
 
-    private final TaskStorage taskStorage;
+    private final TaskStorageRegistry taskStorageRegistry;
     private final TaskExecutorService taskExecutorService;
 
     @Inject
-    public TaskService(TaskStorage taskStorage, TaskExecutorService taskExecutorService) throws TaskStorageException {
-        this.taskStorage = taskStorage;
+    public TaskService(TaskStorageRegistry taskStorageRegistry, TaskExecutorService taskExecutorService) throws TaskStorageException {
+        this.taskStorageRegistry = taskStorageRegistry;
         this.taskExecutorService = taskExecutorService;
 
         executeUnfinishedTasks();
@@ -63,7 +63,7 @@ public class TaskService {
 
         try {
             MediumAudioAnalysisTask mediumAudioAnalysisTask = new MediumAudioAnalysisTask(mediumId, supportedMediumType);
-            taskStorage.persistTask(mediumAudioAnalysisTask);
+            taskStorageRegistry.getTaskStorage(mediumAudioAnalysisTask.getTaskType()).persistTask(mediumAudioAnalysisTask);
             taskExecutorService.executeTask(mediumAudioAnalysisTask);
         } catch (Exception e) {
             logger.log(Level.SEVERE, "Error while trigger the execution of a medium audio analysis task", e);
@@ -82,7 +82,7 @@ public class TaskService {
 
         try {
             TranscriptionMediumPreparationTask transcriptionMediumPreparationTask = new TranscriptionMediumPreparationTask(mediumId, supportedMediumType);
-            taskStorage.persistTask(transcriptionMediumPreparationTask);
+            taskStorageRegistry.getTaskStorage(transcriptionMediumPreparationTask.getTaskType()).persistTask(transcriptionMediumPreparationTask);
             taskExecutorService.executeTask(transcriptionMediumPreparationTask);
         } catch (Exception e) {
             logger.log(Level.SEVERE, "Error while trigger the execution of a transcription medium preparation task", e);
@@ -92,7 +92,7 @@ public class TaskService {
 
     private void executeUnfinishedTasks() throws TaskStorageException {
         logger.log(Level.INFO, "Trigger execution of unfinished tasks");
-        try (Stream<? extends Task> unfinishedTasks = taskStorage.getUnfinishedTasks()) {
+        try (Stream<? extends Task> unfinishedTasks = taskStorageRegistry.getUnfinishedTasks()) {
             unfinishedTasks.forEach(taskExecutorService::executeTask);
         }
     }

@@ -2,6 +2,7 @@ package de.bitgilde.TIMAAT.service.task.storage;
 
 import de.bitgilde.TIMAAT.service.task.api.Task;
 import de.bitgilde.TIMAAT.service.task.api.TaskState;
+import de.bitgilde.TIMAAT.service.task.api.TaskType;
 
 /*
  Licensed under the Apache License, Version 2.0 (the "License");
@@ -24,6 +25,11 @@ import de.bitgilde.TIMAAT.service.task.api.TaskState;
  * @since 20.07.25
  */
 public interface TaskStateUpdater {
+
+    /**
+     * @return the {@link TaskType} which can be handled by this updater.
+     */
+    TaskType getSupportedTaskType();
 
     /**
      * Updates the {@link TaskState} of a {@link Task} to the specified value
