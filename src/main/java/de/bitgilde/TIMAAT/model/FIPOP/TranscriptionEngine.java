@@ -15,9 +15,6 @@ public class TranscriptionEngine {
   @Column(name = "engine_name")
   private String engineName;
 
-  @Column(name = "active")
-  private Boolean active;
-
   public String getEngineIdentifier() {
     return engineIdentifier;
   }
@@ -32,14 +29,6 @@ public class TranscriptionEngine {
 
   public void setEngineName(String engineName) {
     this.engineName = engineName;
-  }
-
-  public Boolean getActive() {
-    return active;
-  }
-
-  public void setActive(Boolean active) {
-    this.active = active;
   }
 
 }

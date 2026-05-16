@@ -469,17 +469,15 @@ BEGIN
         CREATE TABLE `fipop`.`transcription_engine`
         (
             `engine_identifier` VARCHAR(45) primary key,
-            `engine_name`       VARCHAR(45) not null,
-            `active`            BOOL        not null default true
+            `engine_name`       VARCHAR(45) not null
         )
             ENGINE = InnoDB;
 
         CREATE TABLE `fipop`.`transcription_model`
         (
-            `model_identifier`  VARCHAR(45) primary key,
             `engine_identifier` VARCHAR(45) not null,
-            `default`           bool        not null default false,
-            `active`            bool        not null default true,
+            `model_identifier`  VARCHAR(45) not null,
+            PRIMARY KEY (`engine_identifier`, `model_identifier`),
             CONSTRAINT `fk_transcription_model_transcription_engine`
                 FOREIGN KEY (`engine_identifier`)
                     REFERENCES `fipop`.`transcription_engine` (`engine_identifier`)
@@ -487,7 +485,6 @@ BEGIN
                     ON UPDATE NO ACTION
         )
             ENGINE = InnoDB;
-        CREATE INDEX fk_transcription_model_engine_identifier_idx ON `fipop`.`transcription_model` (engine_identifier ASC);
 
         CREATE TABLE `fipop`.`transcription_state`
         (
@@ -558,13 +555,8 @@ BEGIN
             `created_by_user_account_id`     int,
             `last_edited_by_user_account_id` int,
             CONSTRAINT `fk_transcription_transcription_model`
-                FOREIGN KEY (`model_identifier`)
-                    REFERENCES `fipop`.`transcription_model` (`model_identifier`)
-                    ON DELETE SET NULL
-                    ON UPDATE NO ACTION,
-            CONSTRAINT `fk_transcription_transcription_engine`
-                FOREIGN KEY (`engine_identifier`)
-                    REFERENCES `fipop`.`transcription_engine` (`engine_identifier`)
+                FOREIGN KEY (`engine_identifier`, `model_identifier`)
+                    REFERENCES `fipop`.`transcription_model` (`engine_identifier`, `model_identifier`)
                     ON DELETE SET NULL
                     ON UPDATE NO ACTION,
             CONSTRAINT `fk_transcription_medium`
@@ -590,8 +582,7 @@ BEGIN
                     ON UPDATE NO ACTION
         )
             ENGINE = InnoDB;
-        CREATE INDEX `fk_transcription_transcription_model_idx` on `fipop`.`transcription` (`model_identifier` ASC);
-        CREATE INDEX `fk_transcription_transcription_engine_idx` on `fipop`.`transcription` (`engine_identifier` ASC);
+        CREATE INDEX `fk_transcription_transcription_model_idx` on `fipop`.`transcription` (`engine_identifier` ASC, `model_identifier` ASC);
         CREATE INDEX `fk_transcription_transcription_medium_idx` on `fipop`.`transcription` (`medium_id` ASC);
         CREATE INDEX `fk_transcription_transcription_transcription_state_idx` on `fipop`.`transcription` (`transcription_state_id` ASC);
         CREATE INDEX `fk_transcription_transcription_transcription_type_idx` on `fipop`.`transcription` (`transcription_type_id` ASC);
@@ -602,6 +593,8 @@ BEGIN
         (
             `id`                             smallint primary key default 1,
             `auto_transcribe_uploads`        bool      not null   default false,
+            `default_engine_identifier`      VARCHAR(45),
+            `default_model_identifier`       VARCHAR(45),
             `created_at`                     timestamp not null   default CURRENT_TIMESTAMP,
             `last_edited_at`                 timestamp,
             `last_edited_by_user_account_id` int,
@@ -610,10 +603,16 @@ BEGIN
                     REFERENCES `fipop`.`user_account` (`id`)
                     ON DELETE SET NULL
                     ON UPDATE NO ACTION,
+            CONSTRAINT `fk_system_settings_default_transcription_model`
+                FOREIGN KEY (`default_engine_identifier`, `default_model_identifier`)
+                    REFERENCES `fipop`.`transcription_model` (`engine_identifier`, `model_identifier`)
+                    ON DELETE SET NULL
+                    ON UPDATE NO ACTION,
             CONSTRAINT system_settings_singleton CHECK (id = 1)
         )
             ENGINE = InnoDB;
         CREATE INDEX `fk_system_settings_user_idx` on `fipop`.`system_settings` (`last_edited_by_user_account_id` ASC);
+        CREATE INDEX `fk_system_settings_default_transcription_model_idx` on `fipop`.`system_settings` (`default_engine_identifier` ASC, `default_model_identifier` ASC);
 
         ALTER TABLE `fipop`.`medium`
             ADD COLUMN `default_transcription_id` int;

@@ -22,6 +22,7 @@ import de.bitgilde.TIMAAT.storage.entity.AudioAnalysisResultStorage;
 import de.bitgilde.TIMAAT.storage.entity.CategorySetStorage;
 import de.bitgilde.TIMAAT.storage.entity.CategoryStorage;
 import de.bitgilde.TIMAAT.storage.entity.MediumVideoStorage;
+import de.bitgilde.TIMAAT.storage.entity.SystemSettingStorage;
 import de.bitgilde.TIMAAT.storage.entity.TagStorage;
 import de.bitgilde.TIMAAT.storage.entity.actor.ActorStorage;
 import de.bitgilde.TIMAAT.storage.entity.analysislist.AnalysisListStorage;
@@ -83,6 +84,7 @@ public class TIMAATBinder extends AbstractBinder {
             bindAsContract(TaskExecutorFactory.class).in(Singleton.class);
             bindAsContract(TaskExecutorService.class).in(Singleton.class);
             bindAsContract(TaskService.class).in(Singleton.class);
+            bindAsContract(SystemSettingStorage.class).in(Singleton.class);
             bind(TranscriptionStorage.class).to(TranscriptionStorage.class).to(TaskStorage.class).in(Singleton.class);
             bind(TranscriptionService.class).to(TranscriptionService.class).to(TaskStateUpdater.class).in(Singleton.class);
 

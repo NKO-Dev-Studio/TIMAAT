@@ -21,6 +21,11 @@ public class SystemSetting {
   @Column(name = "auto_transcribe_uploads", nullable = false)
   private Boolean autoTranscribeUploads;
 
+  @ManyToOne
+  @JoinColumn(name = "default_engine_identifier", referencedColumnName = "engine_identifier")
+  @JoinColumn(name = "default_model_identifier", referencedColumnName = "model_identifier")
+  private TranscriptionModel defaultTranscriptionModel;
+
   @NotNull
   @Column(name = "created_at", nullable = false)
   private Instant createdAt;
@@ -46,6 +51,14 @@ public class SystemSetting {
 
   public void setAutoTranscribeUploads(Boolean autoTranscribeUploads) {
     this.autoTranscribeUploads = autoTranscribeUploads;
+  }
+
+  public TranscriptionModel getDefaultTranscriptionModel() {
+    return defaultTranscriptionModel;
+  }
+
+  public void setDefaultTranscriptionModel(TranscriptionModel defaultTranscriptionModel) {
+    this.defaultTranscriptionModel = defaultTranscriptionModel;
   }
 
   public Instant getCreatedAt() {

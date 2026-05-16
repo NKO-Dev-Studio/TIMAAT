@@ -55,7 +55,7 @@ The versioning of the database schema follows the following pattern:
 * Added table `transcription` which is holding information about the available transcriptions
   * Each transcription is related to one medium
 * Added column `default_transcription_id` to table `medium` defining the transcription which is currently the default transcription of that medium
-* Added tables `transcription_engine` and `transcription_model` giving information about all engines which are currently or previously usable with the connected speech-to-text infrastructure
+* Added tables `transcription_engine` and `transcription_model` keeping a historical record of every engine/model used by a transcription. Current availability is queried live from the speech-to-text-service, so these tables hold no `active` flag and no per-row default marker.
 * Added table `transcription_state` holding the difference states a transcription can have. The table `transcription_state_translation` contains the translation strings of the states
-* Added table `system_settings` containing the runtime changeable configuration parameters related to the whole TIMAAT system.
+* Added table `system_settings` containing the runtime changeable configuration parameters related to the whole TIMAAT system. Columns `default_engine_identifier` + `default_model_identifier` reference the globally configured default transcription model (nullable, cleared at startup if the model is no longer offered by the speech-to-text-service).
   ![db_update_1_0_0_transcriptions.png](img/db_update_1_0_0_transcriptions.png)

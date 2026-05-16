@@ -3,6 +3,7 @@ package de.bitgilde.TIMAAT.storage.entity.transcription;
 import de.bitgilde.TIMAAT.db.exception.DbTransactionExecutionException;
 import de.bitgilde.TIMAAT.model.FIPOP.Medium;
 import de.bitgilde.TIMAAT.model.FIPOP.Transcription;
+import de.bitgilde.TIMAAT.model.FIPOP.TranscriptionEngine;
 import de.bitgilde.TIMAAT.model.FIPOP.TranscriptionModel;
 import de.bitgilde.TIMAAT.model.FIPOP.TranscriptionModelId;
 import de.bitgilde.TIMAAT.model.FIPOP.TranscriptionState_;
@@ -88,6 +89,40 @@ public class TranscriptionStorage extends DbStorage<Transcription, Transcription
                            "update Transcription set transcriptionTaskId = :transcriptionTaskId where id = :transcriptionId")
                    .setParameter("transcriptionId", transcriptionId)
                    .setParameter("transcriptionTaskId", transcriptionTaskId).executeUpdate();
+      return Void.TYPE;
+    });
+  }
+
+  /**
+   * Inserts a {@link TranscriptionEngine} row for the given identifier if none exists yet. The DB
+   * tables for engines and models keep a historical record of every engine/model used in a
+   * transcription; live availability is queried from the speech-to-text-service.
+   */
+  public void upsertEngine(String engineIdentifier, String engineName) {
+    executeDbTransaction(entityManager -> {
+      if (entityManager.find(TranscriptionEngine.class, engineIdentifier) == null) {
+        TranscriptionEngine engine = new TranscriptionEngine();
+        engine.setEngineIdentifier(engineIdentifier);
+        engine.setEngineName(engineName);
+        entityManager.persist(engine);
+      }
+      return Void.TYPE;
+    });
+  }
+
+  /**
+   * Inserts a {@link TranscriptionModel} row for the given engine/model pair if none exists yet.
+   */
+  public void upsertModel(String engineIdentifier, String modelIdentifier) {
+    executeDbTransaction(entityManager -> {
+      TranscriptionModelId modelId = new TranscriptionModelId();
+      modelId.setEngineIdentifier(engineIdentifier);
+      modelId.setModelIdentifier(modelIdentifier);
+      if (entityManager.find(TranscriptionModel.class, modelId) == null) {
+        TranscriptionModel model = new TranscriptionModel();
+        model.setId(modelId);
+        entityManager.persist(model);
+      }
       return Void.TYPE;
     });
   }
