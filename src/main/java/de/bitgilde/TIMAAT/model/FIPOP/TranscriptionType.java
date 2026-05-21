@@ -16,7 +16,7 @@ public class TranscriptionType {
   private Integer id;
 
   @OneToMany(mappedBy = "transcriptionType")
-  private Set<TranscriptionStateTranslation> transcriptionTypeTranslations;
+  private Set<TranscriptionTypeTranslation> transcriptionTypeTranslations;
 
   public Integer getId() {
     return id;
@@ -26,11 +26,11 @@ public class TranscriptionType {
     this.id = id;
   }
 
-  public Set<TranscriptionStateTranslation> getTranscriptionTypeTranslations() {
+  public Set<TranscriptionTypeTranslation> getTranscriptionTypeTranslations() {
     return transcriptionTypeTranslations;
   }
 
-  public void setTranscriptionTypeTranslations(Set<TranscriptionStateTranslation> transcriptionTypeTranslations) {
+  public void setTranscriptionTypeTranslations(Set<TranscriptionTypeTranslation> transcriptionTypeTranslations) {
     this.transcriptionTypeTranslations = transcriptionTypeTranslations;
   }
 }

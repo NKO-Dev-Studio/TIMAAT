@@ -19,8 +19,8 @@ import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.ext.Provider;
 
+import javax.crypto.SecretKey;
 import java.io.IOException;
-import java.security.Key;
 
 /*
  Licensed under the Apache License, Version 2.0 (the "License");
@@ -146,10 +146,10 @@ public class AuthenticationFilter implements ContainerRequestFilter {
     if (token.equals("null") || token == null) return null;
     // Check if the token was issued by the server and if it's not expired
     // Throw an Exception if the token is invalid
-    Key key = TIMAATKeyGenerator.generateKey();
+    SecretKey key = TIMAATKeyGenerator.generateKey();
     String username = "";
       try {
-        username = Jwts.parserBuilder().setSigningKey(key).build().parseClaimsJws(token).getBody().getSubject();
+        username = Jwts.parser().decryptWith(key).build().parseSignedClaims(token).getPayload().getSubject();
       } catch (JwtException e) {
         e.printStackTrace();
       } catch (Exception e) {
@@ -160,7 +160,7 @@ public class AuthenticationFilter implements ContainerRequestFilter {
 
   public static Boolean isTokenValid(String token) {
       try {
-        Jws<Claims> jws = Jwts.parserBuilder().setSigningKey(TIMAATKeyGenerator.generateKey()).build().parseClaimsJws(token);
+        Jws<Claims> jws = Jwts.parser().decryptWith(TIMAATKeyGenerator.generateKey()).build().parseSignedClaims(token);
       } catch (JwtException e) {
           e.printStackTrace();
           return false;
@@ -169,10 +169,10 @@ public class AuthenticationFilter implements ContainerRequestFilter {
   }
 
   public static int getTokenClaimUserId(String token) {
-      Key key = TIMAATKeyGenerator.generateKey();
+      SecretKey key = TIMAATKeyGenerator.generateKey();
       Claims claims = null;
       try {
-          claims = Jwts.parserBuilder().setSigningKey(key).build().parseClaimsJws(token).getBody();
+          claims = Jwts.parser().decryptWith(key).build().parseSignedClaims(token).getPayload();
       } catch(InvalidClaimException ice) {
         ice.printStackTrace();
       }

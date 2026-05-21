@@ -1,5 +1,7 @@
 package de.bitgilde.TIMAAT.service.transcription;
 
+import de.bitgilde.TIMAAT.PropertyConstants;
+import de.bitgilde.TIMAAT.PropertyManagement;
 import de.bitgilde.TIMAAT.model.FIPOP.Transcription;
 import de.bitgilde.TIMAAT.model.FIPOP.TranscriptionModel;
 import de.bitgilde.TIMAAT.service.task.TaskService;
@@ -30,6 +32,12 @@ import studio.nkodev.stt.client.api.SpeechToTextEngine;
 import studio.nkodev.stt.client.api.SpeechToTextEngineOutputFormat;
 import studio.nkodev.stt.client.api.SpeechToTextTaskState;
 import studio.nkodev.stt.client.api.SpeechToTextTaskStateConsumer;
+import studio.nkodev.stt.client.config.SpeechToTextServiceClientAuthenticationConfigurationBuilder;
+import studio.nkodev.stt.client.config.SpeechToTextServiceClientConfiguration;
+import studio.nkodev.stt.client.config.SpeechToTextServiceClientConfigurationBuilder;
+import studio.nkodev.stt.client.config.SpeechToTextTransferConfiguration;
+import studio.nkodev.stt.client.config.SpeechToTextTransferConfigurationFactory;
+import studio.nkodev.stt.client.config.SpeechToTextTransferType;
 
 import java.nio.file.Path;
 import java.util.Collection;
@@ -61,18 +69,75 @@ public class TranscriptionService implements TaskStateUpdater, SpeechToTextTaskS
   private final TranscriptionFileStorage transcriptionFileStorage;
 
   @Inject
-  public TranscriptionService(TranscriptionStorage transcriptionStorage, SystemSettingStorage systemSettingStorage, AudioFileStorage audioFileStorage, VideoFileStorage videoFileStorage, TaskService taskService, SpeechToTextServiceClient speechToTextServiceClient, TemporaryFileStorage temporaryFileStorage, TranscriptionFileStorage transcriptionFileStorage) {
+  public TranscriptionService(TranscriptionStorage transcriptionStorage, SystemSettingStorage systemSettingStorage, AudioFileStorage audioFileStorage, VideoFileStorage videoFileStorage, TaskService taskService, TemporaryFileStorage temporaryFileStorage, TranscriptionFileStorage transcriptionFileStorage, PropertyManagement propertyManagement) {
     this.transcriptionStorage = transcriptionStorage;
     this.systemSettingStorage = systemSettingStorage;
     this.audioFileStorage = audioFileStorage;
     this.videoFileStorage = videoFileStorage;
     this.taskService = taskService;
-    this.speechToTextServiceClient = speechToTextServiceClient;
     this.temporaryFileStorage = temporaryFileStorage;
     this.transcriptionFileStorage = transcriptionFileStorage;
 
+    this.speechToTextServiceClient = initSpeechToTextServiceClient(propertyManagement);
     resumeMonitoringOfActiveTranscriptions();
     verifyDefaultModelStillAvailable();
+  }
+
+  private SpeechToTextServiceClient initSpeechToTextServiceClient(PropertyManagement propertyManagement) {
+    logger.info("Initializing SpeechToTextServiceClient");
+
+    String sttHost = propertyManagement.getProp(PropertyConstants.SPEECH_TO_TEXT_HOST);
+    int sttPort = Integer.parseInt(propertyManagement.getProp(PropertyConstants.SPEECH_TO_TEXT_PORT));
+    SpeechToTextTransferType transferType = SpeechToTextTransferType.valueOf(
+            propertyManagement.getProp(PropertyConstants.SPEECH_TO_TEXT_TRANSFER_TYPE));
+    Path trustedServerCertificatePath = Path.of(
+            propertyManagement.getProp(PropertyConstants.SPEECH_TO_TEXT_TRUSTED_SERVER_CERTIFICATE_PATH));
+    boolean authEnabled = Boolean.parseBoolean(
+            propertyManagement.getProp(PropertyConstants.SPEECH_TO_TEXT_AUTH_ENABLED));
+
+
+    SpeechToTextTransferConfiguration audioFileTransferConfiguration;
+    SpeechToTextTransferConfiguration resultTransferConfiguration;
+
+    if (SpeechToTextTransferType.STREAMING.equals(transferType)) {
+      audioFileTransferConfiguration = SpeechToTextTransferConfigurationFactory.streaming();
+      resultTransferConfiguration = SpeechToTextTransferConfigurationFactory.streaming();
+    }
+    else {
+      Path sharedAudio = Path.of(
+              propertyManagement.getProp(PropertyConstants.SPEECH_TO_TEXT_TRANSFER_SHARED_AUDIO_STORAGE_PATH));
+      Path sharedResult = Path.of(
+              propertyManagement.getProp(PropertyConstants.SPEECH_TO_TEXT_TRANSFER_SHARED_RESULT_STORAGE_PATH));
+
+      audioFileTransferConfiguration = SpeechToTextTransferConfigurationFactory.sharedStorage(sharedAudio);
+      resultTransferConfiguration = SpeechToTextTransferConfigurationFactory.sharedStorage(sharedResult);
+    }
+
+    SpeechToTextServiceClientConfigurationBuilder configurationBuilder = new SpeechToTextServiceClientConfigurationBuilder(
+            sttHost, sttPort, trustedServerCertificatePath, audioFileTransferConfiguration,
+            resultTransferConfiguration);
+
+    if (authEnabled) {
+      logger.log(Level.INFO, "Initialize SpeechToTextServiceClient with authentication");
+
+      Path authCertificatePath = Path.of(
+              propertyManagement.getProp(PropertyConstants.SPEECH_TO_TEXT_AUTH_CERTIFICATE_PATH));
+      Path authPrivateKeyPath = Path.of(
+              propertyManagement.getProp(PropertyConstants.SPEECH_TO_TEXT_AUTH_PRIVATE_KEY_PATH));
+
+      SpeechToTextServiceClientAuthenticationConfigurationBuilder authenticationConfigurationBuilder = new SpeechToTextServiceClientAuthenticationConfigurationBuilder(
+              authCertificatePath, authPrivateKeyPath);
+      String authPrivateKeyPassword = propertyManagement.getProp(
+              PropertyConstants.SPEECH_TO_TEXT_AUTH_PRIVATE_KEY_PASSWORD);
+      if (authPrivateKeyPassword != null && !authPrivateKeyPassword.isEmpty()) {
+        authenticationConfigurationBuilder.privateKeyPassword(authPrivateKeyPassword);
+      }
+
+      configurationBuilder.authenticationConfiguration(authenticationConfigurationBuilder.build());
+    }
+
+    SpeechToTextServiceClientConfiguration configuration = configurationBuilder.build();
+    return new SpeechToTextServiceClient(configuration);
   }
 
   /**
@@ -80,11 +145,8 @@ public class TranscriptionService implements TaskStateUpdater, SpeechToTextTaskS
    */
   public Collection<TranscriptionEngineCapabilities> getAvailableEngineCapabilities() {
     return speechToTextServiceClient.getAvailableEngines().stream()
-        .map(engine -> new TranscriptionEngineCapabilities(
-            engine.engineIdentifier(),
-            engine.engineName(),
-            List.copyOf(engine.modelIdentifiers())))
-        .toList();
+                                    .map(engine -> new TranscriptionEngineCapabilities(engine.engineIdentifier(),
+                                            engine.engineName(), List.copyOf(engine.modelIdentifiers()))).toList();
   }
 
   public void createTranscription(GenerateTranscriptionConfiguration generateTranscriptionConfiguration) {
@@ -128,14 +190,14 @@ public class TranscriptionService implements TaskStateUpdater, SpeechToTextTaskS
 
   private SpeechToTextEngine validateAndUpsertEngineModel(String engineIdentifier, String modelIdentifier) {
     SpeechToTextEngine engine = speechToTextServiceClient.getAvailableEngines().stream()
-        .filter(candidate -> candidate.engineIdentifier().equals(engineIdentifier))
-        .findFirst()
-        .orElseThrow(() -> new IllegalArgumentException(
-            "Engine '" + engineIdentifier + "' is not provided by the connected speech-to-text-service"));
+                                                         .filter(candidate -> candidate.engineIdentifier()
+                                                                                       .equals(engineIdentifier))
+                                                         .findFirst().orElseThrow(() -> new IllegalArgumentException(
+                    "Engine '" + engineIdentifier + "' is not provided by the connected speech-to-text-service"));
 
     if (!engine.modelIdentifiers().contains(modelIdentifier)) {
       throw new IllegalArgumentException(
-          "Model '" + modelIdentifier + "' is not provided by engine '" + engineIdentifier + "'");
+              "Model '" + modelIdentifier + "' is not provided by engine '" + engineIdentifier + "'");
     }
 
     transcriptionStorage.upsertEngine(engineIdentifier, engine.engineName());
@@ -145,7 +207,8 @@ public class TranscriptionService implements TaskStateUpdater, SpeechToTextTaskS
   }
 
   private void startTranscriptionTask(int transcriptionId, Path monoFile, String engineIdentifier, String modelIdentifier) {
-    long sttTaskId = speechToTextServiceClient.startSpeechToTextTask(monoFile, engineIdentifier, modelIdentifier, engineOutputFormat);
+    long sttTaskId = speechToTextServiceClient.startSpeechToTextTask(monoFile, engineIdentifier, modelIdentifier,
+            engineOutputFormat);
     transcriptionStorage.updateTranscriptionTaskId(transcriptionId, sttTaskId);
     speechToTextServiceClient.observeTask(sttTaskId, this);
   }
@@ -170,27 +233,33 @@ public class TranscriptionService implements TaskStateUpdater, SpeechToTextTaskS
       case DONE -> TranscriptionState.PENDING;
     };
 
-    Collection<Transcription> transcriptions = transcriptionStorage.updateTranscriptionsStateOfPreparationTask(transcriptionMediumPreparationTask.getMediumId(),
-            transcriptionState);
+    Collection<Transcription> transcriptions = transcriptionStorage.updateTranscriptionsStateOfPreparationTask(
+            transcriptionMediumPreparationTask.getMediumId(), transcriptionState);
 
-    if(TranscriptionState.PENDING.equals(transcriptionState)) {
-      SupportedMediumType supportedMediumType = transcriptionStorage.determineSupportedMediumType(transcriptionMediumPreparationTask.getMediumId());
+    if (TranscriptionState.PENDING.equals(transcriptionState)) {
+      SupportedMediumType supportedMediumType = transcriptionStorage.determineSupportedMediumType(
+              transcriptionMediumPreparationTask.getMediumId());
       AudioContainingMediumFileStorage audioContainingMediumFileStorage = getFileStorage(supportedMediumType);
-      Optional<Path> monoAudioFile = audioContainingMediumFileStorage.getPathToAudioMonoFile(transcriptionMediumPreparationTask.getMediumId());
+      Optional<Path> monoAudioFile = audioContainingMediumFileStorage.getPathToAudioMonoFile(
+              transcriptionMediumPreparationTask.getMediumId());
 
-      if(monoAudioFile.isPresent()){
-        for(Transcription transcription : transcriptions){
-          try{
+      if (monoAudioFile.isPresent()) {
+        for (Transcription transcription : transcriptions) {
+          try {
             String engineIdentifier = transcription.getTranscriptionModel().getId().getEngineIdentifier();
             String modelIdentifier = transcription.getTranscriptionModel().getId().getModelIdentifier();
             startTranscriptionTask(transcription.getId(), monoAudioFile.get(), engineIdentifier, modelIdentifier);
-          }catch (Exception e){
-            logger.log(Level.SEVERE, "Error while creating transcription task for transcription {0}. Reason: {1}", new Object[]{transcription.getId(), e});
+          } catch (Exception e) {
+            logger.log(Level.SEVERE, "Error while creating transcription task for transcription {0}. Reason: {1}",
+                    new Object[]{transcription.getId(), e});
           }
         }
-      }else {
-        logger.log(Level.SEVERE, "No mono audio file found for medium {0}. Cannot start transcription task", transcriptionMediumPreparationTask.getMediumId());
-        transcriptions.forEach(transcription -> transcriptionStorage.updateTranscriptionState(transcription.getId(), TranscriptionState.FAILED));
+      }
+      else {
+        logger.log(Level.SEVERE, "No mono audio file found for medium {0}. Cannot start transcription task",
+                transcriptionMediumPreparationTask.getMediumId());
+        transcriptions.forEach(transcription -> transcriptionStorage.updateTranscriptionState(transcription.getId(),
+                TranscriptionState.FAILED));
       }
     }
   }
@@ -214,13 +283,14 @@ public class TranscriptionService implements TaskStateUpdater, SpeechToTextTaskS
       String modelIdentifier = defaultModel.get().getId().getModelIdentifier();
 
       boolean stillAvailable = speechToTextServiceClient.getAvailableEngines().stream()
-          .filter(engine -> engine.engineIdentifier().equals(engineIdentifier))
-          .anyMatch(engine -> engine.modelIdentifiers().contains(modelIdentifier));
+                                                        .filter(engine -> engine.engineIdentifier()
+                                                                                .equals(engineIdentifier)).anyMatch(
+                      engine -> engine.modelIdentifiers().contains(modelIdentifier));
 
       if (!stillAvailable) {
         logger.log(Level.WARNING,
-            "Default transcription model {0}/{1} is no longer provided by the speech-to-text-service. Clearing default.",
-            new Object[]{engineIdentifier, modelIdentifier});
+                "Default transcription model {0}/{1} is no longer provided by the speech-to-text-service. Clearing default.",
+                new Object[]{engineIdentifier, modelIdentifier});
         systemSettingStorage.clearDefaultTranscriptionModel();
       }
     } catch (Exception e) {
@@ -240,8 +310,7 @@ public class TranscriptionService implements TaskStateUpdater, SpeechToTextTaskS
       else {
         logger.log(Level.WARNING, "Found pending transcription without task id. Transcription id: {0}",
                 transcription.getId());
-        transcriptionStorage.updateTranscriptionState(transcription.getId(),
-                TranscriptionState.FAILED);
+        transcriptionStorage.updateTranscriptionState(transcription.getId(), TranscriptionState.FAILED);
       }
     });
   }

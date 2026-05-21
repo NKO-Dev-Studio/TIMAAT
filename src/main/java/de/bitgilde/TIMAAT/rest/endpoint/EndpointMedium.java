@@ -99,6 +99,7 @@ import org.glassfish.jersey.media.multipart.FormDataParam;
 import org.json.JSONObject;
 import org.jvnet.hk2.annotations.Service;
 
+import javax.crypto.SecretKey;
 import javax.imageio.ImageIO;
 import javax.imageio.ImageReader;
 import javax.imageio.stream.FileImageInputStream;
@@ -4463,8 +4464,8 @@ public class EndpointMedium {
     // Check if the token was issued by the server and if it's not expired
     // Throw an Exception if the token is invalid
 
-    Key key = TIMAATKeyGenerator.generateKey();
-    int mediumID = Jwts.parserBuilder().setSigningKey(key).build().parseClaimsJws(token).getBody()
+    SecretKey key = TIMAATKeyGenerator.generateKey();
+    int mediumID = Jwts.parser().decryptWith(key).build().parseSignedClaims(token).getPayload()
                        .get("file", Integer.class);
 
     return mediumID;

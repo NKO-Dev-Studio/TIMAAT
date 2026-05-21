@@ -12,7 +12,7 @@ import jakarta.websocket.OnOpen;
 import jakarta.websocket.Session;
 import jakarta.websocket.server.ServerEndpoint;
 
-import java.security.Key;
+import javax.crypto.SecretKey;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -151,8 +151,8 @@ public class NotificationWebSocket {
     private String validateRequestToken(String token) {
     	String username = null;
     	try {
-    		Key key = TIMAATKeyGenerator.generateKey();
-    		username = Jwts.parserBuilder().setSigningKey(key).build().parseClaimsJws(token).getBody().getSubject();
+    		SecretKey key = TIMAATKeyGenerator.generateKey();
+    		username = Jwts.parser().decryptWith(key).build().parseSignedClaims(token).getPayload().getSubject();
     	} catch (JwtException e) {
 				e.printStackTrace();
     		return null;
