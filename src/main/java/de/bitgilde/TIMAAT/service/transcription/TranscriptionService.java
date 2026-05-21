@@ -13,9 +13,11 @@ import de.bitgilde.TIMAAT.service.task.api.TranscriptionMediumPreparationTask;
 import de.bitgilde.TIMAAT.service.task.storage.TaskStateUpdater;
 import de.bitgilde.TIMAAT.service.transcription.api.GenerateTranscriptionConfiguration;
 import de.bitgilde.TIMAAT.service.transcription.api.TranscriptionEngineCapabilities;
+import de.bitgilde.TIMAAT.service.transcription.exception.TranscriptionServiceException;
 import de.bitgilde.TIMAAT.storage.api.PagingParameter;
 import de.bitgilde.TIMAAT.storage.api.SortingParameter;
 import de.bitgilde.TIMAAT.storage.entity.SystemSettingStorage;
+import de.bitgilde.TIMAAT.storage.entity.medium.MediumStorage;
 import de.bitgilde.TIMAAT.storage.entity.transcription.TranscriptionStorage;
 import de.bitgilde.TIMAAT.storage.entity.transcription.api.TranscriptionFilterCriteria;
 import de.bitgilde.TIMAAT.storage.entity.transcription.api.TranscriptionState;
@@ -68,9 +70,10 @@ public class TranscriptionService implements TaskStateUpdater, SpeechToTextTaskS
   private final SpeechToTextServiceClient speechToTextServiceClient;
   private final TemporaryFileStorage temporaryFileStorage;
   private final TranscriptionFileStorage transcriptionFileStorage;
+  private final MediumStorage mediumStorage;
 
   @Inject
-  public TranscriptionService(TranscriptionStorage transcriptionStorage, SystemSettingStorage systemSettingStorage, AudioFileStorage audioFileStorage, VideoFileStorage videoFileStorage, Provider<TaskService> taskServiceProvider, TemporaryFileStorage temporaryFileStorage, TranscriptionFileStorage transcriptionFileStorage, PropertyManagement propertyManagement) {
+  public TranscriptionService(TranscriptionStorage transcriptionStorage, SystemSettingStorage systemSettingStorage, AudioFileStorage audioFileStorage, VideoFileStorage videoFileStorage, Provider<TaskService> taskServiceProvider, TemporaryFileStorage temporaryFileStorage, TranscriptionFileStorage transcriptionFileStorage, MediumStorage mediumStorage, PropertyManagement propertyManagement) {
     this.transcriptionStorage = transcriptionStorage;
     this.systemSettingStorage = systemSettingStorage;
     this.audioFileStorage = audioFileStorage;
@@ -78,6 +81,7 @@ public class TranscriptionService implements TaskStateUpdater, SpeechToTextTaskS
     this.taskServiceProvider = taskServiceProvider;
     this.temporaryFileStorage = temporaryFileStorage;
     this.transcriptionFileStorage = transcriptionFileStorage;
+    this.mediumStorage = mediumStorage;
 
     this.speechToTextServiceClient = initSpeechToTextServiceClient(propertyManagement);
     resumeMonitoringOfActiveTranscriptions();
@@ -151,12 +155,24 @@ public class TranscriptionService implements TaskStateUpdater, SpeechToTextTaskS
                                             engine.engineName(), List.copyOf(engine.modelIdentifiers()))).toList();
   }
 
-  public void createTranscription(GenerateTranscriptionConfiguration generateTranscriptionConfiguration) {
+  /**
+   * Creates a new transcription for the medium described by the given configuration. If the medium is already prepared
+   * (i.e. a mono audio file exists), a speech-to-text task is started immediately. Otherwise the transcription is
+   * persisted in {@link TranscriptionState#WAITING_FOR_PREPARATION} and a preparation task is scheduled; the
+   * speech-to-text task is then started once preparation completes.
+   *
+   * @param generateTranscriptionConfiguration configuration describing the medium and the engine/model to use
+   * @throws IllegalArgumentException      if the requested engine is not offered by the connected speech-to-text-service
+   *                                       or the requested model is not provided by that engine
+   * @throws TranscriptionServiceException if the transcription could not be created (e.g. underlying task scheduling
+   *                                       or storage access failed)
+   */
+  public void createTranscription(GenerateTranscriptionConfiguration generateTranscriptionConfiguration) throws TranscriptionServiceException {
     int mediumId = generateTranscriptionConfiguration.mediumId();
     String engineIdentifier = generateTranscriptionConfiguration.engineIdentifier();
     String modelIdentifier = generateTranscriptionConfiguration.modelIdentifier();
 
-    SpeechToTextEngine engine = validateAndUpsertEngineModel(engineIdentifier, modelIdentifier);
+    validateAndUpsertEngineModel(engineIdentifier, modelIdentifier);
 
     SupportedMediumType supportedMediumType = transcriptionStorage.determineSupportedMediumType(mediumId);
     AudioContainingMediumFileStorage fileStorage = getFileStorage(supportedMediumType);
@@ -186,8 +202,24 @@ public class TranscriptionService implements TaskStateUpdater, SpeechToTextTaskS
         transcriptionStorage.updateTranscriptionState(createdTranscription.getId(), TranscriptionState.FAILED);
       }
       verifyDefaultModelStillAvailable();
+      throw new TranscriptionServiceException("Failed to create transcription for medium " + mediumId, e);
     }
+    trySetTranscriptionAsDefaultOfMedium(mediumId, createdTranscription.getId());
+  }
 
+  private void trySetTranscriptionAsDefaultOfMedium(int mediumId, int transcriptionId) {
+    try {
+      boolean updated = mediumStorage.setDefaultTranscriptionIfAbsent(mediumId, transcriptionId);
+      if (updated) {
+        logger.log(Level.FINE, "Set transcription {0} as default for medium {1}",
+                new Object[]{transcriptionId, mediumId});
+      }
+    } catch (Exception e) {
+      logger.log(Level.WARNING,
+              "Could not set transcription {0} as default for medium {1}; transcription creation will not be failed",
+              new Object[]{transcriptionId, mediumId});
+      logger.log(Level.WARNING, "Reason", e);
+    }
   }
 
   private SpeechToTextEngine validateAndUpsertEngineModel(String engineIdentifier, String modelIdentifier) {
@@ -335,6 +367,7 @@ public class TranscriptionService implements TaskStateUpdater, SpeechToTextTaskS
         speechToTextServiceClient.saveResultsOfTask(taskId, temporaryFile.getTemporaryFilePath());
         transcriptionFileStorage.persistTranscription(temporaryFile.getTemporaryFilePath(),
                 relatedTranscriptionId.get());
+        transcriptionStorage.updateTranscriptionState(relatedTranscriptionId.get(), TranscriptionState.COMPLETED);
       } catch (Exception e) {
         logger.log(Level.SEVERE, "Error while handling speech to text task completion", e);
         transcriptionStorage.updateTranscriptionState(relatedTranscriptionId.get(), TranscriptionState.FAILED);

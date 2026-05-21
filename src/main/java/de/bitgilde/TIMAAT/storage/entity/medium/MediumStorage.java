@@ -12,6 +12,7 @@ import de.bitgilde.TIMAAT.model.FIPOP.MediumHasMusicDetail;
 import de.bitgilde.TIMAAT.model.FIPOP.Medium_;
 import de.bitgilde.TIMAAT.model.FIPOP.Music;
 import de.bitgilde.TIMAAT.model.FIPOP.Title_;
+import de.bitgilde.TIMAAT.model.FIPOP.Transcription;
 import de.bitgilde.TIMAAT.model.FIPOP.UserAccount;
 import de.bitgilde.TIMAAT.model.TimeRange;
 import de.bitgilde.TIMAAT.storage.db.DbStorage;
@@ -59,6 +60,31 @@ public class MediumStorage extends DbStorage<Medium, MediumFilterCriteria, Mediu
   @Inject
   public MediumStorage(EntityManagerFactory emf) {
     super(Medium.class, MediumSortingField.ID, emf);
+  }
+
+  /**
+   * Sets the given {@link Transcription} as the default transcription of the medium identified by
+   * {@code mediumId}, but only if the medium currently has no default transcription assigned. The
+   * update is performed atomically as a single conditional {@code UPDATE} statement.
+   *
+   * @param mediumId        identifies the {@link Medium} whose default transcription should be set
+   * @param transcriptionId identifies the {@link Transcription} to set as default
+   * @return {@code true} if this call set the default transcription, {@code false} if a default
+   *         was already present or no matching medium exists
+   */
+  public boolean setDefaultTranscriptionIfAbsent(int mediumId, int transcriptionId) {
+    logger.log(Level.FINE, "Setting transcription {0} as default for medium {1} if no default is present",
+            new Object[]{transcriptionId, mediumId});
+    return executeDbTransaction(entityManager -> {
+      Transcription transcription = entityManager.getReference(Transcription.class, transcriptionId);
+      int updated = entityManager.createQuery(
+              "UPDATE Medium m SET m.defaultTranscription = :transcription " +
+                      "WHERE m.id = :mediumId AND m.defaultTranscription IS NULL")
+              .setParameter("transcription", transcription)
+              .setParameter("mediumId", mediumId)
+              .executeUpdate();
+      return updated == 1;
+    });
   }
 
   public List<MediumHasMusic> updateMediumHasMusicList(int mediumId, Map<Integer, Collection<TimeRange>> timeRangesByMusicId) {
