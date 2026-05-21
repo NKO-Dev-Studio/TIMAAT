@@ -27,6 +27,7 @@ import de.bitgilde.TIMAAT.storage.file.TemporaryFileStorage.TemporaryFile;
 import de.bitgilde.TIMAAT.storage.file.TranscriptionFileStorage;
 import de.bitgilde.TIMAAT.storage.file.VideoFileStorage;
 import jakarta.inject.Inject;
+import jakarta.inject.Provider;
 import studio.nkodev.stt.client.SpeechToTextServiceClient;
 import studio.nkodev.stt.client.api.SpeechToTextEngine;
 import studio.nkodev.stt.client.api.SpeechToTextEngineOutputFormat;
@@ -63,18 +64,18 @@ public class TranscriptionService implements TaskStateUpdater, SpeechToTextTaskS
   private final SystemSettingStorage systemSettingStorage;
   private final AudioFileStorage audioFileStorage;
   private final VideoFileStorage videoFileStorage;
-  private final TaskService taskService;
+  private final Provider<TaskService> taskServiceProvider;
   private final SpeechToTextServiceClient speechToTextServiceClient;
   private final TemporaryFileStorage temporaryFileStorage;
   private final TranscriptionFileStorage transcriptionFileStorage;
 
   @Inject
-  public TranscriptionService(TranscriptionStorage transcriptionStorage, SystemSettingStorage systemSettingStorage, AudioFileStorage audioFileStorage, VideoFileStorage videoFileStorage, TaskService taskService, TemporaryFileStorage temporaryFileStorage, TranscriptionFileStorage transcriptionFileStorage, PropertyManagement propertyManagement) {
+  public TranscriptionService(TranscriptionStorage transcriptionStorage, SystemSettingStorage systemSettingStorage, AudioFileStorage audioFileStorage, VideoFileStorage videoFileStorage, Provider<TaskService> taskServiceProvider, TemporaryFileStorage temporaryFileStorage, TranscriptionFileStorage transcriptionFileStorage, PropertyManagement propertyManagement) {
     this.transcriptionStorage = transcriptionStorage;
     this.systemSettingStorage = systemSettingStorage;
     this.audioFileStorage = audioFileStorage;
     this.videoFileStorage = videoFileStorage;
-    this.taskService = taskService;
+    this.taskServiceProvider = taskServiceProvider;
     this.temporaryFileStorage = temporaryFileStorage;
     this.transcriptionFileStorage = transcriptionFileStorage;
 
@@ -82,6 +83,7 @@ public class TranscriptionService implements TaskStateUpdater, SpeechToTextTaskS
     resumeMonitoringOfActiveTranscriptions();
     verifyDefaultModelStillAvailable();
   }
+
 
   private SpeechToTextServiceClient initSpeechToTextServiceClient(PropertyManagement propertyManagement) {
     logger.info("Initializing SpeechToTextServiceClient");
@@ -175,7 +177,7 @@ public class TranscriptionService implements TaskStateUpdater, SpeechToTextTaskS
                 mediumId);
         createdTranscription = transcriptionStorage.createTranscription(mediumId, engineIdentifier, modelIdentifier,
                 TranscriptionState.WAITING_FOR_PREPARATION);
-        taskService.executeTranscriptionMediumPreparationTask(mediumId, supportedMediumType);
+        taskServiceProvider.get().executeTranscriptionMediumPreparationTask(mediumId, supportedMediumType);
       }
     } catch (Exception e) {
       logger.log(Level.SEVERE, "Error while creating transcription for medium {0}. Reason: {1}",
