@@ -52,6 +52,20 @@ public class TranscriptionFileStorage {
     return Optional.empty();
   }
 
+  /**
+   * Removes the transcription file backing the given {@code transcriptionId}. Missing files are
+   * tolerated; only IO-level failures propagate.
+   *
+   * @param transcriptionId identifies the transcription whose file should be removed
+   * @return {@code true} if a file was removed, {@code false} if none existed
+   * @throws IOException if the file exists but could not be removed
+   */
+  public boolean deleteTranscription(int transcriptionId) throws IOException {
+    logger.log(Level.FINE, "Deleting transcription file having id {0}", transcriptionId);
+    Path transcriptionFilePath = createTranscriptionPath(transcriptionId);
+    return Files.deleteIfExists(transcriptionFilePath);
+  }
+
   private Path createTranscriptionPath(int transcriptionId) {
     return transcriptionStoragePath.resolve(transcriptionId + ".srt");
   }

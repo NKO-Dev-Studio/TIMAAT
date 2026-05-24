@@ -13,6 +13,7 @@ import de.bitgilde.TIMAAT.service.task.api.TranscriptionMediumPreparationTask;
 import de.bitgilde.TIMAAT.service.task.storage.TaskStateUpdater;
 import de.bitgilde.TIMAAT.service.transcription.api.GenerateTranscriptionConfiguration;
 import de.bitgilde.TIMAAT.service.transcription.api.TranscriptionEngineCapabilities;
+import de.bitgilde.TIMAAT.service.transcription.exception.TranscriptionNotFoundException;
 import de.bitgilde.TIMAAT.service.transcription.exception.TranscriptionServiceException;
 import de.bitgilde.TIMAAT.storage.api.PagingParameter;
 import de.bitgilde.TIMAAT.storage.api.SortingParameter;
@@ -74,6 +75,12 @@ public class TranscriptionService implements TaskStateUpdater, SpeechToTextTaskS
 
   @Inject
   public TranscriptionService(TranscriptionStorage transcriptionStorage, SystemSettingStorage systemSettingStorage, AudioFileStorage audioFileStorage, VideoFileStorage videoFileStorage, Provider<TaskService> taskServiceProvider, TemporaryFileStorage temporaryFileStorage, TranscriptionFileStorage transcriptionFileStorage, MediumStorage mediumStorage, PropertyManagement propertyManagement) {
+    this(transcriptionStorage, systemSettingStorage, audioFileStorage, videoFileStorage, taskServiceProvider,
+            temporaryFileStorage, transcriptionFileStorage, mediumStorage,
+            initSpeechToTextServiceClient(propertyManagement));
+  }
+
+  TranscriptionService(TranscriptionStorage transcriptionStorage, SystemSettingStorage systemSettingStorage, AudioFileStorage audioFileStorage, VideoFileStorage videoFileStorage, Provider<TaskService> taskServiceProvider, TemporaryFileStorage temporaryFileStorage, TranscriptionFileStorage transcriptionFileStorage, MediumStorage mediumStorage, SpeechToTextServiceClient speechToTextServiceClient) {
     this.transcriptionStorage = transcriptionStorage;
     this.systemSettingStorage = systemSettingStorage;
     this.audioFileStorage = audioFileStorage;
@@ -82,14 +89,14 @@ public class TranscriptionService implements TaskStateUpdater, SpeechToTextTaskS
     this.temporaryFileStorage = temporaryFileStorage;
     this.transcriptionFileStorage = transcriptionFileStorage;
     this.mediumStorage = mediumStorage;
+    this.speechToTextServiceClient = speechToTextServiceClient;
 
-    this.speechToTextServiceClient = initSpeechToTextServiceClient(propertyManagement);
     resumeMonitoringOfActiveTranscriptions();
     verifyDefaultModelStillAvailable();
   }
 
 
-  private SpeechToTextServiceClient initSpeechToTextServiceClient(PropertyManagement propertyManagement) {
+  private static SpeechToTextServiceClient initSpeechToTextServiceClient(PropertyManagement propertyManagement) {
     logger.info("Initializing SpeechToTextServiceClient");
 
     String sttHost = propertyManagement.getProp(PropertyConstants.SPEECH_TO_TEXT_HOST);
@@ -205,6 +212,45 @@ public class TranscriptionService implements TaskStateUpdater, SpeechToTextTaskS
       throw new TranscriptionServiceException("Failed to create transcription for medium " + mediumId, e);
     }
     trySetTranscriptionAsDefaultOfMedium(mediumId, createdTranscription.getId());
+  }
+
+  /**
+   * Removes the transcription identified by {@code transcriptionId}. Before removal, the
+   * transcription's medium is checked: if it still references this transcription as its default,
+   * the default is replaced with the most recently created remaining transcription of the same
+   * medium, or cleared if none remain. The on-disk transcription file is removed only after the
+   * database row has been deleted successfully.
+   *
+   * @param transcriptionId identifies the transcription to remove
+   * @throws TranscriptionNotFoundException if no transcription with the given id exists
+   * @throws TranscriptionServiceException  if the deletion failed for any other reason
+   */
+  public void deleteTranscription(int transcriptionId) throws TranscriptionServiceException {
+    Transcription transcription = transcriptionStorage.findById(transcriptionId).orElseThrow(
+            () -> new TranscriptionNotFoundException(transcriptionId));
+    int mediumId = transcription.getMedium().getId();
+
+    try {
+      reassignDefaultTranscriptionIfReferenced(mediumId, transcriptionId);
+      transcriptionStorage.deleteTranscription(transcriptionId);
+    } catch (Exception e) {
+      logger.log(Level.SEVERE, "Failed to delete transcription " + transcriptionId + " from database", e);
+      throw new TranscriptionServiceException("Failed to delete transcription " + transcriptionId, e);
+    }
+
+    try {
+      transcriptionFileStorage.deleteTranscription(transcriptionId);
+    } catch (Exception e) {
+      logger.log(Level.SEVERE, "Failed to delete transcription file for transcription " + transcriptionId, e);
+      throw new TranscriptionServiceException(
+              "Failed to delete transcription file for transcription " + transcriptionId, e);
+    }
+  }
+
+  private void reassignDefaultTranscriptionIfReferenced(int mediumId, int transcriptionId) {
+    Integer newDefaultId = transcriptionStorage.findLatestOtherTranscriptionForMedium(mediumId, transcriptionId)
+                                               .map(Transcription::getId).orElse(null);
+    mediumStorage.replaceDefaultTranscription(mediumId, transcriptionId, newDefaultId);
   }
 
   private void trySetTranscriptionAsDefaultOfMedium(int mediumId, int transcriptionId) {

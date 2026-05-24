@@ -154,6 +154,48 @@ public class TranscriptionStorage extends DbStorage<Transcription, Transcription
     });
   }
 
+  /**
+   * Looks up a single {@link Transcription} by its primary key.
+   *
+   * @param transcriptionId identifies the {@link Transcription} to load
+   * @return the matching {@link Transcription} or {@link Optional#empty()} if none exists
+   */
+  public Optional<Transcription> findById(int transcriptionId) {
+    return executeDbTransaction(entityManager -> Optional.ofNullable(entityManager.find(Transcription.class, transcriptionId)));
+  }
+
+  /**
+   * Removes the {@link Transcription} identified by {@code transcriptionId} from the database.
+   *
+   * @param transcriptionId identifies the {@link Transcription} to remove
+   * @return {@code true} if a row was removed, {@code false} if no row matched
+   */
+  public boolean deleteTranscription(int transcriptionId) {
+    return executeDbTransaction(entityManager -> {
+      int affected = entityManager.createQuery("delete from Transcription transcription where transcription.id = :id")
+                                  .setParameter("id", transcriptionId).executeUpdate();
+      return affected > 0;
+    });
+  }
+
+  /**
+   * Finds the most recently created {@link Transcription} for the given medium, excluding the
+   * transcription identified by {@code excludeTranscriptionId}. The "latest" transcription is the
+   * one with the greatest {@code createdAt} timestamp.
+   *
+   * @param mediumId               identifies the {@link de.bitgilde.TIMAAT.model.FIPOP.Medium}
+   * @param excludeTranscriptionId identifies the {@link Transcription} which must not be returned
+   * @return the latest other {@link Transcription} or {@link Optional#empty()} if none exists
+   */
+  public Optional<Transcription> findLatestOtherTranscriptionForMedium(int mediumId, int excludeTranscriptionId) {
+    return executeDbTransaction(entityManager -> entityManager.createQuery(
+                    "select transcription from Transcription transcription " +
+                            "where transcription.medium.id = :mediumId and transcription.id <> :excludeId " +
+                            "order by transcription.createdAt desc", Transcription.class)
+            .setParameter("mediumId", mediumId).setParameter("excludeId", excludeTranscriptionId).setMaxResults(1)
+            .getResultStream().findFirst());
+  }
+
   public Optional<Integer> getTranscriptionIdRelatedToTranscriptionTask(long transcriptionTaskId) {
     return executeDbTransaction(entityManager -> {
       try {

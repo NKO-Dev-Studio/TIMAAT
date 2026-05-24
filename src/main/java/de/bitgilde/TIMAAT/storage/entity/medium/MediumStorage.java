@@ -18,6 +18,7 @@ import de.bitgilde.TIMAAT.model.TimeRange;
 import de.bitgilde.TIMAAT.storage.db.DbStorage;
 import de.bitgilde.TIMAAT.storage.entity.medium.api.MediumFilterCriteria;
 import de.bitgilde.TIMAAT.storage.entity.medium.api.MediumSortingField;
+import jakarta.annotation.Nullable;
 import jakarta.inject.Inject;
 import jakarta.persistence.EntityManagerFactory;
 import jakarta.persistence.criteria.CriteriaBuilder;
@@ -83,6 +84,34 @@ public class MediumStorage extends DbStorage<Medium, MediumFilterCriteria, Mediu
               .setParameter("transcription", transcription)
               .setParameter("mediumId", mediumId)
               .executeUpdate();
+      return updated == 1;
+    });
+  }
+
+  /**
+   * Atomically replaces the default transcription of the given medium if its current default
+   * transcription matches {@code currentDefaultTranscriptionId}. If the medium currently has a
+   * different (or no) default transcription, the call is a no-op.
+   *
+   * @param mediumId                      identifies the {@link Medium} to update
+   * @param currentDefaultTranscriptionId identifies the {@link Transcription} the medium is
+   *                                      expected to currently reference as default
+   * @param newDefaultTranscriptionId     identifies the {@link Transcription} to set as the new
+   *                                      default; {@code null} clears the default
+   * @return {@code true} if the default transcription was replaced, {@code false} otherwise
+   */
+  public boolean replaceDefaultTranscription(int mediumId, int currentDefaultTranscriptionId, @Nullable Integer newDefaultTranscriptionId) {
+    logger.log(Level.FINE,
+            "Replacing default transcription of medium {0} from transcription {1} to transcription {2}",
+            new Object[]{mediumId, currentDefaultTranscriptionId, newDefaultTranscriptionId});
+    return executeDbTransaction(entityManager -> {
+      Transcription newDefault = newDefaultTranscriptionId == null ? null : entityManager.getReference(
+              Transcription.class, newDefaultTranscriptionId);
+      int updated = entityManager.createQuery(
+                                         "UPDATE Medium m SET m.defaultTranscription = :newDefault " +
+                                                 "WHERE m.id = :mediumId AND m.defaultTranscription.id = :currentDefaultId")
+                                 .setParameter("newDefault", newDefault).setParameter("mediumId", mediumId)
+                                 .setParameter("currentDefaultId", currentDefaultTranscriptionId).executeUpdate();
       return updated == 1;
     });
   }
