@@ -2679,7 +2679,7 @@ CREATE INDEX fk_actor_has_category_set_category_set1_idx ON `fipop`.`actor_has_c
 -- -----------------------------------------------------
 CREATE TABLE `fipop`.`actor_has_category`
 (
-    `actor_id`      INT NOT NULL,
+    `actor_id`    INT NOT NULL,
     `category_id` INT NOT NULL,
     CONSTRAINT `fk_actor_has_category_actor`
         FOREIGN KEY (`actor_id`)
@@ -8870,12 +8870,12 @@ CREATE TABLE `fipop`.`transcription_type_translation`
 -- -----------------------------------------------------
 CREATE TABLE `fipop`.`transcription`
 (
-    `id`                             int primary key,
+    `id`                             int primary key auto_increment,
     `name`                           varchar(150) not null,
     `model_identifier`               varchar(45),
     `engine_identifier`              varchar(45),
     `medium_id`                      int          not null,
-    `transcription_type_id`          int          not null ,
+    `transcription_type_id`          int          not null,
     `transcription_state_id`         int          not null,
     `transcription_task_id`          bigint,
     `created_at`                     timestamp    not null default CURRENT_TIMESTAMP,
@@ -8954,18 +8954,27 @@ CREATE INDEX `fk_medium_transcription_idx` on `fipop`.`medium` (`default_transcr
 -- -----------------------------------------------------
 -- Data for table `FIPOP`.`transcription_state`
 -- -----------------------------------------------------
-INSERT INTO transcription_state VALUES (1), (2), (3), (4), (5), (6);
+INSERT INTO transcription_state
+VALUES (1),
+       (2),
+       (3),
+       (4),
+       (5),
+       (6);
 
 -- -----------------------------------------------------
 -- Data for table `FIPOP`.`transcription_type`
 -- -----------------------------------------------------
-INSERT INTO transcription_type VALUES (1), (2);
+INSERT INTO transcription_type
+VALUES (1),
+       (2);
 
 
 -- -----------------------------------------------------
 -- Data for table `FIPOP`.`system_settings`
 -- -----------------------------------------------------
-INSERT INTO system_settings(id, auto_transcribe_uploads) VALUES (1, TRUE);
+INSERT INTO system_settings(id, auto_transcribe_uploads)
+VALUES (1, TRUE);
 
 -- -----------------------------------------------------
 -- Data for table `FIPOP`.`db_version`

@@ -542,13 +542,13 @@ BEGIN
 
         CREATE TABLE `fipop`.`transcription`
         (
-            `id`                             int primary key,
+            `id`                             int primary key auto_increment,
             `name`                           varchar(150) not null,
             `model_identifier`               varchar(45),
             `engine_identifier`              varchar(45),
             `medium_id`                      int          not null,
             `transcription_state_id`         int          not null,
-            `transcription_type_id`          int          not null ,
+            `transcription_type_id`          int          not null,
             `transcription_task_id`          bigint,
             `created_at`                     timestamp    not null default CURRENT_TIMESTAMP,
             `last_edited_at`                 timestamp,

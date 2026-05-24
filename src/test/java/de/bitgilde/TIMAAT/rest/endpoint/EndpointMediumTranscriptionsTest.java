@@ -4,6 +4,7 @@ import de.bitgilde.TIMAAT.model.FIPOP.Medium;
 import de.bitgilde.TIMAAT.model.FIPOP.Transcription;
 import de.bitgilde.TIMAAT.model.FIPOP.TranscriptionModel;
 import de.bitgilde.TIMAAT.model.FIPOP.TranscriptionModelId;
+import de.bitgilde.TIMAAT.rest.filter.AuthenticationFilter;
 import de.bitgilde.TIMAAT.rest.model.transcription.CreateTranscriptionRequest;
 import de.bitgilde.TIMAAT.rest.model.transcription.TranscriptionDto;
 import de.bitgilde.TIMAAT.service.transcription.TranscriptionService;
@@ -14,6 +15,7 @@ import de.bitgilde.TIMAAT.service.transcription.exception.TranscriptionServiceEx
 import de.bitgilde.TIMAAT.storage.entity.medium.exception.MediumNotFoundException;
 import de.bitgilde.TIMAAT.storage.entity.transcription.api.TranscriptionState;
 import de.bitgilde.TIMAAT.storage.entity.transcription.api.TranscriptionType;
+import jakarta.ws.rs.container.ContainerRequestContext;
 import jakarta.ws.rs.core.Response;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -25,6 +27,8 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -43,17 +47,22 @@ public class EndpointMediumTranscriptionsTest {
 
   private static final int MEDIUM_ID = 42;
   private static final int TRANSCRIPTION_ID = 7;
+  private static final int USER_ID = 5;
   private static final String ENGINE = "whisper";
   private static final String MODEL = "large-v3";
 
   private TranscriptionService transcriptionService;
+  private ContainerRequestContext containerRequestContext;
   private EndpointMedium endpoint;
 
   @BeforeEach
   void setUp() throws Exception {
     transcriptionService = mock(TranscriptionService.class);
+    containerRequestContext = mock(ContainerRequestContext.class);
+    when(containerRequestContext.getProperty(AuthenticationFilter.USER_ID_PROPERTY_NAME)).thenReturn(USER_ID);
     endpoint = new EndpointMedium();
     inject("transcriptionService", transcriptionService);
+    inject("containerRequestContext", containerRequestContext);
   }
 
   private void inject(String fieldName, Object value) throws Exception {
@@ -93,8 +102,7 @@ public class EndpointMediumTranscriptionsTest {
 
   @Test
   void shouldReturnNotFoundWhenMediumDoesNotExistForList() throws Exception {
-    when(transcriptionService.getTranscriptionsForMedium(MEDIUM_ID)).thenThrow(
-            new MediumNotFoundException(MEDIUM_ID));
+    when(transcriptionService.getTranscriptionsForMedium(MEDIUM_ID)).thenThrow(new MediumNotFoundException(MEDIUM_ID));
 
     Response response = endpoint.getMediumTranscriptions(MEDIUM_ID);
 
@@ -128,7 +136,8 @@ public class EndpointMediumTranscriptionsTest {
   @Test
   void shouldCreateTranscriptionAndReturnCreatedWithDto() throws Exception {
     Transcription created = transcription(TRANSCRIPTION_ID, MEDIUM_ID, ENGINE, MODEL);
-    when(transcriptionService.createTranscription(any(GenerateTranscriptionConfiguration.class))).thenReturn(created);
+    when(transcriptionService.createTranscription(any(GenerateTranscriptionConfiguration.class), eq(USER_ID))).thenReturn(
+            created);
     CreateTranscriptionRequest request = new CreateTranscriptionRequest(ENGINE, MODEL);
 
     Response response = endpoint.createMediumTranscription(MEDIUM_ID, request);
@@ -140,12 +149,14 @@ public class EndpointMediumTranscriptionsTest {
     assertThat(dto.engineIdentifier()).isEqualTo(ENGINE);
     assertThat(dto.modelIdentifier()).isEqualTo(MODEL);
 
-    ArgumentCaptor<GenerateTranscriptionConfiguration> captor = ArgumentCaptor.forClass(
+    ArgumentCaptor<GenerateTranscriptionConfiguration> configurationCaptor = ArgumentCaptor.forClass(
             GenerateTranscriptionConfiguration.class);
-    verify(transcriptionService).createTranscription(captor.capture());
-    assertThat(captor.getValue().mediumId()).isEqualTo(MEDIUM_ID);
-    assertThat(captor.getValue().engineIdentifier()).isEqualTo(ENGINE);
-    assertThat(captor.getValue().modelIdentifier()).isEqualTo(MODEL);
+    ArgumentCaptor<Integer> userIdCaptor = ArgumentCaptor.forClass(Integer.class);
+    verify(transcriptionService).createTranscription(configurationCaptor.capture(), userIdCaptor.capture());
+    assertThat(configurationCaptor.getValue().mediumId()).isEqualTo(MEDIUM_ID);
+    assertThat(configurationCaptor.getValue().engineIdentifier()).isEqualTo(ENGINE);
+    assertThat(configurationCaptor.getValue().modelIdentifier()).isEqualTo(MODEL);
+    assertThat(userIdCaptor.getValue()).isEqualTo(USER_ID);
   }
 
   @Test
@@ -175,8 +186,8 @@ public class EndpointMediumTranscriptionsTest {
 
   @Test
   void shouldReturnBadRequestWhenEngineModelPairIsUnknown() throws Exception {
-    doThrow(new IllegalArgumentException("Model 'large-v3' is not provided by engine 'whisper'"))
-            .when(transcriptionService).createTranscription(any(GenerateTranscriptionConfiguration.class));
+    doThrow(new IllegalArgumentException("Model 'large-v3' is not provided by engine 'whisper'")).when(
+            transcriptionService).createTranscription(any(GenerateTranscriptionConfiguration.class), anyInt());
     CreateTranscriptionRequest request = new CreateTranscriptionRequest(ENGINE, MODEL);
 
     Response response = endpoint.createMediumTranscription(MEDIUM_ID, request);
@@ -186,8 +197,10 @@ public class EndpointMediumTranscriptionsTest {
 
   @Test
   void shouldReturnForbiddenWhenSpeechToTextFeatureIsDisabled() throws Exception {
-    doThrow(new TranscriptionFeatureDisabledException("speech-to-text feature is disabled"))
-            .when(transcriptionService).createTranscription(any(GenerateTranscriptionConfiguration.class));
+    doThrow(new TranscriptionFeatureDisabledException("speech-to-text feature is disabled")).when(transcriptionService)
+                                                                                            .createTranscription(
+                                                                                                    any(GenerateTranscriptionConfiguration.class),
+                                                                                                    anyInt());
     CreateTranscriptionRequest request = new CreateTranscriptionRequest(ENGINE, MODEL);
 
     Response response = endpoint.createMediumTranscription(MEDIUM_ID, request);
@@ -197,8 +210,8 @@ public class EndpointMediumTranscriptionsTest {
 
   @Test
   void shouldReturnInternalServerErrorWhenServiceFails() throws Exception {
-    doThrow(new TranscriptionServiceException("backend exploded"))
-            .when(transcriptionService).createTranscription(any(GenerateTranscriptionConfiguration.class));
+    doThrow(new TranscriptionServiceException("backend exploded")).when(transcriptionService).createTranscription(
+            any(GenerateTranscriptionConfiguration.class), anyInt());
     CreateTranscriptionRequest request = new CreateTranscriptionRequest(ENGINE, MODEL);
 
     Response response = endpoint.createMediumTranscription(MEDIUM_ID, request);

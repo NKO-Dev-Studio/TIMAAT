@@ -23,11 +23,13 @@ import java.util.Optional;
 public class SystemSettingStorage extends DbAccessComponent {
 
   private static final short SINGLETON_ID = 1;
+  private static final boolean DEFAULT_AUTO_TRANSCRIBE_UPLOADS = false;
 
   @Inject
   public SystemSettingStorage(EntityManagerFactory emf) {
     super(emf);
   }
+
 
   /**
    * @return the {@link TranscriptionModel} currently configured as the default model for new transcriptions,
@@ -43,6 +45,17 @@ public class SystemSettingStorage extends DbAccessComponent {
     });
   }
 
+  public boolean isAutoTranscribeUploadsEnabled() {
+    return executeDbTransaction(entityManager -> {
+      SystemSetting systemSetting = entityManager.find(SystemSetting.class, SINGLETON_ID);
+      if (systemSetting == null) {
+        return DEFAULT_AUTO_TRANSCRIBE_UPLOADS;
+      }
+
+      return systemSetting.getAutoTranscribeUploads();
+    });
+  }
+
   /**
    * Reads the transcription-related system settings (default engine/model and the auto-transcribe-uploads
    * flag) from the singleton settings row. If no row exists yet, a snapshot reflecting the documented
@@ -54,7 +67,7 @@ public class SystemSettingStorage extends DbAccessComponent {
     return executeDbTransaction(entityManager -> {
       SystemSetting systemSetting = entityManager.find(SystemSetting.class, SINGLETON_ID);
       if (systemSetting == null) {
-        return new TranscriptionSystemSettings(false, null);
+        return new TranscriptionSystemSettings(DEFAULT_AUTO_TRANSCRIBE_UPLOADS, null);
       }
       return new TranscriptionSystemSettings(Boolean.TRUE.equals(systemSetting.getAutoTranscribeUploads()),
               systemSetting.getDefaultTranscriptionModel());

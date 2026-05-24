@@ -28,11 +28,10 @@ public class TranscriptionMediumPreparationTaskExecutor extends TaskExecutor<Tra
   private final AudioContainingMediumFileStorage audioContainingMediumFileStorage;
   private final FfmpegAudioEngine audioEngine;
 
-  public TranscriptionMediumPreparationTaskExecutor(TranscriptionMediumPreparationTask task,
-                                                    Map<SupportedMediumType, AudioContainingMediumFileStorage> audioContainingMediumFileStorageBySupportedMediumType,
-                                                    FfmpegAudioEngine audioEngine) {
+  public TranscriptionMediumPreparationTaskExecutor(TranscriptionMediumPreparationTask task, Map<SupportedMediumType, AudioContainingMediumFileStorage> audioContainingMediumFileStorageBySupportedMediumType, FfmpegAudioEngine audioEngine) {
     super(task);
-    this.audioContainingMediumFileStorage = audioContainingMediumFileStorageBySupportedMediumType.get(task.getMediumType());
+    this.audioContainingMediumFileStorage = audioContainingMediumFileStorageBySupportedMediumType.get(
+            task.getMediumType());
     this.audioEngine = audioEngine;
   }
 
@@ -51,10 +50,10 @@ public class TranscriptionMediumPreparationTaskExecutor extends TaskExecutor<Tra
       throw new TaskExecutionException("Medium with id " + mediumId + " has no original file");
     }
 
-    try (PcmMono16BitLittleEndian pcmAudioFile = audioEngine.convertAudioChannelsTo16BitLittleEndian(pathToOriginalMediumFile.get())) {
+    try (PcmMono16BitLittleEndian pcmAudioFile = audioEngine.convertAudioChannelsTo16BitLittleEndian(
+            pathToOriginalMediumFile.get(), true)) {
       audioContainingMediumFileStorage.persistAudioMonoFile(pcmAudioFile.getAudioFilePath(), mediumId);
-    }
-    catch (AudioEngineException | IOException e) {
+    } catch (AudioEngineException | IOException e) {
       throw new TaskExecutionException("Error while preparing transcription medium file", e);
     }
 

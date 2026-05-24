@@ -128,13 +128,14 @@ public class TranscriptionStorage extends DbStorage<Transcription, Transcription
     });
   }
 
-  public Transcription createTranscription(int mediumId, String engineIdentifier, String modelIdentifier, TranscriptionState transcriptionState) {
+  public Transcription createTranscription(int mediumId, String engineIdentifier, String modelIdentifier, TranscriptionState transcriptionState, int createdByUserAccountId) {
     return executeDbTransaction(entityManager -> {
       de.bitgilde.TIMAAT.model.FIPOP.TranscriptionState transcriptionStateEntity = entityManager.getReference(
               de.bitgilde.TIMAAT.model.FIPOP.TranscriptionState.class, transcriptionState.getDatabaseId());
       de.bitgilde.TIMAAT.model.FIPOP.TranscriptionType transcriptionTypeEntity = entityManager.getReference(
               de.bitgilde.TIMAAT.model.FIPOP.TranscriptionType.class, TranscriptionType.GENERATED.getDatabaseId());
       Medium medium = entityManager.getReference(Medium.class, mediumId);
+      UserAccount createdBy = entityManager.getReference(UserAccount.class, createdByUserAccountId);
       TranscriptionModelId transcriptionModelId = new TranscriptionModelId();
       transcriptionModelId.setEngineIdentifier(engineIdentifier);
       transcriptionModelId.setModelIdentifier(modelIdentifier);
@@ -148,6 +149,7 @@ public class TranscriptionStorage extends DbStorage<Transcription, Transcription
       transcription.setTranscriptionType(transcriptionTypeEntity);
       transcription.setTranscriptionModel(transcriptionModel);
       transcription.setCreatedAt(Instant.now());
+      transcription.setCreatedByUserAccount(createdBy);
 
       entityManager.persist(transcription);
 
@@ -162,7 +164,8 @@ public class TranscriptionStorage extends DbStorage<Transcription, Transcription
    * @return the matching {@link Transcription} or {@link Optional#empty()} if none exists
    */
   public Optional<Transcription> findById(int transcriptionId) {
-    return executeDbTransaction(entityManager -> Optional.ofNullable(entityManager.find(Transcription.class, transcriptionId)));
+    return executeDbTransaction(
+            entityManager -> Optional.ofNullable(entityManager.find(Transcription.class, transcriptionId)));
   }
 
   /**
@@ -190,11 +193,9 @@ public class TranscriptionStorage extends DbStorage<Transcription, Transcription
    */
   public Optional<Transcription> findLatestOtherTranscriptionForMedium(int mediumId, int excludeTranscriptionId) {
     return executeDbTransaction(entityManager -> entityManager.createQuery(
-                    "select transcription from Transcription transcription " +
-                            "where transcription.medium.id = :mediumId and transcription.id <> :excludeId " +
-                            "order by transcription.createdAt desc", Transcription.class)
-            .setParameter("mediumId", mediumId).setParameter("excludeId", excludeTranscriptionId).setMaxResults(1)
-            .getResultStream().findFirst());
+                                                                      "select transcription from Transcription transcription " + "where transcription.medium.id = :mediumId and transcription.id <> :excludeId " + "order by transcription.createdAt desc",
+                                                                      Transcription.class).setParameter("mediumId", mediumId).setParameter("excludeId", excludeTranscriptionId)
+                                                              .setMaxResults(1).getResultStream().findFirst());
   }
 
   public Optional<Integer> getTranscriptionIdRelatedToTranscriptionTask(long transcriptionTaskId) {
@@ -278,7 +279,8 @@ public class TranscriptionStorage extends DbStorage<Transcription, Transcription
       }
 
       if (filter.getMediumId().isPresent()) {
-        predicates.add(criteriaBuilder.equal(root.get(Transcription_.medium).get(Medium_.id), filter.getMediumId().get()));
+        predicates.add(
+                criteriaBuilder.equal(root.get(Transcription_.medium).get(Medium_.id), filter.getMediumId().get()));
       }
 
       return predicates;

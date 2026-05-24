@@ -66,6 +66,7 @@ import de.bitgilde.TIMAAT.service.transcription.exception.TranscriptionServiceEx
 import de.bitgilde.TIMAAT.storage.api.PagingParameter;
 import de.bitgilde.TIMAAT.storage.api.SortingParameter;
 import de.bitgilde.TIMAAT.storage.entity.MediumVideoStorage;
+import de.bitgilde.TIMAAT.storage.entity.SystemSettingStorage;
 import de.bitgilde.TIMAAT.storage.entity.medium.MediumStorage;
 import de.bitgilde.TIMAAT.storage.entity.medium.api.MediumFilterCriteria;
 import de.bitgilde.TIMAAT.storage.entity.medium.exception.MediumNotFoundException;
@@ -133,6 +134,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
 /*
@@ -156,7 +159,7 @@ import java.util.stream.Collectors;
 @Service
 @Path("/medium")
 public class EndpointMedium {
-
+  private static final Logger logger = Logger.getLogger(EndpointMedium.class.getName());
   private static final int DEFAULT_THUMBNAIL_TIMESTAMP_MS = 1000;
 
   @Context
@@ -181,6 +184,8 @@ public class EndpointMedium {
   private FfmpegVideoEngine ffmpegVideoEngine;
   @Inject
   private TranscriptionService transcriptionService;
+  @Inject
+  private SystemSettingStorage systemSettingStorage;
 
 
   @GET
@@ -3137,7 +3142,7 @@ public class EndpointMedium {
   @Produces(jakarta.ws.rs.core.MediaType.APPLICATION_JSON)
   @Secured
   public Response uploadAudio(@PathParam("id") int id, @FormDataParam("file") InputStream uploadedInputStream) throws TaskServiceException {
-
+    int userId = (int) containerRequestContext.getProperty("TIMAAT.userID");
     EntityManager entityManager = TIMAATApp.emf.createEntityManager();
     MediumAudio mediumAudio = entityManager.find(MediumAudio.class, id);
     if (mediumAudio == null) {
@@ -3183,9 +3188,8 @@ public class EndpointMedium {
 
       taskService.executeMediumAudioAnalysisTask(id, SupportedMediumType.AUDIO);
       // add log entry
-      UserLogManager.getLogger().addLogEntry((int) containerRequestContext.getProperty("TIMAAT.userID"),
-              UserLogManager.LogEvents.MEDIUMCREATED);
-
+      UserLogManager.getLogger().addLogEntry(userId, UserLogManager.LogEvents.MEDIUMCREATED);
+      executeDefaultTranscriptionCreation(id, userId);
     } catch (IOException e) {
       e.printStackTrace();
     }
@@ -3399,6 +3403,7 @@ public class EndpointMedium {
   @Produces(jakarta.ws.rs.core.MediaType.APPLICATION_JSON)
   @Secured
   public Response uploadVideo(@PathParam("id") int id, @FormDataParam("file") InputStream uploadedInputStream, @FormDataParam("file") FormDataContentDisposition fileDetail) throws Exception {
+    int userId = (int) containerRequestContext.getProperty("TIMAAT.userID");
 
     EntityManager entityManager = TIMAATApp.emf.createEntityManager();
     MediumVideo mediumVideo = entityManager.find(MediumVideo.class, id);
@@ -3450,14 +3455,24 @@ public class EndpointMedium {
       createVideoThumbnail(mediumId, DEFAULT_THUMBNAIL_TIMESTAMP_MS);
       taskService.executeMediumAudioAnalysisTask(mediumId, SupportedMediumType.VIDEO);
       // add log entry
-      UserLogManager.getLogger().addLogEntry((int) containerRequestContext.getProperty("TIMAAT.userID"),
-              UserLogManager.LogEvents.MEDIUMCREATED);
+      UserLogManager.getLogger().addLogEntry(userId, UserLogManager.LogEvents.MEDIUMCREATED);
+      executeDefaultTranscriptionCreation(mediumId, userId);
 
     } catch (IOException e) {
       e.printStackTrace();
     }
 
     return Response.ok().entity(mediumVideo).build();
+  }
+
+  private void executeDefaultTranscriptionCreation(int mediumId, int createdByUserAccountId) {
+    if (transcriptionService.isFeatureEnabled() && systemSettingStorage.isAutoTranscribeUploadsEnabled()) {
+      try {
+        transcriptionService.createTranscriptionWithDefaultModel(mediumId, createdByUserAccountId);
+      } catch (Exception e) {
+        logger.log(Level.WARNING, "Error during executing default transcription creation of medium " + mediumId, e);
+      }
+    }
   }
 
   @HEAD
@@ -4558,6 +4573,8 @@ public class EndpointMedium {
   @Secured
   @Path("{id}/transcriptions")
   public Response createMediumTranscription(@PathParam("id") int mediumId, CreateTranscriptionRequest request) {
+    int userId = (int) containerRequestContext.getProperty("TIMAAT.userID");
+
     if (request == null) {
       return Response.status(Status.BAD_REQUEST).entity("{\"reason\":\"request body is required\"}").build();
     }
@@ -4570,7 +4587,8 @@ public class EndpointMedium {
             request.engineIdentifier(), request.modelIdentifier());
 
     try {
-      de.bitgilde.TIMAAT.model.FIPOP.Transcription created = transcriptionService.createTranscription(configuration);
+      de.bitgilde.TIMAAT.model.FIPOP.Transcription created = transcriptionService.createTranscription(configuration,
+              userId);
       return Response.status(Status.CREATED).entity(toTranscriptionDto(created)).build();
     } catch (TranscriptionFeatureDisabledException e) {
       return Response.status(Status.FORBIDDEN).entity("{\"reason\":\"" + e.getMessage() + "\"}").build();

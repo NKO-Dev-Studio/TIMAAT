@@ -241,6 +241,24 @@ public class TranscriptionService implements TaskStateUpdater, SpeechToTextTaskS
             defaultModelIdentifier, editingUser);
   }
 
+  public Transcription createTranscriptionWithDefaultModel(int mediumId, int createdByUserAccountIdUserAccountId) throws TranscriptionServiceException {
+    if (!featureEnabled) {
+      throw new TranscriptionFeatureDisabledException("Speech-to-text feature is disabled for this deployment");
+    }
+
+    Optional<TranscriptionModel> transcriptionModel = systemSettingStorage.getDefaultTranscriptionModel();
+    if (transcriptionModel.isPresent()) {
+      GenerateTranscriptionConfiguration generateTranscriptionConfiguration = new GenerateTranscriptionConfiguration(
+              mediumId, transcriptionModel.get().getId().getEngineIdentifier(),
+              transcriptionModel.get().getId().getModelIdentifier());
+      return createTranscription(generateTranscriptionConfiguration, createdByUserAccountIdUserAccountId);
+    }
+    else {
+      throw new TranscriptionServiceException(
+              "Cannot create transcription with default model. No default model defined.");
+    }
+  }
+
   /**
    * Creates a new transcription for the medium described by the given configuration. If the medium is already prepared
    * (i.e. a mono audio file exists), a speech-to-text task is started immediately. Otherwise the transcription is
@@ -248,12 +266,13 @@ public class TranscriptionService implements TaskStateUpdater, SpeechToTextTaskS
    * speech-to-text task is then started once preparation completes.
    *
    * @param generateTranscriptionConfiguration configuration describing the medium and the engine/model to use
+   * @param createdByUserAccountId             id of the {@link UserAccount} created this transcription
    * @throws IllegalArgumentException      if the requested engine is not offered by the connected speech-to-text-service
    *                                       or the requested model is not provided by that engine
    * @throws TranscriptionServiceException if the transcription could not be created (e.g. underlying task scheduling
    *                                       or storage access failed)
    */
-  public Transcription createTranscription(GenerateTranscriptionConfiguration generateTranscriptionConfiguration) throws TranscriptionServiceException {
+  public Transcription createTranscription(GenerateTranscriptionConfiguration generateTranscriptionConfiguration, int createdByUserAccountId) throws TranscriptionServiceException {
     if (!featureEnabled) {
       throw new TranscriptionFeatureDisabledException("Speech-to-text feature is disabled for this deployment");
     }
@@ -275,14 +294,14 @@ public class TranscriptionService implements TaskStateUpdater, SpeechToTextTaskS
         logger.log(Level.INFO, "Mono file available for medium {0}. Creating transcription in PENDING state.",
                 mediumId);
         createdTranscription = transcriptionStorage.createTranscription(mediumId, engineIdentifier, modelIdentifier,
-                TranscriptionState.PENDING);
+                TranscriptionState.PENDING, createdByUserAccountId);
         startTranscriptionTask(createdTranscription.getId(), monoFile.get(), engineIdentifier, modelIdentifier);
       }
       else {
         logger.log(Level.INFO, "No mono file for medium {0}. Creating transcription in WAITING_FOR_PREPARATION state.",
                 mediumId);
         createdTranscription = transcriptionStorage.createTranscription(mediumId, engineIdentifier, modelIdentifier,
-                TranscriptionState.WAITING_FOR_PREPARATION);
+                TranscriptionState.WAITING_FOR_PREPARATION, createdByUserAccountId);
         taskServiceProvider.get().executeTranscriptionMediumPreparationTask(mediumId, supportedMediumType);
       }
     } catch (Exception e) {
@@ -331,8 +350,8 @@ public class TranscriptionService implements TaskStateUpdater, SpeechToTextTaskS
    *                                        transcription belongs to a different medium
    */
   public Transcription getTranscription(int mediumId, int transcriptionId) throws TranscriptionNotFoundException {
-    Transcription transcription = transcriptionStorage.findById(transcriptionId)
-                                                      .orElseThrow(() -> new TranscriptionNotFoundException(transcriptionId));
+    Transcription transcription = transcriptionStorage.findById(transcriptionId).orElseThrow(
+            () -> new TranscriptionNotFoundException(transcriptionId));
     if (transcription.getMedium() == null || transcription.getMedium().getId() != mediumId) {
       throw new TranscriptionNotFoundException(transcriptionId);
     }

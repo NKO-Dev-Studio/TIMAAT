@@ -67,7 +67,7 @@ public class MediumAudioAnalysisTaskExecutor extends TaskExecutor<MediumAudioAna
         if (pathToOriginalMediumFile.isPresent()) {
             AudioMetaInformation audioMetaInformation = executeAudioFileMetaInformationExtraction(pathToOriginalMediumFile.get());
 
-            try(PcmMono16BitLittleEndian pcmAudioFile  = audioEngine.convertAudioChannelsTo16BitLittleEndian(pathToOriginalMediumFile.get())){
+            try(PcmMono16BitLittleEndian pcmAudioFile  = audioEngine.convertAudioChannelsTo16BitLittleEndian(pathToOriginalMediumFile.get(), false)){
                 Path waveformPath = executeWaveformFileGeneration(pcmAudioFile);
                 Path frequencyPath = executeFrequencyFileGeneration(pcmAudioFile);
 

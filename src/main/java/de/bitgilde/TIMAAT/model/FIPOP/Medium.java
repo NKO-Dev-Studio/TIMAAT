@@ -51,273 +51,241 @@ import java.util.Set;
  * @author Mirko Scherf <mscherf@uni-mainz.de>
  */
 @Entity
-@NamedQuery(name="Medium.findAll", query="SELECT m FROM Medium m")
+@NamedQuery(name = "Medium.findAll", query = "SELECT m FROM Medium m")
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class Medium implements Serializable {
-	private static final long serialVersionUID = 1L;
+  private static final long serialVersionUID = 1L;
 
-	@Id
-	@GeneratedValue(strategy=GenerationType.IDENTITY)
-	private int id;
+  @Id
+  @GeneratedValue(strategy = GenerationType.IDENTITY)
+  private int id;
 
-	private String copyright;
+  private String copyright;
 
-	@Column(name="created_at")
-	private Timestamp createdAt;
+  @Column(name = "created_at")
+  private Timestamp createdAt;
 
-	//bi-directional many-to-one association to UserAccount
-	@ManyToOne
-	@JoinColumn(name="created_by_user_account_id")
-	@JsonBackReference(value = "Medium-CreatedByUserAccount")
-	private UserAccount createdByUserAccount;
+  //bi-directional many-to-one association to UserAccount
+  @ManyToOne
+  @JoinColumn(name = "created_by_user_account_id")
+  @JsonBackReference(value = "Medium-CreatedByUserAccount")
+  private UserAccount createdByUserAccount;
 
-	@Transient
-	@JsonProperty("createdByUserAccountId")
-	private int createdByUserAccountId;
+  @Transient
+  @JsonProperty("createdByUserAccountId")
+  private int createdByUserAccountId;
 
-	//bi-directional many-to-one association to UserAccount
-	@ManyToOne
-	@JoinColumn(name="last_edited_by_user_account_id")
-	@JsonBackReference(value = "Medium-LastEditedByUserAccount")
-	private UserAccount lastEditedByUserAccount;
+  //bi-directional many-to-one association to UserAccount
+  @ManyToOne
+  @JoinColumn(name = "last_edited_by_user_account_id")
+  @JsonBackReference(value = "Medium-LastEditedByUserAccount")
+  private UserAccount lastEditedByUserAccount;
 
-	@Transient
-	@JsonProperty("lastEditedByUserAccountId")
-	private int lastEditedByUserAccountId;
+  @Transient
+  @JsonProperty("lastEditedByUserAccountId")
+  private int lastEditedByUserAccountId;
 
-	@Column(name="file_hash")
-	private String fileHash;
+  @Column(name = "file_hash")
+  private String fileHash;
 
-	@Column(name="file_path")
-	@JsonIgnore
-	private String filePath;
+  @Column(name = "file_path")
+  @JsonIgnore
+  private String filePath;
 
-	@Column(name="last_edited_at")
-	private Timestamp lastEditedAt;
+  @Column(name = "last_edited_at")
+  private Timestamp lastEditedAt;
 
-	@Column(name="release_date", columnDefinition = "DATE")
-	private Date releaseDate;
+  @Column(name = "release_date", columnDefinition = "DATE")
+  private Date releaseDate;
 
-	@Column(name="recording_start_date", columnDefinition = "DATE")
-	private Date recordingStartDate;
+  @Column(name = "recording_start_date", columnDefinition = "DATE")
+  private Date recordingStartDate;
 
-	@Column(name="recording_end_date", columnDefinition = "DATE")
-	private Date recordingEndDate;
+  @Column(name = "recording_end_date", columnDefinition = "DATE")
+  private Date recordingEndDate;
 
-	private String remark;
+  private String remark;
 
-	//bi-directional many-to-many association to Annotation
-	// @ManyToMany(mappedBy = "mediums")
-	// @JsonIgnore
-	// private List<Annotation> annotations;
+  //bi-directional many-to-many association to Annotation
+  // @ManyToMany(mappedBy = "mediums")
+  // @JsonIgnore
+  // private List<Annotation> annotations;
 
-	//bi-directional many-to-one association to MediaCollectionHasMedium
-	@OneToMany(mappedBy="medium")
-	@JsonIgnore
-	private List<MediaCollectionHasMedium> mediaCollectionHasMediums;
+  //bi-directional many-to-one association to MediaCollectionHasMedium
+  @OneToMany(mappedBy = "medium")
+  @JsonIgnore
+  private List<MediaCollectionHasMedium> mediaCollectionHasMediums;
 
-	//bi-directional many-to-one association to MediaType
-	@ManyToOne
-	@JoinColumn(name="media_type_id")
-	private MediaType mediaType;
+  //bi-directional many-to-one association to MediaType
+  @ManyToOne
+  @JoinColumn(name = "media_type_id")
+  private MediaType mediaType;
 
-	//bi-directional many-to-one association to PropagandaType
-	@ManyToOne
-	@JoinColumn(name="propaganda_type_id")
-	@JsonBackReference(value = "PropagandaType-Medium")
-	private PropagandaType propagandaType;
+  //bi-directional many-to-one association to PropagandaType
+  @ManyToOne
+  @JoinColumn(name = "propaganda_type_id")
+  @JsonBackReference(value = "PropagandaType-Medium")
+  private PropagandaType propagandaType;
 
-	//bi-directional many-to-one association to Reference
-	@ManyToOne
-	@JsonBackReference(value = "Reference-Medium")
-	private Reference reference;
+  //bi-directional many-to-one association to Reference
+  @ManyToOne
+  @JsonBackReference(value = "Reference-Medium")
+  private Reference reference;
 
-	//bi-directional many-to-one association to Title
-	@ManyToOne(cascade = CascadeType.PERSIST)
-	@JoinColumn(name="display_title_title_id")
-	private Title displayTitle;
+  //bi-directional many-to-one association to Title
+  @ManyToOne(cascade = CascadeType.PERSIST)
+  @JoinColumn(name = "display_title_title_id")
+  private Title displayTitle;
 
-	//bi-directional many-to-one association to Title
-	@ManyToOne(cascade = CascadeType.PERSIST)
-	@JoinColumn(name="original_title_title_id")
-	private Title originalTitle;
+  //bi-directional many-to-one association to Title
+  @ManyToOne(cascade = CascadeType.PERSIST)
+  @JoinColumn(name = "original_title_title_id")
+  private Title originalTitle;
 
-	//bi-directional many-to-one association to Work
-	// @ManyToOne
-	// @JoinColumn(name="work_id")
-	// private Work work;
+  //bi-directional many-to-one association to Work
+  // @ManyToOne
+  // @JoinColumn(name="work_id")
+  // private Work work;
 
-	//bi-directional many-to-one association to MediumAnalysisList
-	@OneToMany(mappedBy="medium")
+  //bi-directional many-to-one association to MediumAnalysisList
+  @OneToMany(mappedBy = "medium")
   @JsonManagedReference(value = "Medium-MediumAnalysisList")
-	private List<MediumAnalysisList> mediumAnalysisLists;
+  private List<MediumAnalysisList> mediumAnalysisLists;
 
-	//bi-directional one-to-one association to MediumAudio
-	@OneToOne(mappedBy="medium")
-	private MediumAudio mediumAudio;
+  //bi-directional one-to-one association to MediumAudio
+  @OneToOne(mappedBy = "medium")
+  private MediumAudio mediumAudio;
 
-	//bi-directional one-to-one association to MediumDocument
-	@OneToOne(mappedBy="medium")
-	private MediumDocument mediumDocument;
+  //bi-directional one-to-one association to MediumDocument
+  @OneToOne(mappedBy = "medium")
+  private MediumDocument mediumDocument;
 
-	//bi-directional one-to-one association to MediumVideo
-	@OneToOne(mappedBy="medium")
-	private MediumVideo mediumVideo;
+  //bi-directional one-to-one association to MediumVideo
+  @OneToOne(mappedBy = "medium")
+  private MediumVideo mediumVideo;
 
-	//bi-directional one-to-one association to MediumVideogame
-	@OneToOne(mappedBy="medium")
-	private MediumVideogame mediumVideogame;
+  //bi-directional one-to-one association to MediumVideogame
+  @OneToOne(mappedBy = "medium")
+  private MediumVideogame mediumVideogame;
 
-	//bi-directional many-to-many association to ActorHasRole
-	@ManyToMany
-	@JoinTable(
-		name="medium_has_actor_with_role"
-		, joinColumns={
-			@JoinColumn(name="medium_id")
-			}
-		, inverseJoinColumns={
-			@JoinColumn(name="actor_has_role_actor_id", referencedColumnName="actor_id"),
-			@JoinColumn(name="actor_has_role_role_id", referencedColumnName="role_id")
-			}
-		)
-	@JsonIgnore
-	private List<ActorHasRole> actorHasRoles;
+  //bi-directional many-to-many association to ActorHasRole
+  @ManyToMany
+  @JoinTable(name = "medium_has_actor_with_role", joinColumns = {@JoinColumn(name = "medium_id")}, inverseJoinColumns = {@JoinColumn(name = "actor_has_role_actor_id", referencedColumnName = "actor_id"), @JoinColumn(name = "actor_has_role_role_id", referencedColumnName = "role_id")})
+  @JsonIgnore
+  private List<ActorHasRole> actorHasRoles;
 
-	//bi-directional many-to-many association to CategorySet
-	@ManyToMany
-	@JoinTable(
-		name="medium_has_category_set"
-		, joinColumns={
-			@JoinColumn(name="medium_id")
-			}
-		, inverseJoinColumns={
-			@JoinColumn(name="category_set_id")
-			}
-		)
-	private List<CategorySet> categorySets;
+  //bi-directional many-to-many association to CategorySet
+  @ManyToMany
+  @JoinTable(name = "medium_has_category_set", joinColumns = {@JoinColumn(name = "medium_id")}, inverseJoinColumns = {@JoinColumn(name = "category_set_id")})
+  private List<CategorySet> categorySets;
 
-	//bi-directional many-to-many association to Category
-	@ManyToMany
-	@JoinTable(
-		name="medium_has_category"
-		, joinColumns={
-			@JoinColumn(name="medium_id")
-			}
-		, inverseJoinColumns={
-			@JoinColumn(name="category_id")
-			}
-		)
-	private List<Category> categories;
+  //bi-directional many-to-many association to Category
+  @ManyToMany
+  @JoinTable(name = "medium_has_category", joinColumns = {@JoinColumn(name = "medium_id")}, inverseJoinColumns = {@JoinColumn(name = "category_id")})
+  private List<Category> categories;
 
-	//bi-directional many-to-many association to Genre
-	// @ManyToMany
-	// @JoinTable(
-	// 	name="medium_has_genre"
-	// 	, joinColumns={
-	// 		@JoinColumn(name="medium_id")
-	// 		}
-	// 	, inverseJoinColumns={
-	// 		@JoinColumn(name="genre_id")
-	// 		}
-	// 	)
-	// private List<Genre> genres;
+  //bi-directional many-to-many association to Genre
+  // @ManyToMany
+  // @JoinTable(
+  // 	name="medium_has_genre"
+  // 	, joinColumns={
+  // 		@JoinColumn(name="medium_id")
+  // 		}
+  // 	, inverseJoinColumns={
+  // 		@JoinColumn(name="genre_id")
+  // 		}
+  // 	)
+  // private List<Genre> genres;
 
-	//bi-directional many-to-one association to MediumHasLanguage
-	@OneToMany(mappedBy="medium")
-	private List<MediumHasLanguage> mediumHasLanguages;
+  //bi-directional many-to-one association to MediumHasLanguage
+  @OneToMany(mappedBy = "medium")
+  private List<MediumHasLanguage> mediumHasLanguages;
 
 
-	//bi-directional many-to-one association to MediumHasActorWithRole
-	@OneToMany(mappedBy="medium")
-	private List<MediumHasActorWithRole> mediumHasActorWithRoles;
+  //bi-directional many-to-one association to MediumHasActorWithRole
+  @OneToMany(mappedBy = "medium")
+  private List<MediumHasActorWithRole> mediumHasActorWithRoles;
 
-	//bi-directional many-to-many association to RatingCategory
-	// @ManyToMany(mappedBy="mediums")
-	// private List<RatingCategory> ratingCategories;
+  //bi-directional many-to-many association to RatingCategory
+  // @ManyToMany(mappedBy="mediums")
+  // private List<RatingCategory> ratingCategories;
 
-	//bi-directional many-to-many association to Tag
-	@ManyToMany
-	@JoinTable(
-		name="medium_has_tag"
-		, inverseJoinColumns={
-			@JoinColumn(name="tag_id")
-			}
-		, joinColumns={
-			@JoinColumn(name="medium_id")
-			}
-		)
-	private List<Tag> tags;
+  //bi-directional many-to-many association to Tag
+  @ManyToMany
+  @JoinTable(name = "medium_has_tag", inverseJoinColumns = {@JoinColumn(name = "tag_id")}, joinColumns = {@JoinColumn(name = "medium_id")})
+  private List<Tag> tags;
 
-	//bi-directional many-to-many association to TargetAudience
-	// @ManyToMany(mappedBy="mediums")
-	// private List<TargetAudience> targetAudiences;
+  //bi-directional many-to-many association to TargetAudience
+  // @ManyToMany(mappedBy="mediums")
+  // private List<TargetAudience> targetAudiences;
 
-	//bi-directional many-to-many association to Title
-	@ManyToMany(mappedBy="mediums3")
-	private List<Title> titles;
+  //bi-directional many-to-many association to Title
+  @ManyToMany(mappedBy = "mediums3")
+  private List<Title> titles;
 
-	//bi-directional one-to-one association to MediumImage
-	@OneToOne(mappedBy="medium")
-	private MediumImage mediumImage;
+  //bi-directional one-to-one association to MediumImage
+  @OneToOne(mappedBy = "medium")
+  private MediumImage mediumImage;
 
-	//bi-directional many-to-one association to MediumRelatesToEvent
-	@OneToMany(mappedBy="medium")
-	@JsonIgnore
-	// @JsonManagedReference(value = "Medium-MediumRelatesToEvent")
-	private List<MediumRelatesToEvent> mediumRelatesToEvents;
+  //bi-directional many-to-one association to MediumRelatesToEvent
+  @OneToMany(mappedBy = "medium")
+  @JsonIgnore
+  // @JsonManagedReference(value = "Medium-MediumRelatesToEvent")
+  private List<MediumRelatesToEvent> mediumRelatesToEvents;
 
-	//bi-directional many-to-one association to MediumRelatesToMedium
-	// @OneToMany(mappedBy="medium1")
-	// private List<MediumRelatesToMedium> mediumRelatesToMediums1;
+  //bi-directional many-to-one association to MediumRelatesToMedium
+  // @OneToMany(mappedBy="medium1")
+  // private List<MediumRelatesToMedium> mediumRelatesToMediums1;
 
-	//bi-directional many-to-one association to MediumRelatesToMedium
-	// @OneToMany(mappedBy="medium2")
-	// private List<MediumRelatesToMedium> mediumRelatesToMediums2;
+  //bi-directional many-to-one association to MediumRelatesToMedium
+  // @OneToMany(mappedBy="medium2")
+  // private List<MediumRelatesToMedium> mediumRelatesToMediums2;
 
-	//bi-directional one-to-one association to MediumSoftware
-	@OneToOne(mappedBy="medium")
-	private MediumSoftware mediumSoftware;
+  //bi-directional one-to-one association to MediumSoftware
+  @OneToOne(mappedBy = "medium")
+  private MediumSoftware mediumSoftware;
 
-	//bi-directional one-to-one association to MediumText
-	@OneToOne(mappedBy="medium")
-	private MediumText mediumText;
+  //bi-directional one-to-one association to MediumText
+  @OneToOne(mappedBy = "medium")
+  private MediumText mediumText;
 
-	// bi-directional many-to-one association to MusicalNotation
-	@OneToMany(mappedBy="medium")
-	@JsonIgnore
-	private List<MusicalNotation> musicalNotations;
+  // bi-directional many-to-one association to MusicalNotation
+  @OneToMany(mappedBy = "medium")
+  @JsonIgnore
+  private List<MusicalNotation> musicalNotations;
 
-	//bi-directional many-to-one association to Source
-	@OneToMany(mappedBy="medium")
-	@JsonManagedReference(value = "Medium-Source")
-	private List<Source> sources;
+  //bi-directional many-to-one association to Source
+  @OneToMany(mappedBy = "medium")
+  @JsonManagedReference(value = "Medium-Source")
+  private List<Source> sources;
 
-	// bi-directional one-to-one association to Music
-	@OneToOne
-	@JoinColumn(name="music_id")
-	// @JsonBackReference(value="Medium-Music")
-	private Music music;
+  // bi-directional one-to-one association to Music
+  @OneToOne
+  @JoinColumn(name = "music_id")
+  // @JsonBackReference(value="Medium-Music")
+  private Music music;
 
-	//bi-directional many-to-one association to MediumHasMusic
-	@OneToMany(mappedBy="medium")
-	// @JsonIgnore
-	@JsonManagedReference(value="Medium-MediumHasMusic")
-	private List<MediumHasMusic> mediumHasMusicList;
+  //bi-directional many-to-one association to MediumHasMusic
+  @OneToMany(mappedBy = "medium")
+  // @JsonIgnore
+  @JsonManagedReference(value = "Medium-MediumHasMusic")
+  private List<MediumHasMusic> mediumHasMusicList;
 
   @OneToOne(mappedBy = "medium")
   private MediumAudioAnalysis mediumAudioAnalysis;
 
-	@Transient
-	private String fileStatus;
+  @Transient
+  private String fileStatus;
 
-	@Transient
-	private String fileExtension;
+  @Transient
+  private String fileExtension;
 
-	@Transient
-	private String viewToken;
+  @Transient
+  private String viewToken;
 
   @ManyToOne
   @JoinColumn(name = "default_transcription_id")
+  @JsonIgnore
   private Transcription defaultTranscription;
 
   @OneToMany(mappedBy = "medium")
@@ -326,532 +294,534 @@ public class Medium implements Serializable {
 
 
   public Medium() {
-	}
-
-	public int getId() {
-		return this.id;
-	}
-
-	public void setId(int id) {
-		this.id = id;
-	}
-
-	public String getCopyright() {
-		return this.copyright;
-	}
-
-	public void setCopyright(String copyright) {
-		this.copyright = copyright;
-	}
-
-	public Timestamp getCreatedAt() {
-		return this.createdAt;
-	}
-
-	public void setCreatedAt(Timestamp createdAt) {
-		this.createdAt = createdAt;
-	}
-
-	public UserAccount getCreatedByUserAccount() {
-		return this.createdByUserAccount;
-	}
+  }
+
+  public int getId() {
+    return this.id;
+  }
+
+  public void setId(int id) {
+    this.id = id;
+  }
+
+  public String getCopyright() {
+    return this.copyright;
+  }
+
+  public void setCopyright(String copyright) {
+    this.copyright = copyright;
+  }
+
+  public Timestamp getCreatedAt() {
+    return this.createdAt;
+  }
+
+  public void setCreatedAt(Timestamp createdAt) {
+    this.createdAt = createdAt;
+  }
+
+  public UserAccount getCreatedByUserAccount() {
+    return this.createdByUserAccount;
+  }
+
+  public void setCreatedByUserAccount(UserAccount createdByUserAccount) {
+    this.createdByUserAccount = createdByUserAccount;
+  }
+
+  public String getFileHash() {
+    return this.fileHash;
+  }
+
+  public void setFileHash(String fileHash) {
+    this.fileHash = fileHash;
+  }
+
+  public String getFilePath() {
+    return this.filePath;
+  }
+
+  public void setFilePath(String filePath) {
+    this.filePath = filePath;
+  }
+
+  public Timestamp getLastEditedAt() {
+    return this.lastEditedAt;
+  }
+
+  public void setLastEditedAt(Timestamp lastEditedAt) {
+    this.lastEditedAt = lastEditedAt;
+  }
+
+  public int getCreatedByUserAccountId() {
+    return this.getCreatedByUserAccount().getId();
+  }
+
+  public UserAccount getLastEditedByUserAccount() {
+    return this.lastEditedByUserAccount;
+  }
+
+  public void setLastEditedByUserAccount(UserAccount lastEditedByUserAccount) {
+    this.lastEditedByUserAccount = lastEditedByUserAccount;
+  }
+
+  public int getLastEditedByUserAccountId() {
+    if (Objects.isNull(this.getLastEditedByUserAccount())) {
+      return 0;
+    }
+    return this.getLastEditedByUserAccount().getId();
+  }
 
-	public void setCreatedByUserAccount(UserAccount createdByUserAccount) {
-		this.createdByUserAccount = createdByUserAccount;
-	}
+  public Date getReleaseDate() {
+    return this.releaseDate;
+  }
 
-	public String getFileHash() {
-		return this.fileHash;
-	}
+  public void setReleaseDate(Date releaseDate) {
+    this.releaseDate = releaseDate;
+  }
 
-	public void setFileHash(String fileHash) {
-		this.fileHash = fileHash;
-	}
+  public Date getRecordingStartDate() {
+    return this.recordingStartDate;
+  }
 
-	public String getFilePath() {
-		return this.filePath;
-	}
+  public void setRecordingStartDate(Date recordingStartDate) {
+    this.recordingStartDate = recordingStartDate;
+  }
 
-	public void setFilePath(String filePath) {
-		this.filePath = filePath;
-	}
+  public Date getRecordingEndDate() {
+    return this.recordingEndDate;
+  }
 
-	public Timestamp getLastEditedAt() {
-		return this.lastEditedAt;
-	}
+  public void setRecordingEndDate(Date recordingEndDate) {
+    this.recordingEndDate = recordingEndDate;
+  }
 
-	public void setLastEditedAt(Timestamp lastEditedAt) {
-		this.lastEditedAt = lastEditedAt;
-	}
+  public String getRemark() {
+    return this.remark;
+  }
 
-	public int getCreatedByUserAccountId() {
-		return this.getCreatedByUserAccount().getId();
-	}
+  public void setRemark(String remark) {
+    this.remark = remark;
+  }
 
-	public UserAccount getLastEditedByUserAccount() {
-		return this.lastEditedByUserAccount;
-	}
+  public List<MediaCollectionHasMedium> getMediaCollectionHasMediums() {
+    return this.mediaCollectionHasMediums;
+  }
 
-	public void setLastEditedByUserAccount(UserAccount lastEditedByUserAccount) {
-		this.lastEditedByUserAccount = lastEditedByUserAccount;
-	}
+  public void setMediaCollectionHasMediums(List<MediaCollectionHasMedium> mediaCollectionHasMediums) {
+    this.mediaCollectionHasMediums = mediaCollectionHasMediums;
+  }
 
-	public int getLastEditedByUserAccountId() {
-		if (Objects.isNull(this.getLastEditedByUserAccount())) return 0;
-		return this.getLastEditedByUserAccount().getId();
-	}
+  public MediaCollectionHasMedium addMediaCollectionHasMedium(MediaCollectionHasMedium mediaCollectionHasMedium) {
+    getMediaCollectionHasMediums().add(mediaCollectionHasMedium);
+    mediaCollectionHasMedium.setMedium(this);
 
-	public Date getReleaseDate() {
-		return this.releaseDate;
-	}
+    return mediaCollectionHasMedium;
+  }
 
-	public void setReleaseDate(Date releaseDate) {
-		this.releaseDate = releaseDate;
-	}
+  public MediaCollectionHasMedium removeMediaCollectionHasMedium(MediaCollectionHasMedium mediaCollectionHasMedium) {
+    getMediaCollectionHasMediums().remove(mediaCollectionHasMedium);
+    mediaCollectionHasMedium.setMedium(null);
 
-	public Date getRecordingStartDate() {
-		return this.recordingStartDate;
-	}
+    return mediaCollectionHasMedium;
+  }
 
-	public void setRecordingStartDate(Date recordingStartDate) {
-		this.recordingStartDate = recordingStartDate;
-	}
+  public MediaType getMediaType() {
+    return this.mediaType;
+  }
 
-	public Date getRecordingEndDate() {
-		return this.recordingEndDate;
-	}
+  public void setMediaType(MediaType mediaType) {
+    this.mediaType = mediaType;
+  }
 
-	public void setRecordingEndDate(Date recordingEndDate) {
-		this.recordingEndDate = recordingEndDate;
-	}
+  public PropagandaType getPropagandaType() {
+    return this.propagandaType;
+  }
 
-	public String getRemark() {
-		return this.remark;
-	}
+  public void setPropagandaType(PropagandaType propagandaType) {
+    this.propagandaType = propagandaType;
+  }
 
-	public void setRemark(String remark) {
-		this.remark = remark;
-	}
+  public Reference getReference() {
+    return this.reference;
+  }
 
-	public List<MediaCollectionHasMedium> getMediaCollectionHasMediums() {
-		return this.mediaCollectionHasMediums;
-	}
+  public void setReference(Reference reference) {
+    this.reference = reference;
+  }
 
-	public void setMediaCollectionHasMediums(List<MediaCollectionHasMedium> mediaCollectionHasMediums) {
-		this.mediaCollectionHasMediums = mediaCollectionHasMediums;
-	}
+  public Title getDisplayTitle() {
+    return this.displayTitle;
+  }
 
-	public MediaCollectionHasMedium addMediaCollectionHasMedium(MediaCollectionHasMedium mediaCollectionHasMedium) {
-		getMediaCollectionHasMediums().add(mediaCollectionHasMedium);
-		mediaCollectionHasMedium.setMedium(this);
+  public void setDisplayTitle(Title displayTitle) {
+    this.displayTitle = displayTitle;
+  }
 
-		return mediaCollectionHasMedium;
-	}
+  public Title getOriginalTitle() {
+    return this.originalTitle;
+  }
 
-	public MediaCollectionHasMedium removeMediaCollectionHasMedium(MediaCollectionHasMedium mediaCollectionHasMedium) {
-		getMediaCollectionHasMediums().remove(mediaCollectionHasMedium);
-		mediaCollectionHasMedium.setMedium(null);
+  public void setOriginalTitle(Title title) {
+    this.originalTitle = title;
+  }
 
-		return mediaCollectionHasMedium;
-	}
+  // 	public Work getWork() {
+  // 	return this.work;
+  // }
 
-	public MediaType getMediaType() {
-		return this.mediaType;
-	}
+  // public void setWork(Work work) {
+  // 	this.work = work;
+  // }
 
-	public void setMediaType(MediaType mediaType) {
-		this.mediaType = mediaType;
-	}
+  public List<MediumAnalysisList> getMediumAnalysisLists() {
+    return this.mediumAnalysisLists;
+  }
 
-	public PropagandaType getPropagandaType() {
-		return this.propagandaType;
-	}
+  public void setMediumAnalysisLists(List<MediumAnalysisList> mediumAnalysisLists) {
+    this.mediumAnalysisLists = mediumAnalysisLists;
+  }
 
-	public void setPropagandaType(PropagandaType propagandaType) {
-		this.propagandaType = propagandaType;
-	}
+  public MediumAnalysisList addMediumAnalysisList(MediumAnalysisList mediumAnalysisList) {
+    getMediumAnalysisLists().add(mediumAnalysisList);
+    mediumAnalysisList.setMedium(this);
 
-	public Reference getReference() {
-		return this.reference;
-	}
+    return mediumAnalysisList;
+  }
 
-	public void setReference(Reference reference) {
-		this.reference = reference;
-	}
+  public MediumAnalysisList removeMediumAnalysisList(MediumAnalysisList mediumAnalysisList) {
+    getMediumAnalysisLists().remove(mediumAnalysisList);
+    mediumAnalysisList.setMedium(null);
 
-	public Title getDisplayTitle() {
-		return this.displayTitle;
-	}
+    return mediumAnalysisList;
+  }
 
-	public void setDisplayTitle(Title displayTitle) {
-		this.displayTitle = displayTitle;
-	}
+  public MediumAudio getMediumAudio() {
+    return this.mediumAudio;
+  }
 
-	public Title getOriginalTitle() {
-		return this.originalTitle;
-	}
+  public void setMediumAudio(MediumAudio mediumAudio) {
+    this.mediumAudio = mediumAudio;
+  }
 
-	public void setOriginalTitle(Title title) {
-		this.originalTitle = title;
-	}
+  public MediumDocument getMediumDocument() {
+    return this.mediumDocument;
+  }
 
-	// 	public Work getWork() {
-	// 	return this.work;
-	// }
+  public void setMediumDocument(MediumDocument mediumDocument) {
+    this.mediumDocument = mediumDocument;
+  }
 
-	// public void setWork(Work work) {
-	// 	this.work = work;
-	// }
+  public List<ActorHasRole> getActorHasRoles() {
+    return this.actorHasRoles;
+  }
 
-	public List<MediumAnalysisList> getMediumAnalysisLists() {
-		return this.mediumAnalysisLists;
-	}
+  public void setActorHasRoles(List<ActorHasRole> actorHasRoles) {
+    this.actorHasRoles = actorHasRoles;
+  }
 
-	public void setMediumAnalysisLists(List<MediumAnalysisList> mediumAnalysisLists) {
-		this.mediumAnalysisLists = mediumAnalysisLists;
-	}
+  public List<CategorySet> getCategorySets() {
+    return this.categorySets;
+  }
 
-	public MediumAnalysisList addMediumAnalysisList(MediumAnalysisList mediumAnalysisList) {
-		getMediumAnalysisLists().add(mediumAnalysisList);
-		mediumAnalysisList.setMedium(this);
+  public void setCategorySets(List<CategorySet> categorySets) {
+    this.categorySets = categorySets;
+  }
 
-		return mediumAnalysisList;
-	}
+  public List<Category> getCategories() {
+    return this.categories;
+  }
 
-	public MediumAnalysisList removeMediumAnalysisList(MediumAnalysisList mediumAnalysisList) {
-		getMediumAnalysisLists().remove(mediumAnalysisList);
-		mediumAnalysisList.setMedium(null);
+  public void setCategories(List<Category> categories) {
+    this.categories = categories;
+  }
 
-		return mediumAnalysisList;
-	}
+  // public List<Genre> getGenres() {
+  // 	return this.genres;
+  // }
 
-	public MediumAudio getMediumAudio() {
-		return this.mediumAudio;
-	}
+  // public void setGenres(List<Genre> genres) {
+  // 	this.genres = genres;
+  // }
 
-	public void setMediumAudio(MediumAudio mediumAudio) {
-		this.mediumAudio = mediumAudio;
-	}
+  public List<MediumHasLanguage> getMediumHasLanguages() {
+    return this.mediumHasLanguages;
+  }
 
-	public MediumDocument getMediumDocument() {
-		return this.mediumDocument;
-	}
+  public void setMediumHasLanguages(List<MediumHasLanguage> mediumHasLanguages) {
+    this.mediumHasLanguages = mediumHasLanguages;
+  }
 
-	public void setMediumDocument(MediumDocument mediumDocument) {
-		this.mediumDocument = mediumDocument;
-	}
+  public MediumHasLanguage addMediumHasLanguage(MediumHasLanguage mediumHasLanguage) {
+    getMediumHasLanguages().add(mediumHasLanguage);
+    mediumHasLanguage.setMedium(this);
 
-	public List<ActorHasRole> getActorHasRoles() {
-		return this.actorHasRoles;
-	}
+    return mediumHasLanguage;
+  }
 
-	public void setActorHasRoles(List<ActorHasRole> actorHasRoles) {
-		this.actorHasRoles = actorHasRoles;
-	}
+  public MediumHasLanguage removeMediumHasLanguage(MediumHasLanguage mediumHasLanguage) {
+    getMediumHasLanguages().remove(mediumHasLanguage);
+    mediumHasLanguage.setMedium(null);
 
-	public List<CategorySet> getCategorySets() {
-		return this.categorySets;
-	}
+    return mediumHasLanguage;
+  }
 
-	public void setCategorySets(List<CategorySet> categorySets) {
-		this.categorySets = categorySets;
-	}
+  // public List<RatingCategory> getRatingCategories() {
+  // 	return this.ratingCategories;
+  // }
 
-	public List<Category> getCategories() {
-		return this.categories;
-	}
+  // public void setRatingCategories(List<RatingCategory> ratingCategories) {
+  // 	this.ratingCategories = ratingCategories;
+  // }
 
-	public void setCategories(List<Category> categories) {
-		this.categories = categories;
-	}
+  public List<Tag> getTags() {
+    return this.tags;
+  }
 
-	// public List<Genre> getGenres() {
-	// 	return this.genres;
-	// }
+  public void setTags(List<Tag> tags) {
+    this.tags = tags;
+  }
 
-	// public void setGenres(List<Genre> genres) {
-	// 	this.genres = genres;
-	// }
+  // public List<TargetAudience> getTargetAudiences() {
+  // 	return this.targetAudiences;
+  // }
 
-	public List<MediumHasLanguage> getMediumHasLanguages() {
-		return this.mediumHasLanguages;
-	}
+  // public void setTargetAudiences(List<TargetAudience> targetAudiences) {
+  // 	this.targetAudiences = targetAudiences;
+  // }
 
-	public void setMediumHasLanguages(List<MediumHasLanguage> mediumHasLanguages) {
-		this.mediumHasLanguages = mediumHasLanguages;
-	}
+  public List<Title> getTitles() {
+    return this.titles;
+  }
 
-	public MediumHasLanguage addMediumHasLanguage(MediumHasLanguage mediumHasLanguage) {
-		getMediumHasLanguages().add(mediumHasLanguage);
-		mediumHasLanguage.setMedium(this);
+  public void setTitles(List<Title> titles) {
+    this.titles = titles;
+  }
 
-		return mediumHasLanguage;
-	}
+  public MediumImage getMediumImage() {
+    return this.mediumImage;
+  }
 
-	public MediumHasLanguage removeMediumHasLanguage(MediumHasLanguage mediumHasLanguage) {
-		getMediumHasLanguages().remove(mediumHasLanguage);
-		mediumHasLanguage.setMedium(null);
+  public void setMediumImage(MediumImage mediumImage) {
+    this.mediumImage = mediumImage;
+  }
 
-		return mediumHasLanguage;
-	}
+  public List<MediumRelatesToEvent> getMediumRelatesToEvents() {
+    return this.mediumRelatesToEvents;
+  }
 
-	// public List<RatingCategory> getRatingCategories() {
-	// 	return this.ratingCategories;
-	// }
+  public void setMediumRelatesToEvents(List<MediumRelatesToEvent> mediumRelatesToEvents) {
+    this.mediumRelatesToEvents = mediumRelatesToEvents;
+  }
 
-	// public void setRatingCategories(List<RatingCategory> ratingCategories) {
-	// 	this.ratingCategories = ratingCategories;
-	// }
+  public MediumRelatesToEvent addMediumRelatesToEvent(MediumRelatesToEvent mediumRelatesToEvent) {
+    getMediumRelatesToEvents().add(mediumRelatesToEvent);
+    mediumRelatesToEvent.setMedium(this);
 
-	public List<Tag> getTags() {
-		return this.tags;
-	}
+    return mediumRelatesToEvent;
+  }
 
-	public void setTags(List<Tag> tags) {
-		this.tags = tags;
-	}
+  public MediumRelatesToEvent removeMediumRelatesToEvent(MediumRelatesToEvent mediumRelatesToEvent) {
+    getMediumRelatesToEvents().remove(mediumRelatesToEvent);
+    mediumRelatesToEvent.setMedium(null);
 
-	// public List<TargetAudience> getTargetAudiences() {
-	// 	return this.targetAudiences;
-	// }
+    return mediumRelatesToEvent;
+  }
 
-	// public void setTargetAudiences(List<TargetAudience> targetAudiences) {
-	// 	this.targetAudiences = targetAudiences;
-	// }
+  // public List<MediumRelatesToMedium> getMediumRelatesToMediums1() {
+  // 	return this.mediumRelatesToMediums1;
+  // }
 
-	public List<Title> getTitles() {
-		return this.titles;
-	}
+  // public void setMediumRelatesToMediums1(List<MediumRelatesToMedium> mediumRelatesToMediums1) {
+  // 	this.mediumRelatesToMediums1 = mediumRelatesToMediums1;
+  // }
 
-	public void setTitles(List<Title> titles) {
-		this.titles = titles;
-	}
+  // public MediumRelatesToMedium addMediumRelatesToMediums1(MediumRelatesToMedium mediumRelatesToMediums1) {
+  // 	getMediumRelatesToMediums1().add(mediumRelatesToMediums1);
+  // 	mediumRelatesToMediums1.setMedium1(this);
 
-	public MediumImage getMediumImage() {
-		return this.mediumImage;
-	}
+  // 	return mediumRelatesToMediums1;
+  // }
 
-	public void setMediumImage(MediumImage mediumImage) {
-		this.mediumImage = mediumImage;
-	}
+  // public MediumRelatesToMedium removeMediumRelatesToMediums1(MediumRelatesToMedium mediumRelatesToMediums1) {
+  // 	getMediumRelatesToMediums1().remove(mediumRelatesToMediums1);
+  // 	mediumRelatesToMediums1.setMedium1(null);
 
-	public List<MediumRelatesToEvent> getMediumRelatesToEvents() {
-		return this.mediumRelatesToEvents;
-	}
+  // 	return mediumRelatesToMediums1;
+  // }
 
-	public void setMediumRelatesToEvents(List<MediumRelatesToEvent> mediumRelatesToEvents) {
-		this.mediumRelatesToEvents = mediumRelatesToEvents;
-	}
+  // public List<MediumRelatesToMedium> getMediumRelatesToMediums2() {
+  // 	return this.mediumRelatesToMediums2;
+  // }
 
-	public MediumRelatesToEvent addMediumRelatesToEvent(MediumRelatesToEvent mediumRelatesToEvent) {
-		getMediumRelatesToEvents().add(mediumRelatesToEvent);
-		mediumRelatesToEvent.setMedium(this);
+  // public void setMediumRelatesToMediums2(List<MediumRelatesToMedium> mediumRelatesToMediums2) {
+  // 	this.mediumRelatesToMediums2 = mediumRelatesToMediums2;
+  // }
 
-		return mediumRelatesToEvent;
-	}
+  // public MediumRelatesToMedium addMediumRelatesToMediums2(MediumRelatesToMedium mediumRelatesToMediums2) {
+  // 	getMediumRelatesToMediums2().add(mediumRelatesToMediums2);
+  // 	mediumRelatesToMediums2.setMedium2(this);
 
-	public MediumRelatesToEvent removeMediumRelatesToEvent(MediumRelatesToEvent mediumRelatesToEvent) {
-		getMediumRelatesToEvents().remove(mediumRelatesToEvent);
-		mediumRelatesToEvent.setMedium(null);
+  // 	return mediumRelatesToMediums2;
+  // }
 
-		return mediumRelatesToEvent;
-	}
+  // public MediumRelatesToMedium removeMediumRelatesToMediums2(MediumRelatesToMedium mediumRelatesToMediums2) {
+  // 	getMediumRelatesToMediums2().remove(mediumRelatesToMediums2);
+  // 	mediumRelatesToMediums2.setMedium2(null);
 
-	// public List<MediumRelatesToMedium> getMediumRelatesToMediums1() {
-	// 	return this.mediumRelatesToMediums1;
-	// }
+  // 	return mediumRelatesToMediums2;
+  // }
 
-	// public void setMediumRelatesToMediums1(List<MediumRelatesToMedium> mediumRelatesToMediums1) {
-	// 	this.mediumRelatesToMediums1 = mediumRelatesToMediums1;
-	// }
+  public MediumSoftware getMediumSoftware() {
+    return this.mediumSoftware;
+  }
 
-	// public MediumRelatesToMedium addMediumRelatesToMediums1(MediumRelatesToMedium mediumRelatesToMediums1) {
-	// 	getMediumRelatesToMediums1().add(mediumRelatesToMediums1);
-	// 	mediumRelatesToMediums1.setMedium1(this);
+  public void setMediumSoftware(MediumSoftware mediumSoftware) {
+    this.mediumSoftware = mediumSoftware;
+  }
 
-	// 	return mediumRelatesToMediums1;
-	// }
+  public MediumText getMediumText() {
+    return this.mediumText;
+  }
 
-	// public MediumRelatesToMedium removeMediumRelatesToMediums1(MediumRelatesToMedium mediumRelatesToMediums1) {
-	// 	getMediumRelatesToMediums1().remove(mediumRelatesToMediums1);
-	// 	mediumRelatesToMediums1.setMedium1(null);
+  public void setMediumText(MediumText mediumText) {
+    this.mediumText = mediumText;
+  }
 
-	// 	return mediumRelatesToMediums1;
-	// }
+  public List<MusicalNotation> getMusicalNotations() {
+    return this.musicalNotations;
+  }
 
-	// public List<MediumRelatesToMedium> getMediumRelatesToMediums2() {
-	// 	return this.mediumRelatesToMediums2;
-	// }
+  public void setMusicalNotations(List<MusicalNotation> musicalNotations) {
+    this.musicalNotations = musicalNotations;
+  }
 
-	// public void setMediumRelatesToMediums2(List<MediumRelatesToMedium> mediumRelatesToMediums2) {
-	// 	this.mediumRelatesToMediums2 = mediumRelatesToMediums2;
-	// }
+  public MusicalNotation addMusicalNotation(MusicalNotation musicalNotation) {
+    getMusicalNotations().add(musicalNotation);
+    musicalNotation.setMedium(this);
 
-	// public MediumRelatesToMedium addMediumRelatesToMediums2(MediumRelatesToMedium mediumRelatesToMediums2) {
-	// 	getMediumRelatesToMediums2().add(mediumRelatesToMediums2);
-	// 	mediumRelatesToMediums2.setMedium2(this);
+    return musicalNotation;
+  }
 
-	// 	return mediumRelatesToMediums2;
-	// }
+  public MusicalNotation removeMusicalNotation(MusicalNotation musicalNotation) {
+    getMusicalNotations().remove(musicalNotation);
+    musicalNotation.setMedium(null);
 
-	// public MediumRelatesToMedium removeMediumRelatesToMediums2(MediumRelatesToMedium mediumRelatesToMediums2) {
-	// 	getMediumRelatesToMediums2().remove(mediumRelatesToMediums2);
-	// 	mediumRelatesToMediums2.setMedium2(null);
+    return musicalNotation;
+  }
 
-	// 	return mediumRelatesToMediums2;
-	// }
+  public List<Source> getSources() {
+    return this.sources;
+  }
 
-	public MediumSoftware getMediumSoftware() {
-		return this.mediumSoftware;
-	}
+  public void setSources(List<Source> sources) {
+    this.sources = sources;
+  }
 
-	public void setMediumSoftware(MediumSoftware mediumSoftware) {
-		this.mediumSoftware = mediumSoftware;
-	}
+  public Source addSource(Source source) {
+    getSources().add(source);
+    source.setMedium(this);
 
-	public MediumText getMediumText() {
-		return this.mediumText;
-	}
+    return source;
+  }
 
-	public void setMediumText(MediumText mediumText) {
-		this.mediumText = mediumText;
-	}
+  public Source removeSource(Source source) {
+    getSources().remove(source);
+    source.setMedium(null);
 
-	public List<MusicalNotation> getMusicalNotations() {
-		return this.musicalNotations;
-	}
+    return source;
+  }
 
-	public void setMusicalNotations(List<MusicalNotation> musicalNotations) {
-		this.musicalNotations = musicalNotations;
-	}
+  public MediumVideo getMediumVideo() {
+    return this.mediumVideo;
+  }
 
-	public MusicalNotation addMusicalNotation(MusicalNotation musicalNotation) {
-		getMusicalNotations().add(musicalNotation);
-		musicalNotation.setMedium(this);
+  public void setMediumVideo(MediumVideo mediumVideo) {
+    this.mediumVideo = mediumVideo;
+  }
 
-		return musicalNotation;
-	}
+  public MediumVideogame getMediumVideogame() {
+    return mediumVideogame;
+  }
 
-	public MusicalNotation removeMusicalNotation(MusicalNotation musicalNotation) {
-		getMusicalNotations().remove(musicalNotation);
-		musicalNotation.setMedium(null);
+  public void setMediumVideogame(MediumVideogame mediumVideogame) {
+    this.mediumVideogame = mediumVideogame;
+  }
 
-		return musicalNotation;
-	}
+  public List<MediumHasActorWithRole> getMediumHasActorWithRoles() {
+    return this.mediumHasActorWithRoles;
+  }
 
-	public List<Source> getSources() {
-		return this.sources;
-	}
+  public void setMediumHasActorWithRoles(List<MediumHasActorWithRole> mediumHasActorWithRoles) {
+    this.mediumHasActorWithRoles = mediumHasActorWithRoles;
+  }
 
-	public void setSources(List<Source> sources) {
-		this.sources = sources;
-	}
+  public MediumHasActorWithRole addMediumHasActorWithRole(MediumHasActorWithRole mediumHasActorWithRole) {
+    getMediumHasActorWithRoles().add(mediumHasActorWithRole);
+    mediumHasActorWithRole.setMedium(this);
 
-	public Source addSource(Source source) {
-		getSources().add(source);
-		source.setMedium(this);
+    return mediumHasActorWithRole;
+  }
 
-		return source;
-	}
+  public MediumHasActorWithRole removeMediumHasActorWithRole(MediumHasActorWithRole mediumHasActorWithRole) {
+    getMediumHasActorWithRoles().remove(mediumHasActorWithRole);
+    mediumHasActorWithRole.setMedium(null);
 
-	public Source removeSource(Source source) {
-		getSources().remove(source);
-		source.setMedium(null);
+    return mediumHasActorWithRole;
+  }
 
-		return source;
-	}
+  public Music getMusic() {
+    return this.music;
+  }
 
-	public MediumVideo getMediumVideo() {
-		return this.mediumVideo;
-	}
+  public void setMusic(Music music) {
+    this.music = music;
+  }
 
-	public void setMediumVideo(MediumVideo mediumVideo) {
-		this.mediumVideo = mediumVideo;
-	}
+  public List<MediumHasMusic> getMediumHasMusicList() {
+    return this.mediumHasMusicList;
+  }
 
-	public MediumVideogame getMediumVideogame() {
-		return mediumVideogame;
-	}
+  public void setMediumHasMusicList(List<MediumHasMusic> mediumHasMusicList) {
+    this.mediumHasMusicList = mediumHasMusicList;
+  }
 
-	public void setMediumVideogame(MediumVideogame mediumVideogame) {
-		this.mediumVideogame = mediumVideogame;
-	}
+  public MediumHasMusic addMediumHasMusic(MediumHasMusic mediumHasMusic) {
+    getMediumHasMusicList().add(mediumHasMusic);
+    mediumHasMusic.setMedium(this);
 
-	public List<MediumHasActorWithRole> getMediumHasActorWithRoles() {
-		return this.mediumHasActorWithRoles;
-	}
+    return mediumHasMusic;
+  }
 
-	public void setMediumHasActorWithRoles(List<MediumHasActorWithRole> mediumHasActorWithRoles) {
-		this.mediumHasActorWithRoles = mediumHasActorWithRoles;
-	}
+  public MediumHasMusic removeMediumHasMusic(MediumHasMusic mediumHasMusic) {
+    getMediumHasMusicList().remove(mediumHasMusic);
+    mediumHasMusic.setMedium(null);
 
-	public MediumHasActorWithRole addMediumHasActorWithRole(MediumHasActorWithRole mediumHasActorWithRole) {
-		getMediumHasActorWithRoles().add(mediumHasActorWithRole);
-		mediumHasActorWithRole.setMedium(this);
+    return mediumHasMusic;
+  }
 
-		return mediumHasActorWithRole;
-	}
+  public String getFileStatus() {
+    return fileStatus;
+  }
 
-	public MediumHasActorWithRole removeMediumHasActorWithRole(MediumHasActorWithRole mediumHasActorWithRole) {
-		getMediumHasActorWithRoles().remove(mediumHasActorWithRole);
-		mediumHasActorWithRole.setMedium(null);
+  public void setFileStatus(String fileStatus) {
+    this.fileStatus = fileStatus;
+  }
 
-		return mediumHasActorWithRole;
-	}
+  public String getFileExtension() {
+    return fileExtension;
+  }
 
-	public Music getMusic() {
-		return this.music;
-	}
+  public void setFileExtension(String fileExtension) {
+    this.fileExtension = fileExtension;
+  }
 
-	public void setMusic(Music music) {
-		this.music = music;
-	}
+  public String getViewToken() {
+    return viewToken;
+  }
 
-	public List<MediumHasMusic> getMediumHasMusicList() {
-		return this.mediumHasMusicList;
-	}
-
-	public void setMediumHasMusicList(List<MediumHasMusic> mediumHasMusicList) {
-		this.mediumHasMusicList = mediumHasMusicList;
-	}
-
-	public MediumHasMusic addMediumHasMusic(MediumHasMusic mediumHasMusic) {
-		getMediumHasMusicList().add(mediumHasMusic);
-		mediumHasMusic.setMedium(this);
-
-		return mediumHasMusic;
-	}
-
-	public MediumHasMusic removeMediumHasMusic(MediumHasMusic mediumHasMusic) {
-		getMediumHasMusicList().remove(mediumHasMusic);
-		mediumHasMusic.setMedium(null);
-
-		return mediumHasMusic;
-	}
-
-	public String getFileStatus() {
-		return fileStatus;
-	}
-
-	public void setFileStatus(String fileStatus) {
-		this.fileStatus = fileStatus;
-	}
-
-	public String getFileExtension() {
-		return fileExtension;
-	}
-
-	public void setFileExtension(String fileExtension) {
-		this.fileExtension = fileExtension;
-	}
-
-	public String getViewToken() {
-		return viewToken;
-	}
-
-	public void setViewToken(String viewToken) {
-		this.viewToken = viewToken;
-	}
+  public void setViewToken(String viewToken) {
+    this.viewToken = viewToken;
+  }
 
   public Transcription getDefaultTranscription() {
     return defaultTranscription;
@@ -870,29 +840,30 @@ public class Medium implements Serializable {
   }
 
   public MediumAudioAnalysis getMediumAudioAnalysis() {
-		return mediumAudioAnalysis;
-	}
+    return mediumAudioAnalysis;
+  }
 
-	public void setMediumAudioAnalysis(MediumAudioAnalysis mediumAudioAnalysis) {
-		this.mediumAudioAnalysis = mediumAudioAnalysis;
-	}
+  public void setMediumAudioAnalysis(MediumAudioAnalysis mediumAudioAnalysis) {
+    this.mediumAudioAnalysis = mediumAudioAnalysis;
+  }
 
-	public void setLastEditedByUserAccountId(int lastEditedByUserAccountId) {
-		this.lastEditedByUserAccountId = lastEditedByUserAccountId;
-	}
+  public void setLastEditedByUserAccountId(int lastEditedByUserAccountId) {
+    this.lastEditedByUserAccountId = lastEditedByUserAccountId;
+  }
 
-	public void setCreatedByUserAccountId(int createdByUserAccountId) {
-		this.createdByUserAccountId = createdByUserAccountId;
-	}
+  public void setCreatedByUserAccountId(int createdByUserAccountId) {
+    this.createdByUserAccountId = createdByUserAccountId;
+  }
 
-	@PostLoad
-	public void setFileStatusAndViewTokenAfterLoad() {
-		if (this.fileStatus == null) {
-			this.fileStatus = EndpointMedium.mediumFileStatus(this.id, this.getMediaType().getMediaTypeTranslations().get(0).getType());
-		}
-		if (this.viewToken == null) {
-			this.viewToken = EndpointMedium.issueFileToken(this.id);
-		}
-	}
+  @PostLoad
+  public void setFileStatusAndViewTokenAfterLoad() {
+    if (this.fileStatus == null) {
+      this.fileStatus = EndpointMedium.mediumFileStatus(this.id,
+              this.getMediaType().getMediaTypeTranslations().get(0).getType());
+    }
+    if (this.viewToken == null) {
+      this.viewToken = EndpointMedium.issueFileToken(this.id);
+    }
+  }
 
 }
