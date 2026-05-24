@@ -359,6 +359,23 @@ public class TranscriptionService implements TaskStateUpdater, SpeechToTextTaskS
   }
 
   /**
+   * Checks whether a transcription identified by {@code transcriptionId} exists and belongs to the
+   * medium identified by {@code mediumId}. Unlike {@link #getTranscription(int, int)} this does
+   * not load the full {@link Transcription} entity, so it is the cheaper option when callers only
+   * need an existence / scope check (e.g. validating a URL path before deletion).
+   *
+   * @param mediumId        identifies the {@link de.bitgilde.TIMAAT.model.FIPOP.Medium} the
+   *                        transcription is expected to belong to
+   * @param transcriptionId identifies the {@link Transcription} to look up
+   * @return {@code true} if a transcription with the given id exists and is bound to the given
+   * medium; {@code false} otherwise (no transcription with that id, or it belongs to a different
+   * medium)
+   */
+  public boolean existsForMedium(int mediumId, int transcriptionId) {
+    return transcriptionStorage.existsForMedium(mediumId, transcriptionId);
+  }
+
+  /**
    * Removes the transcription identified by {@code transcriptionId}. Before removal, the
    * transcription's medium is checked: if it still references this transcription as its default,
    * the default is replaced with the most recently created remaining transcription of the same

@@ -31,14 +31,16 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
  * Tests for the transcription-related sub-resources exposed by {@link EndpointMedium}
  * ({@code GET /medium/{id}/transcriptions}, {@code GET /medium/{id}/transcriptions/{tid}},
- * {@code POST /medium/{id}/transcriptions}). The endpoint is wired with mocked
- * collaborators (no Jersey involved); injected fields are populated via reflection.
+ * {@code POST /medium/{id}/transcriptions}, {@code DELETE /medium/{id}/transcriptions/{tid}}).
+ * The endpoint is wired with mocked collaborators (no Jersey involved); injected fields are
+ * populated via reflection.
  *
  * @author Nico Kotlenga (nico@nko-dev.studio)
  * @since 2026-05-24
@@ -136,8 +138,8 @@ public class EndpointMediumTranscriptionsTest {
   @Test
   void shouldCreateTranscriptionAndReturnCreatedWithDto() throws Exception {
     Transcription created = transcription(TRANSCRIPTION_ID, MEDIUM_ID, ENGINE, MODEL);
-    when(transcriptionService.createTranscription(any(GenerateTranscriptionConfiguration.class), eq(USER_ID))).thenReturn(
-            created);
+    when(transcriptionService.createTranscription(any(GenerateTranscriptionConfiguration.class),
+            eq(USER_ID))).thenReturn(created);
     CreateTranscriptionRequest request = new CreateTranscriptionRequest(ENGINE, MODEL);
 
     Response response = endpoint.createMediumTranscription(MEDIUM_ID, request);
@@ -215,6 +217,37 @@ public class EndpointMediumTranscriptionsTest {
     CreateTranscriptionRequest request = new CreateTranscriptionRequest(ENGINE, MODEL);
 
     Response response = endpoint.createMediumTranscription(MEDIUM_ID, request);
+
+    assertThat(response.getStatus()).isEqualTo(Response.Status.INTERNAL_SERVER_ERROR.getStatusCode());
+  }
+
+  @Test
+  void shouldReturnNoContentWhenDeletingTranscription() throws Exception {
+    when(transcriptionService.existsForMedium(MEDIUM_ID, TRANSCRIPTION_ID)).thenReturn(true);
+
+    Response response = endpoint.deleteMediumTranscription(MEDIUM_ID, TRANSCRIPTION_ID);
+
+    assertThat(response.getStatus()).isEqualTo(Response.Status.NO_CONTENT.getStatusCode());
+    verify(transcriptionService).deleteTranscription(TRANSCRIPTION_ID);
+  }
+
+  @Test
+  void shouldReturnNotFoundWhenDeletingMissingTranscription() throws Exception {
+    when(transcriptionService.existsForMedium(MEDIUM_ID, TRANSCRIPTION_ID)).thenReturn(false);
+
+    Response response = endpoint.deleteMediumTranscription(MEDIUM_ID, TRANSCRIPTION_ID);
+
+    assertThat(response.getStatus()).isEqualTo(Response.Status.NOT_FOUND.getStatusCode());
+    verify(transcriptionService, never()).deleteTranscription(anyInt());
+  }
+
+  @Test
+  void shouldReturnInternalServerErrorWhenDeleteFails() throws Exception {
+    when(transcriptionService.existsForMedium(MEDIUM_ID, TRANSCRIPTION_ID)).thenReturn(true);
+    doThrow(new TranscriptionServiceException("backend exploded")).when(transcriptionService)
+                                                                  .deleteTranscription(TRANSCRIPTION_ID);
+
+    Response response = endpoint.deleteMediumTranscription(MEDIUM_ID, TRANSCRIPTION_ID);
 
     assertThat(response.getStatus()).isEqualTo(Response.Status.INTERNAL_SERVER_ERROR.getStatusCode());
   }

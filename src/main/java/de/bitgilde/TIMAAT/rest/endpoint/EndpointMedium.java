@@ -4599,6 +4599,42 @@ public class EndpointMedium {
     }
   }
 
+  /**
+   * Deletes the transcription identified by {@code transcriptionId}, scoped to the given medium
+   * so that a transcription belonging to a different medium is reported as not found rather than
+   * silently removed. The deletion itself is delegated to
+   * {@link TranscriptionService#deleteTranscription(int)}, which takes care of reassigning the
+   * medium's default transcription and removing the on-disk transcription file.
+   *
+   * @param mediumId        identifies the {@link Medium} the transcription is expected to belong
+   *                        to
+   * @param transcriptionId identifies the transcription to remove
+   * @return {@code 204 No Content} on success; {@code 404 Not Found} when the transcription does
+   * not exist or belongs to a different medium; {@code 500 Internal Server Error} when the
+   * deletion failed for any other reason
+   */
+  @DELETE
+  @Produces(jakarta.ws.rs.core.MediaType.APPLICATION_JSON)
+  @Secured
+  @Path("{id}/transcriptions/{transcriptionId}")
+  public Response deleteMediumTranscription(@PathParam("id") int mediumId,
+                                            @PathParam("transcriptionId") int transcriptionId) {
+    if (!transcriptionService.existsForMedium(mediumId, transcriptionId)) {
+      return Response.status(Status.NOT_FOUND)
+                     .entity("{\"reason\":\"Transcription " + transcriptionId + " does not exist for medium " + mediumId
+                             + "\"}").build();
+    }
+
+    try {
+      transcriptionService.deleteTranscription(transcriptionId);
+      return Response.noContent().build();
+    } catch (TranscriptionNotFoundException e) {
+      return Response.status(Status.NOT_FOUND).entity("{\"reason\":\"" + e.getMessage() + "\"}").build();
+    } catch (TranscriptionServiceException e) {
+      return Response.status(Status.INTERNAL_SERVER_ERROR).entity("{\"reason\":\"" + e.getMessage() + "\"}").build();
+    }
+  }
+
   private static boolean isBlank(String value) {
     return value == null || value.isBlank();
   }

@@ -35,8 +35,9 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
- * Tests of {@link TranscriptionService#getTranscriptionsForMedium(int)} and
- * {@link TranscriptionService#getTranscription(int, int)}, covering the medium-scoped
+ * Tests of {@link TranscriptionService#getTranscriptionsForMedium(int)},
+ * {@link TranscriptionService#getTranscription(int, int)} and
+ * {@link TranscriptionService#existsForMedium(int, int)}, covering the medium-scoped
  * lookup behaviour and the medium/transcription mismatch handling.
  *
  * @author Nico Kotlenga (nico@nko-dev.studio)
@@ -151,6 +152,24 @@ public class TranscriptionServiceMediumLookupTest {
 
     assertThatThrownBy(() -> service.getTranscription(MEDIUM_ID, TRANSCRIPTION_ID))
             .isInstanceOf(TranscriptionNotFoundException.class);
+  }
+
+  @Test
+  void shouldReturnTrueWhenTranscriptionExistsForMedium() {
+    when(transcriptionStorage.existsForMedium(MEDIUM_ID, TRANSCRIPTION_ID)).thenReturn(true);
+
+    boolean result = service.existsForMedium(MEDIUM_ID, TRANSCRIPTION_ID);
+
+    assertThat(result).isTrue();
+  }
+
+  @Test
+  void shouldReturnFalseWhenTranscriptionDoesNotExistForMedium() {
+    when(transcriptionStorage.existsForMedium(MEDIUM_ID, TRANSCRIPTION_ID)).thenReturn(false);
+
+    boolean result = service.existsForMedium(MEDIUM_ID, TRANSCRIPTION_ID);
+
+    assertThat(result).isFalse();
   }
 
   private Transcription transcription(int id, int mediumId) {

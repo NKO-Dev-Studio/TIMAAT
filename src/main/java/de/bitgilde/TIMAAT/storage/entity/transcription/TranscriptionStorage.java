@@ -169,6 +169,28 @@ public class TranscriptionStorage extends DbStorage<Transcription, Transcription
   }
 
   /**
+   * Checks whether a {@link Transcription} with the given id exists and is associated with the
+   * given medium. The lookup runs as a {@code select count(...)} query so the entity itself is not
+   * materialised — preferable to {@link #findById(int)} followed by a medium check when callers
+   * only need a yes/no answer.
+   *
+   * @param mediumId        identifies the
+   *                        {@link de.bitgilde.TIMAAT.model.FIPOP.Medium} the transcription is
+   *                        expected to belong to
+   * @param transcriptionId identifies the {@link Transcription} to look up
+   * @return {@code true} when a row matches both ids; {@code false} otherwise
+   */
+  public boolean existsForMedium(int mediumId, int transcriptionId) {
+    return executeDbTransaction(entityManager -> {
+      Long count = entityManager.createQuery(
+                                        "select count(transcription) from Transcription transcription " + "where transcription.id = :id and transcription.medium.id = :mediumId",
+                                        Long.class).setParameter("id", transcriptionId).setParameter("mediumId", mediumId)
+                                .getSingleResult();
+      return count != null && count > 0L;
+    });
+  }
+
+  /**
    * Removes the {@link Transcription} identified by {@code transcriptionId} from the database.
    *
    * @param transcriptionId identifies the {@link Transcription} to remove
