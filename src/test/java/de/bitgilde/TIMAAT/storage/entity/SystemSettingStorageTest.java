@@ -175,9 +175,8 @@ public class SystemSettingStorageTest {
       when(entityManager.find(SystemSetting.class, SINGLETON_ID)).thenReturn(existingRow);
       when(entityManager.find(eq(TranscriptionModel.class), any(TranscriptionModelId.class))).thenReturn(null);
 
-      assertThatThrownBy(() -> storage.updateTranscriptionSystemSettings(true, ENGINE_ID, MODEL_ID, null))
-              .isInstanceOf(DbTransactionExecutionException.class)
-              .hasCauseInstanceOf(IllegalArgumentException.class);
+      assertThatThrownBy(() -> storage.updateTranscriptionSystemSettings(true, ENGINE_ID, MODEL_ID, null)).isInstanceOf(
+              DbTransactionExecutionException.class).hasCauseInstanceOf(IllegalArgumentException.class);
 
       verify(entityTransaction).rollback();
       verify(entityTransaction, never()).commit();
@@ -204,34 +203,6 @@ public class SystemSettingStorageTest {
       storage.updateTranscriptionSystemSettings(false, null, null, null);
 
       assertThat(existingRow.getLastEditedByUserAccount()).isSameAs(previousUser);
-    }
-  }
-
-  @Nested
-  class ClearDefaultTranscriptionModel {
-
-    @Test
-    void shouldClearDefaultAndStampLastEditedAtWhenRowExists() {
-      SystemSetting existingRow = existingRow(true, transcriptionModel(ENGINE_ID, MODEL_ID));
-      when(entityManager.find(SystemSetting.class, SINGLETON_ID)).thenReturn(existingRow);
-
-      Instant before = Instant.now();
-      storage.clearDefaultTranscriptionModel();
-      Instant after = Instant.now();
-
-      assertThat(existingRow.getDefaultTranscriptionModel()).isNull();
-      assertThat(existingRow.getLastEditedAt()).isBetween(before, after);
-      verify(entityTransaction).commit();
-    }
-
-    @Test
-    void shouldBeNoOpWhenNoRowExists() {
-      when(entityManager.find(SystemSetting.class, SINGLETON_ID)).thenReturn(null);
-
-      storage.clearDefaultTranscriptionModel();
-
-      verify(entityManager, never()).persist(any());
-      verify(entityTransaction).commit();
     }
   }
 

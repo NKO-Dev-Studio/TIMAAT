@@ -29,6 +29,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -78,12 +79,14 @@ public class TranscriptionServiceSettingsTest {
   }
 
   private TranscriptionService featureEnabledService() {
-    when(speechToTextServiceClient.getAvailableEngines()).thenReturn(List.of(
-            new SpeechToTextEngine(ENGINE_ID, ENGINE_NAME, List.of(MODEL_ID),
+    when(speechToTextServiceClient.getAvailableEngines()).thenReturn(
+            List.of(new SpeechToTextEngine(ENGINE_ID, ENGINE_NAME, List.of(MODEL_ID),
                     List.of(SpeechToTextEngineOutputFormat.SRT))));
-    return new TranscriptionService(transcriptionStorage, systemSettingStorage, audioFileStorage, videoFileStorage,
-            taskServiceProvider, temporaryFileStorage, transcriptionFileStorage, mediumStorage,
-            speechToTextServiceClient);
+    TranscriptionService service = new TranscriptionService(transcriptionStorage, systemSettingStorage,
+            audioFileStorage, videoFileStorage, taskServiceProvider, temporaryFileStorage, transcriptionFileStorage,
+            mediumStorage, speechToTextServiceClient);
+    clearInvocations(transcriptionStorage, systemSettingStorage);
+    return service;
   }
 
   private TranscriptionService featureDisabledService() {
@@ -148,9 +151,8 @@ public class TranscriptionServiceSettingsTest {
     void shouldRejectWhenOnlyEngineIdentifierIsSet() {
       TranscriptionService service = featureEnabledService();
 
-      assertThatThrownBy(() -> service.updateTranscriptionSystemSettings(true, ENGINE_ID, null, null))
-              .isInstanceOf(IllegalArgumentException.class)
-              .hasMessageContaining("both be set or both be null");
+      assertThatThrownBy(() -> service.updateTranscriptionSystemSettings(true, ENGINE_ID, null, null)).isInstanceOf(
+              IllegalArgumentException.class).hasMessageContaining("both be set or both be null");
 
       verify(systemSettingStorage, never()).updateTranscriptionSystemSettings(anyBoolean(), any(), any(), any());
     }
@@ -159,8 +161,8 @@ public class TranscriptionServiceSettingsTest {
     void shouldRejectWhenOnlyModelIdentifierIsSet() {
       TranscriptionService service = featureEnabledService();
 
-      assertThatThrownBy(() -> service.updateTranscriptionSystemSettings(false, null, MODEL_ID, null))
-              .isInstanceOf(IllegalArgumentException.class);
+      assertThatThrownBy(() -> service.updateTranscriptionSystemSettings(false, null, MODEL_ID, null)).isInstanceOf(
+              IllegalArgumentException.class);
 
       verify(systemSettingStorage, never()).updateTranscriptionSystemSettings(anyBoolean(), any(), any(), any());
     }
@@ -169,8 +171,9 @@ public class TranscriptionServiceSettingsTest {
     void shouldRejectSettingDefaultModelWhenFeatureDisabled() {
       TranscriptionService service = featureDisabledService();
 
-      assertThatThrownBy(() -> service.updateTranscriptionSystemSettings(false, ENGINE_ID, MODEL_ID, null))
-              .isInstanceOf(TranscriptionFeatureDisabledException.class);
+      assertThatThrownBy(
+              () -> service.updateTranscriptionSystemSettings(false, ENGINE_ID, MODEL_ID, null)).isInstanceOf(
+              TranscriptionFeatureDisabledException.class);
 
       verifyNoInteractions(systemSettingStorage);
     }
@@ -188,9 +191,9 @@ public class TranscriptionServiceSettingsTest {
     void shouldRejectUnknownEngineWhenSettingDefault() {
       TranscriptionService service = featureEnabledService();
 
-      assertThatThrownBy(() -> service.updateTranscriptionSystemSettings(true, "unknown-engine", MODEL_ID, null))
-              .isInstanceOf(IllegalArgumentException.class)
-              .hasMessageContaining("unknown-engine");
+      assertThatThrownBy(
+              () -> service.updateTranscriptionSystemSettings(true, "unknown-engine", MODEL_ID, null)).isInstanceOf(
+              IllegalArgumentException.class).hasMessageContaining("unknown-engine");
 
       verify(systemSettingStorage, never()).updateTranscriptionSystemSettings(anyBoolean(), any(), any(), any());
     }
@@ -199,9 +202,9 @@ public class TranscriptionServiceSettingsTest {
     void shouldRejectUnknownModelOnKnownEngineWhenSettingDefault() {
       TranscriptionService service = featureEnabledService();
 
-      assertThatThrownBy(() -> service.updateTranscriptionSystemSettings(true, ENGINE_ID, "unknown-model", null))
-              .isInstanceOf(IllegalArgumentException.class)
-              .hasMessageContaining("unknown-model");
+      assertThatThrownBy(
+              () -> service.updateTranscriptionSystemSettings(true, ENGINE_ID, "unknown-model", null)).isInstanceOf(
+              IllegalArgumentException.class).hasMessageContaining("unknown-model");
 
       verify(systemSettingStorage, never()).updateTranscriptionSystemSettings(anyBoolean(), any(), any(), any());
     }

@@ -231,7 +231,9 @@ public class TranscriptionService implements TaskStateUpdater, SpeechToTextTaskS
         throw new TranscriptionFeatureDisabledException(
                 "Cannot configure a default transcription model while the speech-to-text feature is disabled");
       }
-      validateAndUpsertEngineModel(defaultEngineIdentifier, defaultModelIdentifier);
+      SpeechToTextEngine speechToTextEngine = getSpeechToTextEngineHavingModel(defaultEngineIdentifier,
+              defaultModelIdentifier);
+      upsertEngineModel(speechToTextEngine, defaultModelIdentifier);
     }
 
     systemSettingStorage.updateTranscriptionSystemSettings(autoTranscribeUploads, defaultEngineIdentifier,
@@ -258,7 +260,8 @@ public class TranscriptionService implements TaskStateUpdater, SpeechToTextTaskS
     String engineIdentifier = generateTranscriptionConfiguration.engineIdentifier();
     String modelIdentifier = generateTranscriptionConfiguration.modelIdentifier();
 
-    validateAndUpsertEngineModel(engineIdentifier, modelIdentifier);
+    SpeechToTextEngine speechToTextEngine = getSpeechToTextEngineHavingModel(engineIdentifier, modelIdentifier);
+    upsertEngineModel(speechToTextEngine, modelIdentifier);
 
     SupportedMediumType supportedMediumType = transcriptionStorage.determineSupportedMediumType(mediumId);
     AudioContainingMediumFileStorage fileStorage = getFileStorage(supportedMediumType);
@@ -347,7 +350,7 @@ public class TranscriptionService implements TaskStateUpdater, SpeechToTextTaskS
     }
   }
 
-  private SpeechToTextEngine validateAndUpsertEngineModel(String engineIdentifier, String modelIdentifier) {
+  private SpeechToTextEngine getSpeechToTextEngineHavingModel(String engineIdentifier, String modelIdentifier) {
     SpeechToTextEngine engine = speechToTextServiceClient.getAvailableEngines().stream()
                                                          .filter(candidate -> candidate.engineIdentifier()
                                                                                        .equals(engineIdentifier))
@@ -359,10 +362,12 @@ public class TranscriptionService implements TaskStateUpdater, SpeechToTextTaskS
               "Model '" + modelIdentifier + "' is not provided by engine '" + engineIdentifier + "'");
     }
 
-    transcriptionStorage.upsertEngine(engineIdentifier, engine.engineName());
-    transcriptionStorage.upsertModel(engineIdentifier, modelIdentifier);
-
     return engine;
+  }
+
+  private void upsertEngineModel(SpeechToTextEngine speechToTextEngine, String modelIdentifier) {
+    transcriptionStorage.upsertEngine(speechToTextEngine.engineIdentifier(), speechToTextEngine.engineName());
+    transcriptionStorage.upsertModel(speechToTextEngine.engineIdentifier(), modelIdentifier);
   }
 
   private void startTranscriptionTask(int transcriptionId, Path monoFile, String engineIdentifier, String modelIdentifier) {
@@ -434,26 +439,51 @@ public class TranscriptionService implements TaskStateUpdater, SpeechToTextTaskS
   private void verifyDefaultModelStillAvailable() {
     try {
       Optional<TranscriptionModel> defaultModel = systemSettingStorage.getDefaultTranscriptionModel();
+      Collection<SpeechToTextEngine> speechToTextEngines = speechToTextServiceClient.getAvailableEngines();
+
       if (defaultModel.isEmpty()) {
+        logger.log(Level.WARNING, "No transcription model currently set as default.");
+        useAnyModelAsDefaultModel(speechToTextEngines);
         return;
       }
+
 
       String engineIdentifier = defaultModel.get().getId().getEngineIdentifier();
       String modelIdentifier = defaultModel.get().getId().getModelIdentifier();
 
-      boolean stillAvailable = speechToTextServiceClient.getAvailableEngines().stream()
-                                                        .filter(engine -> engine.engineIdentifier()
-                                                                                .equals(engineIdentifier)).anyMatch(
-                      engine -> engine.modelIdentifiers().contains(modelIdentifier));
+      boolean stillAvailable = speechToTextEngines.stream()
+                                                  .filter(engine -> engine.engineIdentifier().equals(engineIdentifier))
+                                                  .anyMatch(engine -> engine.modelIdentifiers()
+                                                                            .contains(modelIdentifier));
 
       if (!stillAvailable) {
         logger.log(Level.WARNING,
-                "Default transcription model {0}/{1} is no longer provided by the speech-to-text-service. Clearing default.",
+                "Default transcription model {0}/{1} is no longer provided by the speech-to-text-service.",
                 new Object[]{engineIdentifier, modelIdentifier});
-        systemSettingStorage.clearDefaultTranscriptionModel();
+        useAnyModelAsDefaultModel(speechToTextEngines);
       }
     } catch (Exception e) {
       logger.log(Level.WARNING, "Could not verify availability of the default transcription model", e);
+    }
+  }
+
+  private void useAnyModelAsDefaultModel(Collection<SpeechToTextEngine> speechToTextEngines) {
+    Optional<SpeechToTextEngine> speechToTextEngineWithAtLeastOneModelOptional = speechToTextEngines.stream()
+                                                                                                    .filter(speechToTextEngine -> !speechToTextEngine.modelIdentifiers()
+                                                                                                                                                     .isEmpty())
+                                                                                                    .findFirst();
+    if (speechToTextEngineWithAtLeastOneModelOptional.isPresent()) {
+      SpeechToTextEngine speechToTextEngineWithAtLeastOneModel = speechToTextEngineWithAtLeastOneModelOptional.get();
+      String modelIdentifier = speechToTextEngineWithAtLeastOneModel.modelIdentifiers().stream().findFirst().get();
+      upsertEngineModel(speechToTextEngineWithAtLeastOneModel, modelIdentifier);
+
+      logger.log(Level.INFO, "Setting {0}/{1} as new transcription default model.",
+              new Object[]{speechToTextEngineWithAtLeastOneModel.engineIdentifier(), modelIdentifier});
+      systemSettingStorage.updateTranscriptionDefaultModel(speechToTextEngineWithAtLeastOneModel.engineIdentifier(),
+              modelIdentifier, null);
+    }
+    else {
+      logger.log(Level.WARNING, "No model available which can be used as the default transcription model.");
     }
   }
 

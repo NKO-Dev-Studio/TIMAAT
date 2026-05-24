@@ -8,6 +8,7 @@ import de.bitgilde.TIMAAT.model.FIPOP.UserAccount;
 import de.bitgilde.TIMAAT.storage.entity.api.TranscriptionSystemSettings;
 import jakarta.annotation.Nullable;
 import jakarta.inject.Inject;
+import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityManagerFactory;
 
 import java.time.Instant;
@@ -43,22 +44,6 @@ public class SystemSettingStorage extends DbAccessComponent {
   }
 
   /**
-   * Removes the default transcription model from the singleton settings row. Called when the previously
-   * configured default model is no longer offered by the connected speech-to-text-service.
-   * No-op if no settings row exists yet.
-   */
-  public void clearDefaultTranscriptionModel() {
-    executeDbTransaction(entityManager -> {
-      SystemSetting systemSetting = entityManager.find(SystemSetting.class, SINGLETON_ID);
-      if (systemSetting != null) {
-        systemSetting.setDefaultTranscriptionModel(null);
-        systemSetting.setLastEditedAt(Instant.now());
-      }
-      return Void.TYPE;
-    });
-  }
-
-  /**
    * Reads the transcription-related system settings (default engine/model and the auto-transcribe-uploads
    * flag) from the singleton settings row. If no row exists yet, a snapshot reflecting the documented
    * defaults (auto-transcribe disabled, no default model) is returned.
@@ -87,43 +72,67 @@ public class SystemSettingStorage extends DbAccessComponent {
    * @param editingUser the user performing the change; used to stamp {@code lastEditedByUserAccount}, may be {@code null}
    * @throws de.bitgilde.TIMAAT.db.exception.DbTransactionExecutionException if the update fails at the database level
    */
-  public void updateTranscriptionSystemSettings(boolean autoTranscribeUploads,
-                                                @Nullable String defaultEngineIdentifier,
-                                                @Nullable String defaultModelIdentifier,
-                                                @Nullable UserAccount editingUser) {
+  public void updateTranscriptionSystemSettings(boolean autoTranscribeUploads, @Nullable String defaultEngineIdentifier, @Nullable String defaultModelIdentifier, @Nullable UserAccount editingUser) {
     executeDbTransaction(entityManager -> {
       SystemSetting systemSetting = entityManager.find(SystemSetting.class, SINGLETON_ID);
       Instant now = Instant.now();
 
       if (systemSetting == null) {
-        systemSetting = new SystemSetting();
-        systemSetting.setId(SINGLETON_ID);
-        systemSetting.setCreatedAt(now);
-        entityManager.persist(systemSetting);
+        systemSetting = createSystemSetting(entityManager, now);
       }
 
       systemSetting.setAutoTranscribeUploads(autoTranscribeUploads);
-
-      if (defaultEngineIdentifier == null || defaultModelIdentifier == null) {
-        systemSetting.setDefaultTranscriptionModel(null);
-      }
-      else {
-        TranscriptionModelId modelId = new TranscriptionModelId();
-        modelId.setEngineIdentifier(defaultEngineIdentifier);
-        modelId.setModelIdentifier(defaultModelIdentifier);
-        TranscriptionModel model = entityManager.find(TranscriptionModel.class, modelId);
-        if (model == null) {
-          throw new IllegalArgumentException(
-                  "Transcription model '" + defaultEngineIdentifier + "/" + defaultModelIdentifier + "' is unknown");
-        }
-        systemSetting.setDefaultTranscriptionModel(model);
-      }
-
+      updateTranscriptionDefaultModel(entityManager, systemSetting, defaultEngineIdentifier, defaultModelIdentifier);
       systemSetting.setLastEditedAt(now);
       if (editingUser != null) {
         systemSetting.setLastEditedByUserAccount(editingUser);
       }
       return Void.TYPE;
     });
+  }
+
+  public void updateTranscriptionDefaultModel(@Nullable String defaultEngineIdentifier, @Nullable String defaultModelIdentifier, @Nullable UserAccount editingUser) {
+    executeDbTransaction(entityManager -> {
+      SystemSetting systemSetting = entityManager.find(SystemSetting.class, SINGLETON_ID);
+      Instant now = Instant.now();
+
+      if (systemSetting == null) {
+        systemSetting = createSystemSetting(entityManager, now);
+      }
+
+      updateTranscriptionDefaultModel(entityManager, systemSetting, defaultEngineIdentifier, defaultModelIdentifier);
+      systemSetting.setLastEditedAt(now);
+      if (editingUser != null) {
+        systemSetting.setLastEditedByUserAccount(editingUser);
+      }
+
+      return Void.TYPE;
+    });
+  }
+
+  private void updateTranscriptionDefaultModel(EntityManager entityManager, SystemSetting systemSetting, @Nullable String defaultEngineIdentifier, @Nullable String defaultModelIdentifier) {
+    if (defaultEngineIdentifier == null || defaultModelIdentifier == null) {
+      systemSetting.setDefaultTranscriptionModel(null);
+    }
+    else {
+      TranscriptionModelId modelId = new TranscriptionModelId();
+      modelId.setEngineIdentifier(defaultEngineIdentifier);
+      modelId.setModelIdentifier(defaultModelIdentifier);
+      TranscriptionModel model = entityManager.find(TranscriptionModel.class, modelId);
+      if (model == null) {
+        throw new IllegalArgumentException(
+                "Transcription model '" + defaultEngineIdentifier + "/" + defaultModelIdentifier + "' is unknown");
+      }
+      systemSetting.setDefaultTranscriptionModel(model);
+    }
+  }
+
+  private SystemSetting createSystemSetting(EntityManager entityManager, Instant createdAt) {
+    SystemSetting systemSetting = new SystemSetting();
+    systemSetting.setId(SINGLETON_ID);
+    systemSetting.setCreatedAt(createdAt);
+
+    entityManager.persist(systemSetting);
+    return systemSetting;
   }
 }
