@@ -1,5 +1,7 @@
 package de.bitgilde.TIMAAT.storage.entity.transcription.api;
 
+import jakarta.annotation.Nullable;
+
 import java.util.Collection;
 import java.util.Optional;
 
@@ -29,10 +31,13 @@ public interface TranscriptionFilterCriteria {
 
   Optional<Collection<TranscriptionType>> getTranscriptionTypes();
 
+  Optional<Integer> getMediumId();
+
   class Builder {
 
     private Collection<TranscriptionState> transcriptionStates = null;
     private Collection<TranscriptionType> transcriptionTypes = null;
+    private Integer mediumId = null;
 
     public TranscriptionFilterCriteria.Builder transcriptionStates(Collection<TranscriptionState> transcriptionStates) {
       this.transcriptionStates = transcriptionStates;
@@ -41,6 +46,11 @@ public interface TranscriptionFilterCriteria {
 
     public TranscriptionFilterCriteria.Builder transcriptionTypes(Collection<TranscriptionType> transcriptionTypes) {
       this.transcriptionTypes = transcriptionTypes;
+      return this;
+    }
+
+    public TranscriptionFilterCriteria.Builder mediumId(@Nullable Integer mediumId) {
+      this.mediumId = mediumId;
       return this;
     }
 
@@ -54,6 +64,11 @@ public interface TranscriptionFilterCriteria {
         @Override
         public Optional<Collection<TranscriptionType>> getTranscriptionTypes() {
           return Optional.ofNullable(transcriptionTypes);
+        }
+
+        @Override
+        public Optional<Integer> getMediumId() {
+          return Optional.ofNullable(mediumId);
         }
       };
     }

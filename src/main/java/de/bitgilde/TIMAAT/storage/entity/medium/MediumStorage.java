@@ -64,6 +64,16 @@ public class MediumStorage extends DbStorage<Medium, MediumFilterCriteria, Mediu
   }
 
   /**
+   * Checks whether a {@link Medium} with the given id exists.
+   *
+   * @param mediumId identifies the medium whose existence should be checked
+   * @return {@code true} if a medium with the given id exists, {@code false} otherwise
+   */
+  public boolean existsById(int mediumId) {
+    return executeDbTransaction(entityManager -> entityManager.find(Medium.class, mediumId) != null);
+  }
+
+  /**
    * Sets the given {@link Transcription} as the default transcription of the medium identified by
    * {@code mediumId}, but only if the medium currently has no default transcription assigned. The
    * update is performed atomically as a single conditional {@code UPDATE} statement.

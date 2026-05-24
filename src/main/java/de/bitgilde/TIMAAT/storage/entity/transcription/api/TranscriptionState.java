@@ -18,4 +18,20 @@ public enum TranscriptionState {
   public int getDatabaseId() {
     return databaseId;
   }
+
+  /**
+   * Looks up the enum constant whose {@link #getDatabaseId()} matches the given id.
+   *
+   * @param databaseId the {@code transcription_state.id} value persisted in the DB
+   * @return the matching enum constant
+   * @throws IllegalArgumentException if no constant has the given database id
+   */
+  public static TranscriptionState fromDatabaseId(int databaseId) {
+    for (TranscriptionState state : values()) {
+      if (state.databaseId == databaseId) {
+        return state;
+      }
+    }
+    throw new IllegalArgumentException("No TranscriptionState with database id " + databaseId);
+  }
 }

@@ -50,17 +50,25 @@ import de.bitgilde.TIMAAT.rest.model.medium.MediumListingQueryParameter;
 import de.bitgilde.TIMAAT.rest.model.medium.UpdateMediumHasMusicListPayload;
 import de.bitgilde.TIMAAT.rest.model.medium.UpdateMediumHasMusicListPayload.MediumHasMusicListEntry;
 import de.bitgilde.TIMAAT.rest.model.medium.UpdateMediumVideoThumbnailPayload;
+import de.bitgilde.TIMAAT.rest.model.transcription.CreateTranscriptionRequest;
+import de.bitgilde.TIMAAT.rest.model.transcription.TranscriptionDto;
 import de.bitgilde.TIMAAT.security.TIMAATKeyGenerator;
 import de.bitgilde.TIMAAT.security.UserLogManager;
 import de.bitgilde.TIMAAT.service.task.TaskService;
 import de.bitgilde.TIMAAT.service.task.api.MediumAudioAnalysisTask.SupportedMediumType;
 import de.bitgilde.TIMAAT.service.task.api.TaskState;
 import de.bitgilde.TIMAAT.service.task.exception.TaskServiceException;
+import de.bitgilde.TIMAAT.service.transcription.TranscriptionService;
+import de.bitgilde.TIMAAT.service.transcription.api.GenerateTranscriptionConfiguration;
+import de.bitgilde.TIMAAT.service.transcription.exception.TranscriptionFeatureDisabledException;
+import de.bitgilde.TIMAAT.service.transcription.exception.TranscriptionNotFoundException;
+import de.bitgilde.TIMAAT.service.transcription.exception.TranscriptionServiceException;
 import de.bitgilde.TIMAAT.storage.api.PagingParameter;
 import de.bitgilde.TIMAAT.storage.api.SortingParameter;
 import de.bitgilde.TIMAAT.storage.entity.MediumVideoStorage;
 import de.bitgilde.TIMAAT.storage.entity.medium.MediumStorage;
 import de.bitgilde.TIMAAT.storage.entity.medium.api.MediumFilterCriteria;
+import de.bitgilde.TIMAAT.storage.entity.medium.exception.MediumNotFoundException;
 import de.bitgilde.TIMAAT.storage.file.AudioFileStorage;
 import de.bitgilde.TIMAAT.storage.file.ImageFileStorage;
 import de.bitgilde.TIMAAT.storage.file.ImageFileStorage.ImageFileType;
@@ -171,6 +179,8 @@ public class EndpointMedium {
   private MediumVideoStorage mediumVideoStorage;
   @Inject
   private FfmpegVideoEngine ffmpegVideoEngine;
+  @Inject
+  private TranscriptionService transcriptionService;
 
 
   @GET
@@ -4478,6 +4488,117 @@ public class EndpointMedium {
       r.add(clazz.cast(o));
     }
     return r;
+  }
+
+  /**
+   * Returns all transcriptions that belong to the given medium. An empty collection is returned
+   * when the medium has no transcriptions; if the medium itself does not exist the response is
+   * {@code 404 Not Found}.
+   *
+   * @param mediumId identifies the {@link Medium} whose transcriptions should be returned
+   * @return {@code 200 OK} with the transcription DTOs, or {@code 404 Not Found} when the
+   * medium does not exist
+   */
+  @GET
+  @Produces(jakarta.ws.rs.core.MediaType.APPLICATION_JSON)
+  @Secured
+  @Path("{id}/transcriptions")
+  public Response getMediumTranscriptions(@PathParam("id") int mediumId) {
+    try {
+      Collection<de.bitgilde.TIMAAT.model.FIPOP.Transcription> transcriptions = transcriptionService.getTranscriptionsForMedium(
+              mediumId);
+      List<TranscriptionDto> dtos = transcriptions.stream().map(EndpointMedium::toTranscriptionDto)
+                                                  .collect(Collectors.toList());
+      return Response.ok(dtos).build();
+    } catch (MediumNotFoundException e) {
+      return Response.status(Status.NOT_FOUND).entity("{\"reason\":\"" + e.getMessage() + "\"}").build();
+    }
+  }
+
+  /**
+   * Returns the single transcription identified by {@code transcriptionId}, scoped to the given
+   * medium so a transcription belonging to a different medium is reported as not found rather
+   * than returned out of context.
+   *
+   * @param mediumId        identifies the {@link Medium} the transcription is expected to belong to
+   * @param transcriptionId identifies the transcription to load
+   * @return {@code 200 OK} with the transcription DTO, or {@code 404 Not Found} when the
+   * transcription does not exist or belongs to a different medium
+   */
+  @GET
+  @Produces(jakarta.ws.rs.core.MediaType.APPLICATION_JSON)
+  @Secured
+  @Path("{id}/transcriptions/{transcriptionId}")
+  public Response getMediumTranscription(@PathParam("id") int mediumId, @PathParam("transcriptionId") int transcriptionId) {
+    try {
+      de.bitgilde.TIMAAT.model.FIPOP.Transcription transcription = transcriptionService.getTranscription(mediumId,
+              transcriptionId);
+      return Response.ok(toTranscriptionDto(transcription)).build();
+    } catch (TranscriptionNotFoundException e) {
+      return Response.status(Status.NOT_FOUND).entity("{\"reason\":\"" + e.getMessage() + "\"}").build();
+    }
+  }
+
+  /**
+   * Creates a new transcription for the given medium using the engine and model identified in
+   * the payload. Both {@code engineIdentifier} and {@code modelIdentifier} are required; a
+   * request that omits either field, or that names an engine/model pair the speech-to-text
+   * service does not provide, is rejected with {@code 400 Bad Request}. When the speech-to-text
+   * feature is disabled for this deployment the request is refused with {@code 403 Forbidden}.
+   *
+   * @param mediumId identifies the {@link Medium} the transcription should be created for
+   * @param request  payload carrying the engine/model identifiers
+   * @return {@code 201 Created} with the new transcription DTO; {@code 400 Bad Request} when
+   * the payload is missing or invalid; {@code 403 Forbidden} when the feature is disabled;
+   * {@code 500 Internal Server Error} when the transcription could not be created
+   */
+  @POST
+  @Consumes(jakarta.ws.rs.core.MediaType.APPLICATION_JSON)
+  @Produces(jakarta.ws.rs.core.MediaType.APPLICATION_JSON)
+  @Secured
+  @Path("{id}/transcriptions")
+  public Response createMediumTranscription(@PathParam("id") int mediumId, CreateTranscriptionRequest request) {
+    if (request == null) {
+      return Response.status(Status.BAD_REQUEST).entity("{\"reason\":\"request body is required\"}").build();
+    }
+    if (isBlank(request.engineIdentifier()) || isBlank(request.modelIdentifier())) {
+      return Response.status(Status.BAD_REQUEST)
+                     .entity("{\"reason\":\"engineIdentifier and modelIdentifier are required\"}").build();
+    }
+
+    GenerateTranscriptionConfiguration configuration = new GenerateTranscriptionConfiguration(mediumId,
+            request.engineIdentifier(), request.modelIdentifier());
+
+    try {
+      de.bitgilde.TIMAAT.model.FIPOP.Transcription created = transcriptionService.createTranscription(configuration);
+      return Response.status(Status.CREATED).entity(toTranscriptionDto(created)).build();
+    } catch (TranscriptionFeatureDisabledException e) {
+      return Response.status(Status.FORBIDDEN).entity("{\"reason\":\"" + e.getMessage() + "\"}").build();
+    } catch (IllegalArgumentException e) {
+      return Response.status(Status.BAD_REQUEST).entity("{\"reason\":\"" + e.getMessage() + "\"}").build();
+    } catch (TranscriptionServiceException e) {
+      return Response.status(Status.INTERNAL_SERVER_ERROR).entity("{\"reason\":\"" + e.getMessage() + "\"}").build();
+    }
+  }
+
+  private static boolean isBlank(String value) {
+    return value == null || value.isBlank();
+  }
+
+  private static TranscriptionDto toTranscriptionDto(de.bitgilde.TIMAAT.model.FIPOP.Transcription transcription) {
+    String engineIdentifier = null;
+    String modelIdentifier = null;
+    if (transcription.getTranscriptionModel() != null && transcription.getTranscriptionModel().getId() != null) {
+      engineIdentifier = transcription.getTranscriptionModel().getId().getEngineIdentifier();
+      modelIdentifier = transcription.getTranscriptionModel().getId().getModelIdentifier();
+    }
+
+    return new TranscriptionDto(transcription.getId(), transcription.getName(), transcription.getMedium().getId(),
+            engineIdentifier, modelIdentifier,
+            de.bitgilde.TIMAAT.storage.entity.transcription.api.TranscriptionState.fromDatabaseId(
+                    transcription.getTranscriptionState().getId()),
+            de.bitgilde.TIMAAT.storage.entity.transcription.api.TranscriptionType.fromDatabaseId(
+                    transcription.getTranscriptionType().getId()), transcription.getCreatedAt());
   }
 
 }

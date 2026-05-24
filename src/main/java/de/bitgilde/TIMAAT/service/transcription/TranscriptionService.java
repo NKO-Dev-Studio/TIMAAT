@@ -22,6 +22,7 @@ import de.bitgilde.TIMAAT.storage.api.SortingParameter;
 import de.bitgilde.TIMAAT.storage.entity.SystemSettingStorage;
 import de.bitgilde.TIMAAT.storage.entity.api.TranscriptionSystemSettings;
 import de.bitgilde.TIMAAT.storage.entity.medium.MediumStorage;
+import de.bitgilde.TIMAAT.storage.entity.medium.exception.MediumNotFoundException;
 import de.bitgilde.TIMAAT.storage.entity.transcription.TranscriptionStorage;
 import de.bitgilde.TIMAAT.storage.entity.transcription.api.TranscriptionFilterCriteria;
 import de.bitgilde.TIMAAT.storage.entity.transcription.api.TranscriptionState;
@@ -252,7 +253,7 @@ public class TranscriptionService implements TaskStateUpdater, SpeechToTextTaskS
    * @throws TranscriptionServiceException if the transcription could not be created (e.g. underlying task scheduling
    *                                       or storage access failed)
    */
-  public void createTranscription(GenerateTranscriptionConfiguration generateTranscriptionConfiguration) throws TranscriptionServiceException {
+  public Transcription createTranscription(GenerateTranscriptionConfiguration generateTranscriptionConfiguration) throws TranscriptionServiceException {
     if (!featureEnabled) {
       throw new TranscriptionFeatureDisabledException("Speech-to-text feature is disabled for this deployment");
     }
@@ -294,6 +295,48 @@ public class TranscriptionService implements TaskStateUpdater, SpeechToTextTaskS
       throw new TranscriptionServiceException("Failed to create transcription for medium " + mediumId, e);
     }
     trySetTranscriptionAsDefaultOfMedium(mediumId, createdTranscription.getId());
+    return createdTranscription;
+  }
+
+  /**
+   * Returns all transcriptions that belong to the given medium, ordered by the storage's
+   * default sort order. The medium is checked first so callers can distinguish "medium has no
+   * transcriptions" (empty collection) from "medium does not exist" ({@link MediumNotFoundException}).
+   *
+   * @param mediumId identifies the {@link de.bitgilde.TIMAAT.model.FIPOP.Medium} whose
+   *                 transcriptions should be returned
+   * @return the transcriptions of the given medium, never {@code null}
+   * @throws MediumNotFoundException if no medium with the given id exists
+   */
+  public Collection<Transcription> getTranscriptionsForMedium(int mediumId) throws MediumNotFoundException {
+    if (!mediumStorage.existsById(mediumId)) {
+      throw new MediumNotFoundException(mediumId);
+    }
+    TranscriptionFilterCriteria filter = new TranscriptionFilterCriteria.Builder().mediumId(mediumId).build();
+    return transcriptionStorage.getEntriesAsStream(filter, PagingParameter.NO_PAGING,
+            SortingParameter.defaultSortOrder(), null).toList();
+  }
+
+  /**
+   * Loads a single {@link Transcription} belonging to the given medium. The medium id is part of
+   * the lookup so that the transcription URL path is honoured: a transcription belonging to a
+   * different medium is reported as {@link TranscriptionNotFoundException} rather than returned
+   * out of context.
+   *
+   * @param mediumId        identifies the {@link de.bitgilde.TIMAAT.model.FIPOP.Medium} the
+   *                        transcription is expected to belong to
+   * @param transcriptionId identifies the {@link Transcription} to load
+   * @return the matching {@link Transcription}
+   * @throws TranscriptionNotFoundException if no transcription with the given id exists or the
+   *                                        transcription belongs to a different medium
+   */
+  public Transcription getTranscription(int mediumId, int transcriptionId) throws TranscriptionNotFoundException {
+    Transcription transcription = transcriptionStorage.findById(transcriptionId)
+                                                      .orElseThrow(() -> new TranscriptionNotFoundException(transcriptionId));
+    if (transcription.getMedium() == null || transcription.getMedium().getId() != mediumId) {
+      throw new TranscriptionNotFoundException(transcriptionId);
+    }
+    return transcription;
   }
 
   /**

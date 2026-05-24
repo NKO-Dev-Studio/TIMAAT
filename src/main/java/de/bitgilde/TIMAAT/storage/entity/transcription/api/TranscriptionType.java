@@ -20,4 +20,20 @@ public enum TranscriptionType {
   public int getDatabaseId() {
     return databaseId;
   }
+
+  /**
+   * Looks up the enum constant whose {@link #getDatabaseId()} matches the given id.
+   *
+   * @param databaseId the {@code transcription_type.id} value persisted in the DB
+   * @return the matching enum constant
+   * @throws IllegalArgumentException if no constant has the given database id
+   */
+  public static TranscriptionType fromDatabaseId(int databaseId) {
+    for (TranscriptionType type : values()) {
+      if (type.databaseId == databaseId) {
+        return type;
+      }
+    }
+    throw new IllegalArgumentException("No TranscriptionType with database id " + databaseId);
+  }
 }

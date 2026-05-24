@@ -2,6 +2,7 @@ package de.bitgilde.TIMAAT.storage.entity.transcription;
 
 import de.bitgilde.TIMAAT.db.exception.DbTransactionExecutionException;
 import de.bitgilde.TIMAAT.model.FIPOP.Medium;
+import de.bitgilde.TIMAAT.model.FIPOP.Medium_;
 import de.bitgilde.TIMAAT.model.FIPOP.Transcription;
 import de.bitgilde.TIMAAT.model.FIPOP.TranscriptionEngine;
 import de.bitgilde.TIMAAT.model.FIPOP.TranscriptionModel;
@@ -274,6 +275,10 @@ public class TranscriptionStorage extends DbStorage<Transcription, Transcription
                                                          .map(TranscriptionType::getDatabaseId)
                                                          .collect(Collectors.toSet());
         predicates.add(root.get(Transcription_.transcriptionType).get(TranscriptionType_.id).in(transcriptionTypeIds));
+      }
+
+      if (filter.getMediumId().isPresent()) {
+        predicates.add(criteriaBuilder.equal(root.get(Transcription_.medium).get(Medium_.id), filter.getMediumId().get()));
       }
 
       return predicates;
