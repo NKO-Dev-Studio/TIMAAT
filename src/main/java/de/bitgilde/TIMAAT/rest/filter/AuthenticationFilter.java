@@ -54,12 +54,12 @@ public class AuthenticationFilter implements ContainerRequestFilter {
   public static final String USER_NAME_PROPERTY_NAME = "TIMAAT.userName";
   public static final String USER_ACCOUNT_PROPERTY_NAME = "TIMAAT.user";
 
-	private static final String REALM = "TIMAAT";
+  private static final String REALM = "TIMAAT";
   private static final String AUTHENTICATION_SCHEME = "Bearer";
 
-	@Override
-	public void filter(ContainerRequestContext requestContext) throws IOException {
-		// Get the Authorization header from the request
+  @Override
+  public void filter(ContainerRequestContext requestContext) throws IOException {
+    // Get the Authorization header from the request
     String authorizationHeader = requestContext.getHeaderString(HttpHeaders.AUTHORIZATION);
     // Validate the Authorization header
     if (!isTokenBasedAuthentication(authorizationHeader)) {
@@ -92,92 +92,89 @@ public class AuthenticationFilter implements ContainerRequestFilter {
       }
 
     } catch (Exception e) {
-        abortWithUnauthorized(requestContext);
+      abortWithUnauthorized(requestContext);
     }
   }
 
-	private boolean isTokenBasedAuthentication(String authorizationHeader) {
+  private boolean isTokenBasedAuthentication(String authorizationHeader) {
 
     // Check if the Authorization header is valid
     // It must not be null and must be prefixed with "Bearer" plus a whitespace
     // The authentication scheme comparison must be case-insensitive
     return authorizationHeader != null && authorizationHeader.toLowerCase()
-                .startsWith(AUTHENTICATION_SCHEME.toLowerCase() + " ");
+                                                             .startsWith(AUTHENTICATION_SCHEME.toLowerCase() + " ");
   }
 
   private void abortWithUnauthorized(ContainerRequestContext requestContext) {
     // Abort the filter chain with a 401 status code response
     // The WWW-Authenticate header is sent along with the response
-    requestContext.abortWith(
-              Response.status(Response.Status.UNAUTHORIZED)
-                      .header(HttpHeaders.WWW_AUTHENTICATE,
-                              AUTHENTICATION_SCHEME + " realm=\"" + REALM + "\"")
-                      .build());
+    requestContext.abortWith(Response.status(Response.Status.UNAUTHORIZED).header(HttpHeaders.WWW_AUTHENTICATE,
+            AUTHENTICATION_SCHEME + " realm=\"" + REALM + "\"").build());
   }
 
   private void abortWithForbidden(ContainerRequestContext requestContext, String reason) {
     // Abort the filter chain with a 403 status code response
     // The WWW-Authenticate header is sent along with the response
-    requestContext.abortWith(
-              Response.status(Response.Status.FORBIDDEN)
-                      .header(HttpHeaders.WWW_AUTHENTICATE,
-                              AUTHENTICATION_SCHEME + " realm=\"" + REALM + "\"")
-                      .entity("{\"reason\":\""+reason+"\"}")
-                      .build());
+    requestContext.abortWith(Response.status(Response.Status.FORBIDDEN).header(HttpHeaders.WWW_AUTHENTICATE,
+            AUTHENTICATION_SCHEME + " realm=\"" + REALM + "\"").entity("{\"reason\":\"" + reason + "\"}").build());
   }
 
   public static UserAccount validateAccountStatus(String username) throws Exception {
     // verify user and user status
-    if ( username == null ) throw new Exception("provided credentials invalid");
+    if (username == null) {
+      throw new Exception("provided credentials invalid");
+    }
 
-    UserAccount user = (UserAccount) TIMAATApp.emf.createEntityManager()
-      .createQuery("SELECT ua FROM UserAccount ua WHERE ua.accountName=:username")
-      .setParameter("username", username)
-      .getSingleResult();
+    UserAccount user = (UserAccount) TIMAATApp.emf.createEntityManager().createQuery(
+                                                      "SELECT ua FROM UserAccount ua WHERE ua.accountName=:username").setParameter("username", username)
+                                                  .getSingleResult();
 
     // don't allow suspended accounts
-    if ( user.getUserAccountStatus() == UserAccountStatus.suspended )
+    if (user.getUserAccountStatus() == UserAccountStatus.suspended) {
       throw new AccountSuspendedException();
+    }
 
     return user;
   }
 
   public static String validateToken(String token) {
-    if (token.equals("null") || token == null) return null;
+    if (token.equals("null") || token == null) {
+      return null;
+    }
     // Check if the token was issued by the server and if it's not expired
     // Throw an Exception if the token is invalid
     SecretKey key = TIMAATKeyGenerator.generateKey();
     String username = "";
-      try {
-        username = Jwts.parser().decryptWith(key).build().parseSignedClaims(token).getPayload().getSubject();
-      } catch (JwtException e) {
-        e.printStackTrace();
-      } catch (Exception e) {
-        e.printStackTrace();
-      }
+    try {
+      username = Jwts.parser().verifyWith(key).build().parseSignedClaims(token).getPayload().getSubject();
+    } catch (JwtException e) {
+      e.printStackTrace();
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
     return username;
   }
 
   public static Boolean isTokenValid(String token) {
-      try {
-        Jws<Claims> jws = Jwts.parser().decryptWith(TIMAATKeyGenerator.generateKey()).build().parseSignedClaims(token);
-      } catch (JwtException e) {
-          e.printStackTrace();
-          return false;
-      }
-      return true;
+    try {
+      Jws<Claims> jws = Jwts.parser().verifyWith(TIMAATKeyGenerator.generateKey()).build().parseSignedClaims(token);
+    } catch (JwtException e) {
+      e.printStackTrace();
+      return false;
+    }
+    return true;
   }
 
   public static int getTokenClaimUserId(String token) {
-      SecretKey key = TIMAATKeyGenerator.generateKey();
-      Claims claims = null;
-      try {
-          claims = Jwts.parser().decryptWith(key).build().parseSignedClaims(token).getPayload();
-      } catch(InvalidClaimException ice) {
-        ice.printStackTrace();
-      }
-      int id = claims.get("id", Integer.class);
-      return id;
+    SecretKey key = TIMAATKeyGenerator.generateKey();
+    Claims claims = null;
+    try {
+      claims = Jwts.parser().verifyWith(key).build().parseSignedClaims(token).getPayload();
+    } catch (InvalidClaimException ice) {
+      ice.printStackTrace();
+    }
+    int id = claims.get("id", Integer.class);
+    return id;
   }
 
 }

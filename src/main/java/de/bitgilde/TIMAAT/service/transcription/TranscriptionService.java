@@ -4,6 +4,7 @@ import de.bitgilde.TIMAAT.PropertyConstants;
 import de.bitgilde.TIMAAT.PropertyManagement;
 import de.bitgilde.TIMAAT.model.FIPOP.Transcription;
 import de.bitgilde.TIMAAT.model.FIPOP.TranscriptionModel;
+import de.bitgilde.TIMAAT.model.FIPOP.UserAccount;
 import de.bitgilde.TIMAAT.service.task.TaskService;
 import de.bitgilde.TIMAAT.service.task.api.MediumAudioAnalysisTask.SupportedMediumType;
 import de.bitgilde.TIMAAT.service.task.api.Task;
@@ -13,11 +14,13 @@ import de.bitgilde.TIMAAT.service.task.api.TranscriptionMediumPreparationTask;
 import de.bitgilde.TIMAAT.service.task.storage.TaskStateUpdater;
 import de.bitgilde.TIMAAT.service.transcription.api.GenerateTranscriptionConfiguration;
 import de.bitgilde.TIMAAT.service.transcription.api.TranscriptionEngineCapabilities;
+import de.bitgilde.TIMAAT.service.transcription.exception.TranscriptionFeatureDisabledException;
 import de.bitgilde.TIMAAT.service.transcription.exception.TranscriptionNotFoundException;
 import de.bitgilde.TIMAAT.service.transcription.exception.TranscriptionServiceException;
 import de.bitgilde.TIMAAT.storage.api.PagingParameter;
 import de.bitgilde.TIMAAT.storage.api.SortingParameter;
 import de.bitgilde.TIMAAT.storage.entity.SystemSettingStorage;
+import de.bitgilde.TIMAAT.storage.entity.api.TranscriptionSystemSettings;
 import de.bitgilde.TIMAAT.storage.entity.medium.MediumStorage;
 import de.bitgilde.TIMAAT.storage.entity.transcription.TranscriptionStorage;
 import de.bitgilde.TIMAAT.storage.entity.transcription.api.TranscriptionFilterCriteria;
@@ -29,6 +32,7 @@ import de.bitgilde.TIMAAT.storage.file.TemporaryFileStorage;
 import de.bitgilde.TIMAAT.storage.file.TemporaryFileStorage.TemporaryFile;
 import de.bitgilde.TIMAAT.storage.file.TranscriptionFileStorage;
 import de.bitgilde.TIMAAT.storage.file.VideoFileStorage;
+import jakarta.annotation.Nullable;
 import jakarta.inject.Inject;
 import jakarta.inject.Provider;
 import studio.nkodev.stt.client.SpeechToTextServiceClient;
@@ -72,15 +76,16 @@ public class TranscriptionService implements TaskStateUpdater, SpeechToTextTaskS
   private final TemporaryFileStorage temporaryFileStorage;
   private final TranscriptionFileStorage transcriptionFileStorage;
   private final MediumStorage mediumStorage;
+  private final boolean featureEnabled;
 
   @Inject
   public TranscriptionService(TranscriptionStorage transcriptionStorage, SystemSettingStorage systemSettingStorage, AudioFileStorage audioFileStorage, VideoFileStorage videoFileStorage, Provider<TaskService> taskServiceProvider, TemporaryFileStorage temporaryFileStorage, TranscriptionFileStorage transcriptionFileStorage, MediumStorage mediumStorage, PropertyManagement propertyManagement) {
     this(transcriptionStorage, systemSettingStorage, audioFileStorage, videoFileStorage, taskServiceProvider,
             temporaryFileStorage, transcriptionFileStorage, mediumStorage,
-            initSpeechToTextServiceClient(propertyManagement));
+            isFeatureEnabled(propertyManagement) ? initSpeechToTextServiceClient(propertyManagement) : null);
   }
 
-  TranscriptionService(TranscriptionStorage transcriptionStorage, SystemSettingStorage systemSettingStorage, AudioFileStorage audioFileStorage, VideoFileStorage videoFileStorage, Provider<TaskService> taskServiceProvider, TemporaryFileStorage temporaryFileStorage, TranscriptionFileStorage transcriptionFileStorage, MediumStorage mediumStorage, SpeechToTextServiceClient speechToTextServiceClient) {
+  TranscriptionService(TranscriptionStorage transcriptionStorage, SystemSettingStorage systemSettingStorage, AudioFileStorage audioFileStorage, VideoFileStorage videoFileStorage, Provider<TaskService> taskServiceProvider, TemporaryFileStorage temporaryFileStorage, TranscriptionFileStorage transcriptionFileStorage, MediumStorage mediumStorage, @jakarta.annotation.Nullable SpeechToTextServiceClient speechToTextServiceClient) {
     this.transcriptionStorage = transcriptionStorage;
     this.systemSettingStorage = systemSettingStorage;
     this.audioFileStorage = audioFileStorage;
@@ -90,9 +95,30 @@ public class TranscriptionService implements TaskStateUpdater, SpeechToTextTaskS
     this.transcriptionFileStorage = transcriptionFileStorage;
     this.mediumStorage = mediumStorage;
     this.speechToTextServiceClient = speechToTextServiceClient;
+    this.featureEnabled = speechToTextServiceClient != null;
 
-    resumeMonitoringOfActiveTranscriptions();
-    verifyDefaultModelStillAvailable();
+    if (featureEnabled) {
+      resumeMonitoringOfActiveTranscriptions();
+      verifyDefaultModelStillAvailable();
+    }
+    else {
+      logger.info(
+              "Speech-to-text feature is disabled (" + PropertyConstants.SPEECH_TO_TEXT_ENABLED.key() + "=false). " + "TranscriptionService is running in inactive mode.");
+    }
+  }
+
+  private static boolean isFeatureEnabled(PropertyManagement propertyManagement) {
+    return Boolean.parseBoolean(propertyManagement.getProp(PropertyConstants.SPEECH_TO_TEXT_ENABLED));
+  }
+
+  /**
+   * @return {@code true} if the speech-to-text feature is enabled for this deployment (i.e. property
+   * {@code stt.enabled} is set to {@code true} in the TIMAAT properties file); {@code false} otherwise.
+   * When disabled, no connection to a speech-to-text-service is established and operations requiring it
+   * (engine discovery, transcription creation) become no-ops or throw.
+   */
+  public boolean isFeatureEnabled() {
+    return featureEnabled;
   }
 
 
@@ -154,12 +180,62 @@ public class TranscriptionService implements TaskStateUpdater, SpeechToTextTaskS
   }
 
   /**
-   * @return the engines (with their models) currently offered by the connected speech-to-text-service
+   * Returns the engines (with their models) currently offered by the connected speech-to-text-service.
+   * If the feature is disabled for this deployment, an empty collection is returned and no connection
+   * to the speech-to-text-service is attempted.
+   *
+   * @return the available engine capabilities, or an empty collection when the feature is disabled
    */
   public Collection<TranscriptionEngineCapabilities> getAvailableEngineCapabilities() {
+    if (!featureEnabled) {
+      return List.of();
+    }
     return speechToTextServiceClient.getAvailableEngines().stream()
                                     .map(engine -> new TranscriptionEngineCapabilities(engine.engineIdentifier(),
                                             engine.engineName(), List.copyOf(engine.modelIdentifiers()))).toList();
+  }
+
+  /**
+   * Reads the current transcription-related system settings (auto-transcribe-uploads flag and default engine/model).
+   *
+   * @return a snapshot of the current settings, never {@code null}
+   */
+  public TranscriptionSystemSettings getTranscriptionSystemSettings() {
+    return systemSettingStorage.getTranscriptionSystemSettings();
+  }
+
+  /**
+   * Updates the transcription-related system settings. When a default engine/model is requested, the pair is
+   * validated against the live speech-to-text-service offering and the corresponding {@code TranscriptionEngine}
+   * and {@code TranscriptionModel} rows are upserted so they can be referenced. Engine and model identifiers
+   * must either both be {@code null} (clear the default) or both be set.
+   *
+   * @param autoTranscribeUploads whether newly uploaded media should be transcribed automatically
+   * @param defaultEngineIdentifier identifier of the engine to use as default, or {@code null} to clear the default
+   * @param defaultModelIdentifier identifier of the model to use as default, or {@code null} to clear the default
+   * @param editingUser the user performing the change, used to stamp {@code lastEditedByUserAccount}, may be {@code null}
+   * @throws IllegalArgumentException if exactly one of the engine/model identifiers is {@code null}, or if the
+   *                                  requested engine/model pair is not offered by the connected speech-to-text-service
+   * @throws TranscriptionFeatureDisabledException if a default engine/model is requested while the feature is disabled
+   */
+  public void updateTranscriptionSystemSettings(boolean autoTranscribeUploads, @Nullable String defaultEngineIdentifier, @Nullable String defaultModelIdentifier, @Nullable UserAccount editingUser) throws TranscriptionFeatureDisabledException {
+    boolean engineSet = defaultEngineIdentifier != null;
+    boolean modelSet = defaultModelIdentifier != null;
+    if (engineSet != modelSet) {
+      throw new IllegalArgumentException(
+              "Default engine and model identifiers must either both be set or both be null");
+    }
+
+    if (engineSet) {
+      if (!featureEnabled) {
+        throw new TranscriptionFeatureDisabledException(
+                "Cannot configure a default transcription model while the speech-to-text feature is disabled");
+      }
+      validateAndUpsertEngineModel(defaultEngineIdentifier, defaultModelIdentifier);
+    }
+
+    systemSettingStorage.updateTranscriptionSystemSettings(autoTranscribeUploads, defaultEngineIdentifier,
+            defaultModelIdentifier, editingUser);
   }
 
   /**
@@ -175,6 +251,9 @@ public class TranscriptionService implements TaskStateUpdater, SpeechToTextTaskS
    *                                       or storage access failed)
    */
   public void createTranscription(GenerateTranscriptionConfiguration generateTranscriptionConfiguration) throws TranscriptionServiceException {
+    if (!featureEnabled) {
+      throw new TranscriptionFeatureDisabledException("Speech-to-text feature is disabled for this deployment");
+    }
     int mediumId = generateTranscriptionConfiguration.mediumId();
     String engineIdentifier = generateTranscriptionConfiguration.engineIdentifier();
     String modelIdentifier = generateTranscriptionConfiguration.modelIdentifier();

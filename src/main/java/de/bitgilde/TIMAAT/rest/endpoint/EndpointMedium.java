@@ -6,9 +6,6 @@ import de.bitgilde.TIMAAT.PropertyConstants;
 import de.bitgilde.TIMAAT.SelectElement;
 import de.bitgilde.TIMAAT.SelectElementWithToken;
 import de.bitgilde.TIMAAT.TIMAATApp;
-import de.bitgilde.TIMAAT.processing.audio.api.FrequencyInformation;
-import de.bitgilde.TIMAAT.processing.audio.io.FrequencyFileReader;
-import de.bitgilde.TIMAAT.processing.audio.io.WaveformBinaryFileReader;
 import de.bitgilde.TIMAAT.model.DataTableInfo;
 import de.bitgilde.TIMAAT.model.FIPOP.Actor;
 import de.bitgilde.TIMAAT.model.FIPOP.AudioPostProduction;
@@ -41,6 +38,9 @@ import de.bitgilde.TIMAAT.model.TimeRange;
 import de.bitgilde.TIMAAT.model.fileInformation.AudioInformation;
 import de.bitgilde.TIMAAT.model.fileInformation.ImageInformation;
 import de.bitgilde.TIMAAT.model.fileInformation.VideoInformation;
+import de.bitgilde.TIMAAT.processing.audio.api.FrequencyInformation;
+import de.bitgilde.TIMAAT.processing.audio.io.FrequencyFileReader;
+import de.bitgilde.TIMAAT.processing.audio.io.WaveformBinaryFileReader;
 import de.bitgilde.TIMAAT.processing.video.FfmpegVideoEngine;
 import de.bitgilde.TIMAAT.processing.video.exception.VideoEngineException;
 import de.bitgilde.TIMAAT.rest.RangedStreamingOutput;
@@ -52,10 +52,14 @@ import de.bitgilde.TIMAAT.rest.model.medium.UpdateMediumHasMusicListPayload.Medi
 import de.bitgilde.TIMAAT.rest.model.medium.UpdateMediumVideoThumbnailPayload;
 import de.bitgilde.TIMAAT.security.TIMAATKeyGenerator;
 import de.bitgilde.TIMAAT.security.UserLogManager;
+import de.bitgilde.TIMAAT.service.task.TaskService;
+import de.bitgilde.TIMAAT.service.task.api.MediumAudioAnalysisTask.SupportedMediumType;
+import de.bitgilde.TIMAAT.service.task.api.TaskState;
+import de.bitgilde.TIMAAT.service.task.exception.TaskServiceException;
 import de.bitgilde.TIMAAT.storage.api.PagingParameter;
 import de.bitgilde.TIMAAT.storage.api.SortingParameter;
-import de.bitgilde.TIMAAT.storage.entity.medium.MediumStorage;
 import de.bitgilde.TIMAAT.storage.entity.MediumVideoStorage;
+import de.bitgilde.TIMAAT.storage.entity.medium.MediumStorage;
 import de.bitgilde.TIMAAT.storage.entity.medium.api.MediumFilterCriteria;
 import de.bitgilde.TIMAAT.storage.file.AudioFileStorage;
 import de.bitgilde.TIMAAT.storage.file.ImageFileStorage;
@@ -63,10 +67,6 @@ import de.bitgilde.TIMAAT.storage.file.ImageFileStorage.ImageFileType;
 import de.bitgilde.TIMAAT.storage.file.TemporaryFileStorage;
 import de.bitgilde.TIMAAT.storage.file.TemporaryFileStorage.TemporaryFile;
 import de.bitgilde.TIMAAT.storage.file.VideoFileStorage;
-import de.bitgilde.TIMAAT.service.task.TaskService;
-import de.bitgilde.TIMAAT.service.task.api.MediumAudioAnalysisTask.SupportedMediumType;
-import de.bitgilde.TIMAAT.service.task.api.TaskState;
-import de.bitgilde.TIMAAT.service.task.exception.TaskServiceException;
 import io.jsonwebtoken.JwtBuilder;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
@@ -185,7 +185,8 @@ public class EndpointMedium {
     List<Medium> matchingMediums = mediumStorage.getEntriesAsStream(queryParameter, queryParameter, queryParameter,
             userAccount).collect(Collectors.toList());
     long totalMediumEntries = mediumStorage.getNumberOfTotalEntriesRespectingAuthorization(userAccount);
-    long filteredMediumEntries = mediumStorage.getNumberOfMatchingEntriesRespectingAuthorization(queryParameter, userAccount);
+    long filteredMediumEntries = mediumStorage.getNumberOfMatchingEntriesRespectingAuthorization(queryParameter,
+            userAccount);
 
 
     return new DataTableInfo<>(draw, totalMediumEntries, filteredMediumEntries, matchingMediums);
@@ -4465,7 +4466,7 @@ public class EndpointMedium {
     // Throw an Exception if the token is invalid
 
     SecretKey key = TIMAATKeyGenerator.generateKey();
-    int mediumID = Jwts.parser().decryptWith(key).build().parseSignedClaims(token).getPayload()
+    int mediumID = Jwts.parser().verifyWith(key).build().parseSignedClaims(token).getPayload()
                        .get("file", Integer.class);
 
     return mediumID;
