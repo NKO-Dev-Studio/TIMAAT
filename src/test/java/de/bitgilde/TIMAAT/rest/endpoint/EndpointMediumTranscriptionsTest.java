@@ -15,17 +15,27 @@ import de.bitgilde.TIMAAT.service.transcription.exception.TranscriptionServiceEx
 import de.bitgilde.TIMAAT.storage.entity.medium.exception.MediumNotFoundException;
 import de.bitgilde.TIMAAT.storage.entity.transcription.api.TranscriptionState;
 import de.bitgilde.TIMAAT.storage.entity.transcription.api.TranscriptionType;
+import de.bitgilde.TIMAAT.storage.file.TranscriptionFileStorage;
+import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.container.ContainerRequestContext;
 import jakarta.ws.rs.core.Response;
+import jakarta.ws.rs.core.StreamingOutput;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import org.mockito.ArgumentCaptor;
 
+import java.io.ByteArrayOutputStream;
 import java.lang.reflect.Field;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.catchThrowableOfType;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
@@ -54,16 +64,19 @@ public class EndpointMediumTranscriptionsTest {
   private static final String MODEL = "large-v3";
 
   private TranscriptionService transcriptionService;
+  private TranscriptionFileStorage transcriptionFileStorage;
   private ContainerRequestContext containerRequestContext;
   private EndpointMedium endpoint;
 
   @BeforeEach
   void setUp() throws Exception {
     transcriptionService = mock(TranscriptionService.class);
+    transcriptionFileStorage = mock(TranscriptionFileStorage.class);
     containerRequestContext = mock(ContainerRequestContext.class);
     when(containerRequestContext.getProperty(AuthenticationFilter.USER_ID_PROPERTY_NAME)).thenReturn(USER_ID);
     endpoint = new EndpointMedium();
     inject("transcriptionService", transcriptionService);
+    inject("transcriptionFileStorage", transcriptionFileStorage);
     inject("containerRequestContext", containerRequestContext);
   }
 
@@ -250,6 +263,64 @@ public class EndpointMediumTranscriptionsTest {
     Response response = endpoint.deleteMediumTranscription(MEDIUM_ID, TRANSCRIPTION_ID);
 
     assertThat(response.getStatus()).isEqualTo(Response.Status.INTERNAL_SERVER_ERROR.getStatusCode());
+  }
+
+  @Test
+  void shouldStreamSrtFileWhenTranscriptionExistsForMedium(@TempDir Path tempDir) throws Exception {
+    Path srtFile = tempDir.resolve(TRANSCRIPTION_ID + ".srt");
+    String srtContent = "1\n00:00:01,000 --> 00:00:02,000\nHello World\n";
+    Files.writeString(srtFile, srtContent, StandardCharsets.UTF_8);
+    when(transcriptionService.existsForMedium(MEDIUM_ID, TRANSCRIPTION_ID)).thenReturn(true);
+    when(transcriptionFileStorage.getPathToTranscription(TRANSCRIPTION_ID)).thenReturn(Optional.of(srtFile));
+
+    Response response = endpoint.downloadTranscriptionFile(MEDIUM_ID, TRANSCRIPTION_ID);
+
+    assertThat(response.getStatus()).isEqualTo(Response.Status.OK.getStatusCode());
+    assertThat(response.getHeaderString("Content-Disposition")).contains(TRANSCRIPTION_ID + ".srt");
+    assertThat(response.getMediaType().toString()).isEqualTo("text/plain");
+    assertThat(response.getEntity()).isInstanceOf(StreamingOutput.class);
+
+    StreamingOutput stream = (StreamingOutput) response.getEntity();
+    ByteArrayOutputStream sink = new ByteArrayOutputStream();
+    stream.write(sink);
+    assertThat(sink.toString(StandardCharsets.UTF_8)).isEqualTo(srtContent);
+  }
+
+  @Test
+  void shouldReturnNotFoundWhenTranscriptionDoesNotExistForMediumOnDownload() {
+    when(transcriptionService.existsForMedium(MEDIUM_ID, TRANSCRIPTION_ID)).thenReturn(false);
+
+    Response response = endpoint.downloadTranscriptionFile(MEDIUM_ID, TRANSCRIPTION_ID);
+
+    assertThat(response.getStatus()).isEqualTo(Response.Status.NOT_FOUND.getStatusCode());
+    verify(transcriptionFileStorage, never()).getPathToTranscription(anyInt());
+  }
+
+  @Test
+  void shouldReturnNotFoundWhenSrtFileIsMissingOnDisk() {
+    when(transcriptionService.existsForMedium(MEDIUM_ID, TRANSCRIPTION_ID)).thenReturn(true);
+    when(transcriptionFileStorage.getPathToTranscription(TRANSCRIPTION_ID)).thenReturn(Optional.empty());
+
+    Response response = endpoint.downloadTranscriptionFile(MEDIUM_ID, TRANSCRIPTION_ID);
+
+    assertThat(response.getStatus()).isEqualTo(Response.Status.NOT_FOUND.getStatusCode());
+  }
+
+  @Test
+  void shouldReturnInternalServerErrorWhenStreamingFails(@TempDir Path tempDir) throws Exception {
+    Path missingFile = tempDir.resolve("does-not-exist.srt");
+    when(transcriptionService.existsForMedium(MEDIUM_ID, TRANSCRIPTION_ID)).thenReturn(true);
+    when(transcriptionFileStorage.getPathToTranscription(TRANSCRIPTION_ID)).thenReturn(Optional.of(missingFile));
+
+    Response response = endpoint.downloadTranscriptionFile(MEDIUM_ID, TRANSCRIPTION_ID);
+
+    assertThat(response.getStatus()).isEqualTo(Response.Status.OK.getStatusCode());
+    StreamingOutput stream = (StreamingOutput) response.getEntity();
+
+    WebApplicationException thrown = catchThrowableOfType(() -> stream.write(new ByteArrayOutputStream()),
+            WebApplicationException.class);
+    assertThat(thrown).isNotNull();
+    assertThat(thrown.getResponse().getStatus()).isEqualTo(Response.Status.INTERNAL_SERVER_ERROR.getStatusCode());
   }
 
   private Transcription transcription(int id, int mediumId, String engineIdentifier, String modelIdentifier) {

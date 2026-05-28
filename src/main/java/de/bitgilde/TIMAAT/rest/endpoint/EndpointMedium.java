@@ -104,6 +104,7 @@ import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.Response.ResponseBuilder;
 import jakarta.ws.rs.core.Response.Status;
+import jakarta.ws.rs.core.StreamingOutput;
 import org.glassfish.jersey.media.multipart.FormDataContentDisposition;
 import org.glassfish.jersey.media.multipart.FormDataParam;
 import org.json.JSONObject;
@@ -185,6 +186,8 @@ public class EndpointMedium {
   private FfmpegVideoEngine ffmpegVideoEngine;
   @Inject
   private TranscriptionService transcriptionService;
+  @Inject
+  private de.bitgilde.TIMAAT.storage.file.TranscriptionFileStorage transcriptionFileStorage;
   @Inject
   private SystemSettingStorage systemSettingStorage;
 
@@ -4633,6 +4636,51 @@ public class EndpointMedium {
     } catch (TranscriptionServiceException e) {
       return Response.status(Status.INTERNAL_SERVER_ERROR).entity("{\"reason\":\"" + e.getMessage() + "\"}").build();
     }
+  }
+
+  /**
+   * Streams the SRT file backing the transcription identified by {@code transcriptionId} to the
+   * client. The transcription is scoped to the given medium so that a transcription belonging to
+   * a different medium is reported as not found rather than being delivered out of context. The
+   * response is sent as {@code text/plain} with a {@code Content-Disposition: attachment} header
+   * so that browsers trigger a download dialog instead of inlining the subtitles.
+   *
+   * @param mediumId        identifies the {@link Medium} the transcription is expected to belong to
+   * @param transcriptionId identifies the transcription whose SRT file should be downloaded
+   * @return {@code 200 OK} streaming the SRT file; {@code 404 Not Found} when the transcription
+   * does not exist for the medium or its SRT file is missing on disk; {@code 500 Internal Server
+   * Error} when the file could not be streamed because of an IO failure
+   */
+  @GET
+  @Produces("text/plain")
+  @Secured
+  @Path("{id}/transcriptions/{transcriptionId}/file")
+  public Response downloadTranscriptionFile(@PathParam("id") int mediumId, @PathParam("transcriptionId") int transcriptionId) {
+    if (!transcriptionService.existsForMedium(mediumId, transcriptionId)) {
+      return Response.status(Status.NOT_FOUND)
+                     .entity("{\"reason\":\"Transcription " + transcriptionId + " does not exist for medium " + mediumId + "\"}")
+                     .build();
+    }
+
+    Optional<java.nio.file.Path> srtPath = transcriptionFileStorage.getPathToTranscription(transcriptionId);
+    if (srtPath.isEmpty()) {
+      return Response.status(Status.NOT_FOUND)
+                     .entity("{\"reason\":\"Transcription file for " + transcriptionId + " is missing\"}").build();
+    }
+
+    java.nio.file.Path file = srtPath.get();
+    StreamingOutput stream = output -> {
+      try {
+        java.nio.file.Files.copy(file, output);
+      } catch (IOException e) {
+        throw new jakarta.ws.rs.WebApplicationException(e,
+                Response.status(Status.INTERNAL_SERVER_ERROR).entity("{\"reason\":\"" + e.getMessage() + "\"}")
+                        .build());
+      }
+    };
+
+    return Response.ok(stream, "text/plain")
+                   .header("Content-Disposition", "attachment; filename=\"" + transcriptionId + ".srt\"").build();
   }
 
   @POST
