@@ -61,6 +61,7 @@
 			this.initLanguageTracks();
 			this.initActorRoles();
             this.initMusic();
+            this.initTranscriptions();
 
 			TIMAAT.EntityUpdate.registerEntityUpdateListener("MediumAudioAnalysis", this.handleMediumAudioAnalysisChanged.bind(this))
 		},
@@ -1190,6 +1191,33 @@
                 let medium = $('#mediumFormMetadata').data('medium');
                 TIMAAT.UI.displayDataSetContent('music', medium, 'medium');
             });
+        },
+
+        initTranscriptions: function() {
+            $('#mediumTranscriptionTab').on('click', () => {
+                let medium = $('#mediumFormMetadata').data('medium');
+                let type = medium.model.mediaType.mediaTypeTranslations[0].type;
+                let name = medium.model.displayTitle.name;
+                let id = medium.model.id;
+
+                TIMAAT.UI.displayDataSetContentArea('mediumFormTranscriptions');
+                TIMAAT.UI.displayDataSetContent('transcriptions', medium, 'medium');
+
+                if (type == 'medium') {
+                    TIMAAT.URLHistory.setURL(null, name + ' · Transcriptions · ' + type[0].toUpperCase() + type.slice(1), '#medium/' + id + '/transcriptions');
+                } else {
+                    TIMAAT.URLHistory.setURL(null, name + ' · Transcriptions · ' + type[0].toUpperCase() + type.slice(1), '#medium/' + type + '/' + id + '/transcriptions');
+                }
+            });
+
+            $('#mediumFormTranscriptionsCreateButton').on('click', () => {
+                $('#mediumTranscriptionCreateModal').modal('show');
+            });
+        },
+
+        mediumFormTranscriptions: function(mode, medium) {
+            $('#mediumFormTranscriptions').data('medium', medium);
+            // TODO: implement list rendering, selection of default/latest transcription, viewer state handling
         },
 
 		initTitles: function() {
