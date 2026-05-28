@@ -203,7 +203,7 @@ public class EndpointMusic {
             AuthenticationFilter.USER_ACCOUNT_PROPERTY_NAME);
     int draw = queryParameter.getDraw().orElse(0);
 
-    List<Music> matchingMusic = musicStorage.getEntriesAsStreamRespectingAuthorization(queryParameter, queryParameter, queryParameter,
+    List<Music> matchingMusic = musicStorage.getEntriesAsStream(queryParameter, queryParameter, queryParameter,
             userAccount).collect(Collectors.toList());
     long totalMusicEntries = musicStorage.getNumberOfTotalEntriesRespectingAuthorization(userAccount);
     long filteredMusicEntries = musicStorage.getNumberOfMatchingEntriesRespectingAuthorization(queryParameter, userAccount);
@@ -223,7 +223,7 @@ public class EndpointMusic {
     UserAccount userAccount = (UserAccount) containerRequestContext.getProperty(
             AuthenticationFilter.USER_ACCOUNT_PROPERTY_NAME);
     MusicFilterCriteria filterCriteria = new MusicFilterCriteria.Builder().musicNameSearch(searchText).build();
-    return musicStorage.getEntriesAsStreamRespectingAuthorization(filterCriteria, PagingParameter.NO_PAGING,
+    return musicStorage.getEntriesAsStream(filterCriteria, PagingParameter.NO_PAGING,
                                SortingParameter.defaultSortOrder(), userAccount)
                        .map(currentMusic -> new SelectElement<>(currentMusic.getId(),
                                currentMusic.getDisplayTitle().getName())).collect(Collectors.toList());

@@ -1,6 +1,6 @@
 package de.bitgilde.TIMAAT.rest.feature;
 
-import de.bitgilde.TIMAAT.task.TaskService;
+import de.bitgilde.TIMAAT.service.task.TaskService;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.core.Feature;
 import jakarta.ws.rs.core.FeatureContext;

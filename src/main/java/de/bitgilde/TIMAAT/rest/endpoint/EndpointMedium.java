@@ -6,9 +6,6 @@ import de.bitgilde.TIMAAT.PropertyConstants;
 import de.bitgilde.TIMAAT.SelectElement;
 import de.bitgilde.TIMAAT.SelectElementWithToken;
 import de.bitgilde.TIMAAT.TIMAATApp;
-import de.bitgilde.TIMAAT.processing.audio.api.FrequencyInformation;
-import de.bitgilde.TIMAAT.processing.audio.io.FrequencyFileReader;
-import de.bitgilde.TIMAAT.processing.audio.io.WaveformBinaryFileReader;
 import de.bitgilde.TIMAAT.model.DataTableInfo;
 import de.bitgilde.TIMAAT.model.FIPOP.Actor;
 import de.bitgilde.TIMAAT.model.FIPOP.AudioPostProduction;
@@ -41,32 +38,45 @@ import de.bitgilde.TIMAAT.model.TimeRange;
 import de.bitgilde.TIMAAT.model.fileInformation.AudioInformation;
 import de.bitgilde.TIMAAT.model.fileInformation.ImageInformation;
 import de.bitgilde.TIMAAT.model.fileInformation.VideoInformation;
+import de.bitgilde.TIMAAT.processing.audio.api.FrequencyInformation;
+import de.bitgilde.TIMAAT.processing.audio.io.FrequencyFileReader;
+import de.bitgilde.TIMAAT.processing.audio.io.WaveformBinaryFileReader;
 import de.bitgilde.TIMAAT.processing.video.FfmpegVideoEngine;
 import de.bitgilde.TIMAAT.processing.video.exception.VideoEngineException;
 import de.bitgilde.TIMAAT.rest.RangedStreamingOutput;
 import de.bitgilde.TIMAAT.rest.Secured;
 import de.bitgilde.TIMAAT.rest.filter.AuthenticationFilter;
 import de.bitgilde.TIMAAT.rest.model.medium.MediumListingQueryParameter;
+import de.bitgilde.TIMAAT.rest.model.medium.UpdateMediumDefaultTranscriptionPayload;
 import de.bitgilde.TIMAAT.rest.model.medium.UpdateMediumHasMusicListPayload;
 import de.bitgilde.TIMAAT.rest.model.medium.UpdateMediumHasMusicListPayload.MediumHasMusicListEntry;
 import de.bitgilde.TIMAAT.rest.model.medium.UpdateMediumVideoThumbnailPayload;
+import de.bitgilde.TIMAAT.rest.model.transcription.CreateTranscriptionRequest;
+import de.bitgilde.TIMAAT.rest.model.transcription.TranscriptionDto;
 import de.bitgilde.TIMAAT.security.TIMAATKeyGenerator;
 import de.bitgilde.TIMAAT.security.UserLogManager;
+import de.bitgilde.TIMAAT.service.task.TaskService;
+import de.bitgilde.TIMAAT.service.task.api.MediumAudioAnalysisTask.SupportedMediumType;
+import de.bitgilde.TIMAAT.service.task.api.TaskState;
+import de.bitgilde.TIMAAT.service.task.exception.TaskServiceException;
+import de.bitgilde.TIMAAT.service.transcription.TranscriptionService;
+import de.bitgilde.TIMAAT.service.transcription.api.GenerateTranscriptionConfiguration;
+import de.bitgilde.TIMAAT.service.transcription.exception.TranscriptionFeatureDisabledException;
+import de.bitgilde.TIMAAT.service.transcription.exception.TranscriptionNotFoundException;
+import de.bitgilde.TIMAAT.service.transcription.exception.TranscriptionServiceException;
 import de.bitgilde.TIMAAT.storage.api.PagingParameter;
 import de.bitgilde.TIMAAT.storage.api.SortingParameter;
-import de.bitgilde.TIMAAT.storage.entity.medium.MediumStorage;
 import de.bitgilde.TIMAAT.storage.entity.MediumVideoStorage;
+import de.bitgilde.TIMAAT.storage.entity.SystemSettingStorage;
+import de.bitgilde.TIMAAT.storage.entity.medium.MediumStorage;
 import de.bitgilde.TIMAAT.storage.entity.medium.api.MediumFilterCriteria;
+import de.bitgilde.TIMAAT.storage.entity.medium.exception.MediumNotFoundException;
 import de.bitgilde.TIMAAT.storage.file.AudioFileStorage;
 import de.bitgilde.TIMAAT.storage.file.ImageFileStorage;
 import de.bitgilde.TIMAAT.storage.file.ImageFileStorage.ImageFileType;
 import de.bitgilde.TIMAAT.storage.file.TemporaryFileStorage;
 import de.bitgilde.TIMAAT.storage.file.TemporaryFileStorage.TemporaryFile;
 import de.bitgilde.TIMAAT.storage.file.VideoFileStorage;
-import de.bitgilde.TIMAAT.task.TaskService;
-import de.bitgilde.TIMAAT.task.api.MediumAudioAnalysisTask.SupportedMediumType;
-import de.bitgilde.TIMAAT.task.api.TaskState;
-import de.bitgilde.TIMAAT.task.exception.TaskServiceException;
 import io.jsonwebtoken.JwtBuilder;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
@@ -94,11 +104,13 @@ import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.Response.ResponseBuilder;
 import jakarta.ws.rs.core.Response.Status;
+import jakarta.ws.rs.core.StreamingOutput;
 import org.glassfish.jersey.media.multipart.FormDataContentDisposition;
 import org.glassfish.jersey.media.multipart.FormDataParam;
 import org.json.JSONObject;
 import org.jvnet.hk2.annotations.Service;
 
+import javax.crypto.SecretKey;
 import javax.imageio.ImageIO;
 import javax.imageio.ImageReader;
 import javax.imageio.stream.FileImageInputStream;
@@ -124,6 +136,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
 /*
@@ -147,7 +161,7 @@ import java.util.stream.Collectors;
 @Service
 @Path("/medium")
 public class EndpointMedium {
-
+  private static final Logger logger = Logger.getLogger(EndpointMedium.class.getName());
   private static final int DEFAULT_THUMBNAIL_TIMESTAMP_MS = 1000;
 
   @Context
@@ -170,6 +184,12 @@ public class EndpointMedium {
   private MediumVideoStorage mediumVideoStorage;
   @Inject
   private FfmpegVideoEngine ffmpegVideoEngine;
+  @Inject
+  private TranscriptionService transcriptionService;
+  @Inject
+  private de.bitgilde.TIMAAT.storage.file.TranscriptionFileStorage transcriptionFileStorage;
+  @Inject
+  private SystemSettingStorage systemSettingStorage;
 
 
   @GET
@@ -181,10 +201,11 @@ public class EndpointMedium {
             AuthenticationFilter.USER_ACCOUNT_PROPERTY_NAME);
     int draw = queryParameter.getDraw().orElse(0);
 
-    List<Medium> matchingMediums = mediumStorage.getEntriesAsStreamRespectingAuthorization(queryParameter, queryParameter, queryParameter,
+    List<Medium> matchingMediums = mediumStorage.getEntriesAsStream(queryParameter, queryParameter, queryParameter,
             userAccount).collect(Collectors.toList());
     long totalMediumEntries = mediumStorage.getNumberOfTotalEntriesRespectingAuthorization(userAccount);
-    long filteredMediumEntries = mediumStorage.getNumberOfMatchingEntriesRespectingAuthorization(queryParameter, userAccount);
+    long filteredMediumEntries = mediumStorage.getNumberOfMatchingEntriesRespectingAuthorization(queryParameter,
+            userAccount);
 
 
     return new DataTableInfo<>(draw, totalMediumEntries, filteredMediumEntries, matchingMediums);
@@ -200,7 +221,7 @@ public class EndpointMedium {
             AuthenticationFilter.USER_ACCOUNT_PROPERTY_NAME);
     MediumFilterCriteria filterCriteria = new MediumFilterCriteria.Builder().mediumNameSearch(search).build();
 
-    return mediumStorage.getEntriesAsStreamRespectingAuthorization(filterCriteria, PagingParameter.NO_PAGING,
+    return mediumStorage.getEntriesAsStream(filterCriteria, PagingParameter.NO_PAGING,
                                 SortingParameter.defaultSortOrder(), userAccount)
                         .map(currentMedium -> new SelectElement<Integer>(currentMedium.getId(),
                                 currentMedium.getDisplayTitle().getName())).collect(Collectors.toList());
@@ -3125,7 +3146,7 @@ public class EndpointMedium {
   @Produces(jakarta.ws.rs.core.MediaType.APPLICATION_JSON)
   @Secured
   public Response uploadAudio(@PathParam("id") int id, @FormDataParam("file") InputStream uploadedInputStream) throws TaskServiceException {
-
+    int userId = (int) containerRequestContext.getProperty("TIMAAT.userID");
     EntityManager entityManager = TIMAATApp.emf.createEntityManager();
     MediumAudio mediumAudio = entityManager.find(MediumAudio.class, id);
     if (mediumAudio == null) {
@@ -3171,9 +3192,8 @@ public class EndpointMedium {
 
       taskService.executeMediumAudioAnalysisTask(id, SupportedMediumType.AUDIO);
       // add log entry
-      UserLogManager.getLogger().addLogEntry((int) containerRequestContext.getProperty("TIMAAT.userID"),
-              UserLogManager.LogEvents.MEDIUMCREATED);
-
+      UserLogManager.getLogger().addLogEntry(userId, UserLogManager.LogEvents.MEDIUMCREATED);
+      executeDefaultTranscriptionCreation(id, userId);
     } catch (IOException e) {
       e.printStackTrace();
     }
@@ -3387,6 +3407,7 @@ public class EndpointMedium {
   @Produces(jakarta.ws.rs.core.MediaType.APPLICATION_JSON)
   @Secured
   public Response uploadVideo(@PathParam("id") int id, @FormDataParam("file") InputStream uploadedInputStream, @FormDataParam("file") FormDataContentDisposition fileDetail) throws Exception {
+    int userId = (int) containerRequestContext.getProperty("TIMAAT.userID");
 
     EntityManager entityManager = TIMAATApp.emf.createEntityManager();
     MediumVideo mediumVideo = entityManager.find(MediumVideo.class, id);
@@ -3438,14 +3459,24 @@ public class EndpointMedium {
       createVideoThumbnail(mediumId, DEFAULT_THUMBNAIL_TIMESTAMP_MS);
       taskService.executeMediumAudioAnalysisTask(mediumId, SupportedMediumType.VIDEO);
       // add log entry
-      UserLogManager.getLogger().addLogEntry((int) containerRequestContext.getProperty("TIMAAT.userID"),
-              UserLogManager.LogEvents.MEDIUMCREATED);
+      UserLogManager.getLogger().addLogEntry(userId, UserLogManager.LogEvents.MEDIUMCREATED);
+      executeDefaultTranscriptionCreation(mediumId, userId);
 
     } catch (IOException e) {
       e.printStackTrace();
     }
 
     return Response.ok().entity(mediumVideo).build();
+  }
+
+  private void executeDefaultTranscriptionCreation(int mediumId, int createdByUserAccountId) {
+    if (transcriptionService.isFeatureEnabled() && systemSettingStorage.isAutoTranscribeUploadsEnabled()) {
+      try {
+        transcriptionService.createTranscriptionWithDefaultModel(mediumId, createdByUserAccountId);
+      } catch (Exception e) {
+        logger.log(Level.WARNING, "Error during executing default transcription creation of medium " + mediumId, e);
+      }
+    }
   }
 
   @HEAD
@@ -4463,8 +4494,8 @@ public class EndpointMedium {
     // Check if the token was issued by the server and if it's not expired
     // Throw an Exception if the token is invalid
 
-    Key key = TIMAATKeyGenerator.generateKey();
-    int mediumID = Jwts.parserBuilder().setSigningKey(key).build().parseClaimsJws(token).getBody()
+    SecretKey key = TIMAATKeyGenerator.generateKey();
+    int mediumID = Jwts.parser().verifyWith(key).build().parseSignedClaims(token).getPayload()
                        .get("file", Integer.class);
 
     return mediumID;
@@ -4476,6 +4507,213 @@ public class EndpointMedium {
       r.add(clazz.cast(o));
     }
     return r;
+  }
+
+  /**
+   * Returns all transcriptions that belong to the given medium. An empty collection is returned
+   * when the medium has no transcriptions; if the medium itself does not exist the response is
+   * {@code 404 Not Found}.
+   *
+   * @param mediumId identifies the {@link Medium} whose transcriptions should be returned
+   * @return {@code 200 OK} with the transcription DTOs, or {@code 404 Not Found} when the
+   * medium does not exist
+   */
+  @GET
+  @Produces(jakarta.ws.rs.core.MediaType.APPLICATION_JSON)
+  @Secured
+  @Path("{id}/transcriptions")
+  public Response getMediumTranscriptions(@PathParam("id") int mediumId) {
+    try {
+      Collection<de.bitgilde.TIMAAT.model.FIPOP.Transcription> transcriptions = transcriptionService.getTranscriptionsForMedium(
+              mediumId);
+      List<TranscriptionDto> dtos = transcriptions.stream().map(EndpointMedium::toTranscriptionDto)
+                                                  .collect(Collectors.toList());
+      return Response.ok(dtos).build();
+    } catch (MediumNotFoundException e) {
+      return Response.status(Status.NOT_FOUND).entity("{\"reason\":\"" + e.getMessage() + "\"}").build();
+    }
+  }
+
+  /**
+   * Returns the single transcription identified by {@code transcriptionId}, scoped to the given
+   * medium so a transcription belonging to a different medium is reported as not found rather
+   * than returned out of context.
+   *
+   * @param mediumId        identifies the {@link Medium} the transcription is expected to belong to
+   * @param transcriptionId identifies the transcription to load
+   * @return {@code 200 OK} with the transcription DTO, or {@code 404 Not Found} when the
+   * transcription does not exist or belongs to a different medium
+   */
+  @GET
+  @Produces(jakarta.ws.rs.core.MediaType.APPLICATION_JSON)
+  @Secured
+  @Path("{id}/transcriptions/{transcriptionId}")
+  public Response getMediumTranscription(@PathParam("id") int mediumId, @PathParam("transcriptionId") int transcriptionId) {
+    try {
+      de.bitgilde.TIMAAT.model.FIPOP.Transcription transcription = transcriptionService.getTranscription(mediumId,
+              transcriptionId);
+      return Response.ok(toTranscriptionDto(transcription)).build();
+    } catch (TranscriptionNotFoundException e) {
+      return Response.status(Status.NOT_FOUND).entity("{\"reason\":\"" + e.getMessage() + "\"}").build();
+    }
+  }
+
+  /**
+   * Creates a new transcription for the given medium using the engine and model identified in
+   * the payload. Both {@code engineIdentifier} and {@code modelIdentifier} are required; a
+   * request that omits either field, or that names an engine/model pair the speech-to-text
+   * service does not provide, is rejected with {@code 400 Bad Request}. When the speech-to-text
+   * feature is disabled for this deployment the request is refused with {@code 403 Forbidden}.
+   *
+   * @param mediumId identifies the {@link Medium} the transcription should be created for
+   * @param request  payload carrying the engine/model identifiers
+   * @return {@code 201 Created} with the new transcription DTO; {@code 400 Bad Request} when
+   * the payload is missing or invalid; {@code 403 Forbidden} when the feature is disabled;
+   * {@code 500 Internal Server Error} when the transcription could not be created
+   */
+  @POST
+  @Consumes(jakarta.ws.rs.core.MediaType.APPLICATION_JSON)
+  @Produces(jakarta.ws.rs.core.MediaType.APPLICATION_JSON)
+  @Secured
+  @Path("{id}/transcriptions")
+  public Response createMediumTranscription(@PathParam("id") int mediumId, CreateTranscriptionRequest request) {
+    int userId = (int) containerRequestContext.getProperty("TIMAAT.userID");
+
+    if (request == null) {
+      return Response.status(Status.BAD_REQUEST).entity("{\"reason\":\"request body is required\"}").build();
+    }
+    if (isBlank(request.engineIdentifier()) || isBlank(request.modelIdentifier())) {
+      return Response.status(Status.BAD_REQUEST)
+                     .entity("{\"reason\":\"engineIdentifier and modelIdentifier are required\"}").build();
+    }
+
+    GenerateTranscriptionConfiguration configuration = new GenerateTranscriptionConfiguration(mediumId,
+            request.engineIdentifier(), request.modelIdentifier());
+
+    try {
+      de.bitgilde.TIMAAT.model.FIPOP.Transcription created = transcriptionService.createTranscription(configuration,
+              userId);
+      return Response.status(Status.CREATED).entity(toTranscriptionDto(created)).build();
+    } catch (TranscriptionFeatureDisabledException e) {
+      return Response.status(Status.FORBIDDEN).entity("{\"reason\":\"" + e.getMessage() + "\"}").build();
+    } catch (IllegalArgumentException e) {
+      return Response.status(Status.BAD_REQUEST).entity("{\"reason\":\"" + e.getMessage() + "\"}").build();
+    } catch (TranscriptionServiceException e) {
+      return Response.status(Status.INTERNAL_SERVER_ERROR).entity("{\"reason\":\"" + e.getMessage() + "\"}").build();
+    }
+  }
+
+  /**
+   * Deletes the transcription identified by {@code transcriptionId}, scoped to the given medium
+   * so that a transcription belonging to a different medium is reported as not found rather than
+   * silently removed. The deletion itself is delegated to
+   * {@link TranscriptionService#deleteTranscription(int)}, which takes care of reassigning the
+   * medium's default transcription and removing the on-disk transcription file.
+   *
+   * @param mediumId        identifies the {@link Medium} the transcription is expected to belong
+   *                        to
+   * @param transcriptionId identifies the transcription to remove
+   * @return {@code 204 No Content} on success; {@code 404 Not Found} when the transcription does
+   * not exist or belongs to a different medium; {@code 500 Internal Server Error} when the
+   * deletion failed for any other reason
+   */
+  @DELETE
+  @Produces(jakarta.ws.rs.core.MediaType.APPLICATION_JSON)
+  @Secured
+  @Path("{id}/transcriptions/{transcriptionId}")
+  public Response deleteMediumTranscription(@PathParam("id") int mediumId, @PathParam("transcriptionId") int transcriptionId) {
+    if (!transcriptionService.existsForMedium(mediumId, transcriptionId)) {
+      return Response.status(Status.NOT_FOUND)
+                     .entity("{\"reason\":\"Transcription " + transcriptionId + " does not exist for medium " + mediumId + "\"}")
+                     .build();
+    }
+
+    try {
+      transcriptionService.deleteTranscription(transcriptionId);
+      return Response.noContent().build();
+    } catch (TranscriptionNotFoundException e) {
+      return Response.status(Status.NOT_FOUND).entity("{\"reason\":\"" + e.getMessage() + "\"}").build();
+    } catch (TranscriptionServiceException e) {
+      return Response.status(Status.INTERNAL_SERVER_ERROR).entity("{\"reason\":\"" + e.getMessage() + "\"}").build();
+    }
+  }
+
+  /**
+   * Streams the SRT file backing the transcription identified by {@code transcriptionId} to the
+   * client. The transcription is scoped to the given medium so that a transcription belonging to
+   * a different medium is reported as not found rather than being delivered out of context. The
+   * response is sent as {@code text/plain} with a {@code Content-Disposition: attachment} header
+   * so that browsers trigger a download dialog instead of inlining the subtitles.
+   *
+   * @param mediumId        identifies the {@link Medium} the transcription is expected to belong to
+   * @param transcriptionId identifies the transcription whose SRT file should be downloaded
+   * @return {@code 200 OK} streaming the SRT file; {@code 404 Not Found} when the transcription
+   * does not exist for the medium or its SRT file is missing on disk; {@code 500 Internal Server
+   * Error} when the file could not be streamed because of an IO failure
+   */
+  @GET
+  @Produces("text/plain")
+  @Secured
+  @Path("{id}/transcriptions/{transcriptionId}/file")
+  public Response downloadTranscriptionFile(@PathParam("id") int mediumId, @PathParam("transcriptionId") int transcriptionId) {
+    if (!transcriptionService.existsForMedium(mediumId, transcriptionId)) {
+      return Response.status(Status.NOT_FOUND)
+                     .entity("{\"reason\":\"Transcription " + transcriptionId + " does not exist for medium " + mediumId + "\"}")
+                     .build();
+    }
+
+    Optional<java.nio.file.Path> srtPath = transcriptionFileStorage.getPathToTranscription(transcriptionId);
+    if (srtPath.isEmpty()) {
+      return Response.status(Status.NOT_FOUND)
+                     .entity("{\"reason\":\"Transcription file for " + transcriptionId + " is missing\"}").build();
+    }
+
+    java.nio.file.Path file = srtPath.get();
+    StreamingOutput stream = output -> {
+      try {
+        java.nio.file.Files.copy(file, output);
+      } catch (IOException e) {
+        throw new jakarta.ws.rs.WebApplicationException(e,
+                Response.status(Status.INTERNAL_SERVER_ERROR).entity("{\"reason\":\"" + e.getMessage() + "\"}")
+                        .build());
+      }
+    };
+
+    return Response.ok(stream, "text/plain")
+                   .header("Content-Disposition", "attachment; filename=\"" + transcriptionId + ".srt\"").build();
+  }
+
+  @POST
+  @Produces(jakarta.ws.rs.core.MediaType.APPLICATION_JSON)
+  @Secured
+  @Path("{id}/transcriptions/default")
+  public Response updateDefaultTranscription(@PathParam("id") int mediumId, UpdateMediumDefaultTranscriptionPayload updateMediumDefaultTranscriptionPayload) {
+    try {
+      mediumStorage.updateDefaultTranscription(mediumId, updateMediumDefaultTranscriptionPayload.getTranscriptionId());
+      return Response.noContent().build();
+    } catch (Exception e) {
+      return Response.status(Status.INTERNAL_SERVER_ERROR).entity("{\"reason\":\"" + e.getMessage() + "\"}").build();
+    }
+  }
+
+  private static boolean isBlank(String value) {
+    return value == null || value.isBlank();
+  }
+
+  private static TranscriptionDto toTranscriptionDto(de.bitgilde.TIMAAT.model.FIPOP.Transcription transcription) {
+    String engineIdentifier = null;
+    String modelIdentifier = null;
+    if (transcription.getTranscriptionModel() != null && transcription.getTranscriptionModel().getId() != null) {
+      engineIdentifier = transcription.getTranscriptionModel().getId().getEngineIdentifier();
+      modelIdentifier = transcription.getTranscriptionModel().getId().getModelIdentifier();
+    }
+
+    return new TranscriptionDto(transcription.getId(), transcription.getName(), transcription.getMedium().getId(),
+            engineIdentifier, modelIdentifier,
+            de.bitgilde.TIMAAT.storage.entity.transcription.api.TranscriptionState.fromDatabaseId(
+                    transcription.getTranscriptionState().getId()),
+            de.bitgilde.TIMAAT.storage.entity.transcription.api.TranscriptionType.fromDatabaseId(
+                    transcription.getTranscriptionType().getId()), transcription.getCreatedAt());
   }
 
 }

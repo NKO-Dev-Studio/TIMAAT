@@ -126,7 +126,7 @@ public class EndpointAnnotation {
             AuthenticationFilter.USER_ACCOUNT_PROPERTY_NAME);
     int draw = annotationListingQueryParameter.getDraw().orElse(0);
 
-    List<Annotation> matchingAnnotations = annotationStorage.getEntriesAsStreamRespectingAuthorization(annotationListingQueryParameter,
+    List<Annotation> matchingAnnotations = annotationStorage.getEntriesAsStream(annotationListingQueryParameter,
             annotationListingQueryParameter, annotationListingQueryParameter, userAccount).collect(Collectors.toList());
     long totalAnnotationsCount = annotationStorage.getNumberOfTotalEntriesRespectingAuthorization(userAccount);
     long filteredAnnotationsCount = annotationStorage.getNumberOfMatchingEntriesRespectingAuthorization(annotationListingQueryParameter, userAccount);

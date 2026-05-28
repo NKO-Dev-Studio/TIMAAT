@@ -9,4 +9,6 @@ test_output
 .classpath
 *.bak
 .vscode/
+.idea/
 .project
+CLAUDE.local.md

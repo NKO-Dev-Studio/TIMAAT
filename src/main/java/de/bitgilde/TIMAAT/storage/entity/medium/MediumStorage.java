@@ -12,11 +12,13 @@ import de.bitgilde.TIMAAT.model.FIPOP.MediumHasMusicDetail;
 import de.bitgilde.TIMAAT.model.FIPOP.Medium_;
 import de.bitgilde.TIMAAT.model.FIPOP.Music;
 import de.bitgilde.TIMAAT.model.FIPOP.Title_;
+import de.bitgilde.TIMAAT.model.FIPOP.Transcription;
 import de.bitgilde.TIMAAT.model.FIPOP.UserAccount;
 import de.bitgilde.TIMAAT.model.TimeRange;
 import de.bitgilde.TIMAAT.storage.db.DbStorage;
 import de.bitgilde.TIMAAT.storage.entity.medium.api.MediumFilterCriteria;
 import de.bitgilde.TIMAAT.storage.entity.medium.api.MediumSortingField;
+import jakarta.annotation.Nullable;
 import jakarta.inject.Inject;
 import jakarta.persistence.EntityManagerFactory;
 import jakarta.persistence.criteria.CriteriaBuilder;
@@ -61,6 +63,84 @@ public class MediumStorage extends DbStorage<Medium, MediumFilterCriteria, Mediu
     super(Medium.class, MediumSortingField.ID, emf);
   }
 
+  /**
+   * Checks whether a {@link Medium} with the given id exists.
+   *
+   * @param mediumId identifies the medium whose existence should be checked
+   * @return {@code true} if a medium with the given id exists, {@code false} otherwise
+   */
+  public boolean existsById(int mediumId) {
+    return executeDbTransaction(entityManager -> entityManager.find(Medium.class, mediumId) != null);
+  }
+
+  /**
+   * Sets the given {@link Transcription} as the default transcription of the medium identified by
+   * {@code mediumId}, but only if the medium currently has no default transcription assigned. The
+   * update is performed atomically as a single conditional {@code UPDATE} statement.
+   *
+   * @param mediumId        identifies the {@link Medium} whose default transcription should be set
+   * @param transcriptionId identifies the {@link Transcription} to set as default
+   * @return {@code true} if this call set the default transcription, {@code false} if a default
+   *         was already present or no matching medium exists
+   */
+  public boolean setDefaultTranscriptionIfAbsent(int mediumId, int transcriptionId) {
+    logger.log(Level.FINE, "Setting transcription {0} as default for medium {1} if no default is present",
+            new Object[]{transcriptionId, mediumId});
+    return executeDbTransaction(entityManager -> {
+      Transcription transcription = entityManager.getReference(Transcription.class, transcriptionId);
+      int updated = entityManager.createQuery(
+                                         "UPDATE Medium m SET m.defaultTranscription = :transcription " + "WHERE m.id = :mediumId AND m.defaultTranscription IS NULL")
+                                 .setParameter("transcription", transcription).setParameter("mediumId", mediumId)
+                                 .executeUpdate();
+      return updated == 1;
+    });
+  }
+
+  public void updateDefaultTranscription(int mediumId, int transcriptionId) {
+    logger.log(Level.FINE, "Setting transcription {0} as default for medium {1}",
+            new Object[]{transcriptionId, mediumId});
+    executeDbTransaction(entityManagert -> {
+      Medium medium = entityManagert.getReference(Medium.class, mediumId);
+      Transcription transcription = entityManagert.getReference(Transcription.class, transcriptionId);
+
+      if (transcription.getMedium().getId() == mediumId) {
+        medium.setDefaultTranscription(transcription);
+      }
+      else {
+        throw new IllegalArgumentException(
+                "Transcription with id " + transcription + " is not a transcription of medium with id " + mediumId);
+      }
+
+      return Void.TYPE;
+    });
+  }
+
+  /**
+   * Atomically replaces the default transcription of the given medium if its current default
+   * transcription matches {@code currentDefaultTranscriptionId}. If the medium currently has a
+   * different (or no) default transcription, the call is a no-op.
+   *
+   * @param mediumId                      identifies the {@link Medium} to update
+   * @param currentDefaultTranscriptionId identifies the {@link Transcription} the medium is
+   *                                      expected to currently reference as default
+   * @param newDefaultTranscriptionId     identifies the {@link Transcription} to set as the new
+   *                                      default; {@code null} clears the default
+   * @return {@code true} if the default transcription was replaced, {@code false} otherwise
+   */
+  public boolean replaceDefaultTranscription(int mediumId, int currentDefaultTranscriptionId, @Nullable Integer newDefaultTranscriptionId) {
+    logger.log(Level.FINE, "Replacing default transcription of medium {0} from transcription {1} to transcription {2}",
+            new Object[]{mediumId, currentDefaultTranscriptionId, newDefaultTranscriptionId});
+    return executeDbTransaction(entityManager -> {
+      Transcription newDefault = newDefaultTranscriptionId == null ? null : entityManager.getReference(
+              Transcription.class, newDefaultTranscriptionId);
+      int updated = entityManager.createQuery(
+                                         "UPDATE Medium m SET m.defaultTranscription = :newDefault " + "WHERE m.id = :mediumId AND m.defaultTranscription.id = :currentDefaultId")
+                                 .setParameter("newDefault", newDefault).setParameter("mediumId", mediumId)
+                                 .setParameter("currentDefaultId", currentDefaultTranscriptionId).executeUpdate();
+      return updated == 1;
+    });
+  }
+
   public List<MediumHasMusic> updateMediumHasMusicList(int mediumId, Map<Integer, Collection<TimeRange>> timeRangesByMusicId) {
     logger.log(Level.FINE, "Updating medium has music list of medium with id " + mediumId);
     return executeDbTransaction(entityManager -> {
@@ -100,7 +180,7 @@ public class MediumStorage extends DbStorage<Medium, MediumFilterCriteria, Mediu
   protected List<Predicate> createPredicates(MediumFilterCriteria filter, Root<Medium> root, CriteriaBuilder criteriaBuilder, CriteriaQuery<?> criteriaQuery, UserAccount userAccount) {
     List<Predicate> predicates = new ArrayList<>();
 
-    if(filter != null) {
+    if (filter != null) {
       if (filter.getMediumNameSearch().isPresent()) {
         String searchText = filter.getMediumNameSearch().get();
         predicates.add(criteriaBuilder.like(root.get(Medium_.displayTitle).get(Title_.name), "%" + searchText + "%"));

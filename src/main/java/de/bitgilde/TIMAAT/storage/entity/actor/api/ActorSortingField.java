@@ -35,7 +35,8 @@ public enum ActorSortingField implements DbSortingField<Actor> {
           root -> root.get(Actor_.displayName).get(ActorName_.usedFrom)), NAME_USED_UNTIL(
           root -> root.get(Actor_.displayName).get(ActorName_.usedUntil)), PRIMARY_PHONE_NUMBER(
           root -> root.get(Actor_.primaryPhoneNumber).get(PhoneNumber_.phoneNumber)), PRIMARY_EMAIL_ADDRESS(
-          root -> root.get(Actor_.actorHasEmailAddress).get(EmailAddress_.email)), FICTIONAL(root -> root.get(Actor_.isFictional));
+          root -> root.get(Actor_.actorHasEmailAddress).get(EmailAddress_.email)), FICTIONAL(
+          root -> root.get(Actor_.isFictional));
 
   private final SortingFieldPathProducer<Actor> pathProducer;
 

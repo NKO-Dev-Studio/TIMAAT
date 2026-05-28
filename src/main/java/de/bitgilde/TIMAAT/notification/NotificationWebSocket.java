@@ -12,7 +12,7 @@ import jakarta.websocket.OnOpen;
 import jakarta.websocket.Session;
 import jakarta.websocket.server.ServerEndpoint;
 
-import java.security.Key;
+import javax.crypto.SecretKey;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -39,126 +39,156 @@ import java.util.Map;
 @ServerEndpoint("/api/notification")
 public class NotificationWebSocket {
 
-    private static Map<String, UserSubscriptions> userSessions = new HashMap<String, UserSubscriptions>();
+  private static Map<String, UserSubscriptions> userSessions = new HashMap<String, UserSubscriptions>();
 
-	@OnOpen
-    public void onOpen(Session session) {
-        System.out.println("TIMAAT::Notification:new session " + session.getId()+" - "+session.getMaxIdleTimeout());
-	}
+  @OnOpen
+  public void onOpen(Session session) {
+    System.out.println("TIMAAT::Notification:new session " + session.getId() + " - " + session.getMaxIdleTimeout());
+  }
 
-    @OnClose
-    public void onClose(Session session) {
-        System.out.println("TIMAAT::Notification:end session " +  session.getId());
-        endUserSession(session);
-    }
+  @OnClose
+  public void onClose(Session session) {
+    System.out.println("TIMAAT::Notification:end session " + session.getId());
+    endUserSession(session);
+  }
 
-    @OnMessage
-    public void onMessage(String message, Session session) {
-        // System.out.println("onMessage::From=" + session.getId() + " Message=" + message);
+  @OnMessage
+  public void onMessage(String message, Session session) {
+    // System.out.println("onMessage::From=" + session.getId() + " Message=" + message);
 
-        try {
-        	NotificationRequest req = new ObjectMapper().readValue(message, NotificationRequest.class);
-        	String username = validateRequestToken(req.getToken());
+    try {
+      NotificationRequest req = new ObjectMapper().readValue(message, NotificationRequest.class);
+      String username = validateRequestToken(req.getToken());
 
-        	if ( req.getRequest() == null || !req.getRequest().equalsIgnoreCase("subscribe-list") ) return;
+      if (req.getRequest() == null || !req.getRequest().equalsIgnoreCase("subscribe-list")) {
+        return;
+      }
 
-        	if ( username != null ) {
-        		// TODO check if user account status has expired or is blocked
-        		if ( !userSessions.containsKey(session.getId()) ) createUserSession(username, session);
-        		notifyUserSubscription(username, req.dataID, session);
-        		// answer user subscription request
-        		if ( req.getDataID() > 0 ) acknowledgeSubscriptionInfo(username, session, req.dataID);
-        	}
-        } catch (Exception e) {
-        	System.out.println("TIMAAT::Notification:client message failed to decode");
+      if (username != null) {
+        // TODO check if user account status has expired or is blocked
+        if (!userSessions.containsKey(session.getId())) {
+          createUserSession(username, session);
         }
+        notifyUserSubscription(username, req.dataID, session);
+        // answer user subscription request
+        if (req.getDataID() > 0) {
+          acknowledgeSubscriptionInfo(username, session, req.dataID);
+        }
+      }
+    } catch (Exception e) {
+      System.out.println("TIMAAT::Notification:client message failed to decode");
+    }
+  }
+
+  private void acknowledgeSubscriptionInfo(String subscriber, Session session, int listID) {
+    List<String> subscribers = new ArrayList<String>();
+    for (UserSubscriptions userSub : userSessions.values()) {
+      if (!userSub.username.equalsIgnoreCase(subscriber) && userSub.getAnalysisList() == listID) {
+        subscribers.add(userSub.getUsername());
+      }
+    }
+    if (subscribers.size() > 0) {
+      sendNotificationTo(session, subscriber, "list-subscribers", listID, subscribers);
+    }
+  }
+
+  private void notifyUserSubscription(String username, int listID, Session session) {
+    UserSubscriptions userSub = userSessions.get(session.getId());
+    if (userSub == null) {
+      return;
+    }
+    int oldListID = userSub.getAnalysisList();
+    if (oldListID > 0) {
+      notifyUserUnsubscribe(username, oldListID);
+    }
+    userSub.setAnalysisList(listID);
+    if (listID > 0) {
+      for (UserSubscriptions sub : userSessions.values()) {
+        if (!sub.getUsername().equalsIgnoreCase(username) && sub.getAnalysisList() == listID) {
+          sendNotificationTo(sub.session, username, "subscribe-list", listID);
+        }
+      }
+    }
+  }
+
+  public static void notifyUserAction(String username, String action, int listID, Object data) {
+    if (username == null || action == null) {
+      return;
+    }
+    for (UserSubscriptions userSub : userSessions.values()) {
+      if (!userSub.getUsername().equalsIgnoreCase(username) && userSub.getAnalysisList() == listID) {
+        sendNotificationTo(userSub.session, username, action, listID, data);
+      }
+    }
+  }
+
+  private void notifyUserUnsubscribe(String username, int listID) {
+    if (listID <= 0) {
+      return;
+    }
+    for (UserSubscriptions userSub : userSessions.values()) {
+      if (!userSub.getUsername().equalsIgnoreCase(username) && userSub.getAnalysisList() == listID) {
+        sendNotificationTo(userSub.session, username, "unsubscribe-list", listID);
+      }
+    }
+  }
+
+  private static void sendNotificationTo(Session session, String username, String message, int dataID) {
+    sendNotificationTo(session, username, message, dataID, null);
+  }
+
+  private static void sendNotificationTo(Session session, String username, String message, int dataID, Object data) {
+    try {
+      NotificationMessage notification = new NotificationMessage(username, message, dataID);
+      if (data != null) {
+        notification.setData(data);
+      }
+      ObjectWriter ow = new ObjectMapper().writer();
+      session.getAsyncRemote().sendText(ow.writeValueAsString(notification));
+    } catch (Exception e) {
+      // TODO remove session
+    }
+  }
+
+  private void endUserSession(Session session) {
+    UserSubscriptions userSub = userSessions.get(session.getId());
+    if (userSub == null) {
+      return;
+    }
+    if (userSub.getAnalysisList() > 0) {
+      notifyUserUnsubscribe(userSub.getUsername(), userSub.getAnalysisList());
+    }
+    try {
+      if (session.isOpen()) {
+        session.close();
+      }
+      userSessions.remove(session.getId());
+    } catch (Exception e) {
+      userSessions.remove(session.getId());
+    }
+  }
+
+
+  private void createUserSession(String username, Session session) {
+    userSessions.put(session.getId(), new UserSubscriptions(username, session));
+  }
+
+  @OnError
+  public void onError(Throwable t) {
+    // ignore
+  }
+
+  private String validateRequestToken(String token) {
+    String username = null;
+    try {
+      SecretKey key = TIMAATKeyGenerator.generateKey();
+      username = Jwts.parser().verifyWith(key).build().parseSignedClaims(token).getPayload().getSubject();
+    } catch (JwtException e) {
+      e.printStackTrace();
+      return null;
     }
 
-    private void acknowledgeSubscriptionInfo(String subscriber, Session session, int listID) {
-    	List <String> subscribers = new ArrayList<String>();
-    	for (UserSubscriptions userSub : userSessions.values()) {
-    		if ( !userSub.username.equalsIgnoreCase(subscriber) && userSub.getAnalysisList() == listID ) subscribers.add(userSub.getUsername());
-    	}
-    	if ( subscribers.size() > 0 ) sendNotificationTo(session, subscriber, "list-subscribers", listID, subscribers);
-    }
+    return username;
 
-    private void notifyUserSubscription(String username, int listID, Session session) {
-    	UserSubscriptions userSub = userSessions.get(session.getId());
-    	if ( userSub == null ) return;
-    	int oldListID = userSub.getAnalysisList();
-    	if ( oldListID > 0 ) notifyUserUnsubscribe(username, oldListID);
-		userSub.setAnalysisList(listID);
-		if ( listID > 0 ) {
-	    	for (UserSubscriptions sub : userSessions.values()) {
-	    		if ( !sub.getUsername().equalsIgnoreCase(username) && sub.getAnalysisList() == listID )
-	    			sendNotificationTo(sub.session, username, "subscribe-list", listID);
-	    	}
-		}
-	}
-
-    public static void notifyUserAction(String username, String action, int listID, Object data) {
-    	if ( username == null || action == null ) return;
-    	for (UserSubscriptions userSub : userSessions.values()) {
-    		if ( !userSub.getUsername().equalsIgnoreCase(username) && userSub.getAnalysisList() == listID )
-    			sendNotificationTo(userSub.session, username, action, listID, data);
-    	}
-    }
-
-    private void notifyUserUnsubscribe(String username, int listID) {
-    	if ( listID <= 0 ) return;
-    	for (UserSubscriptions userSub : userSessions.values()) {
-    		if ( !userSub.getUsername().equalsIgnoreCase(username) && userSub.getAnalysisList() == listID )
-    			sendNotificationTo(userSub.session, username, "unsubscribe-list", listID);
-    	}
-    }
-
-    private static void sendNotificationTo(Session session, String username, String message, int dataID) {
-    	sendNotificationTo(session, username, message, dataID, null);
-    }
-    private static void sendNotificationTo(Session session, String username, String message, int dataID, Object data) {
-    	try {
-    		NotificationMessage notification = new NotificationMessage(username, message, dataID);
-    		if ( data != null ) notification.setData(data);
-    		ObjectWriter ow = new ObjectMapper().writer();
-        	session.getAsyncRemote().sendText(ow.writeValueAsString(notification));
-    	} catch (Exception e) {
-    		// TODO remove session
-    	}
-    }
-
-    private void endUserSession(Session session) {
-    	UserSubscriptions userSub = userSessions.get(session.getId());
-    	if ( userSub == null ) return;
-    	if ( userSub.getAnalysisList() > 0 ) notifyUserUnsubscribe(userSub.getUsername(), userSub.getAnalysisList());
-    	try {
-    		if ( session.isOpen() ) session.close();
-    		userSessions.remove(session.getId());
-    	} catch (Exception e) {
-    		userSessions.remove(session.getId());
-    	}
-    }
-
-
-	private void createUserSession(String username, Session session) {
-    	userSessions.put(session.getId(), new UserSubscriptions(username, session));
-    }
-
-    @OnError
-    public void onError(Throwable t) {
-    	// ignore
-    }
-
-    private String validateRequestToken(String token) {
-    	String username = null;
-    	try {
-    		Key key = TIMAATKeyGenerator.generateKey();
-    		username = Jwts.parserBuilder().setSigningKey(key).build().parseClaimsJws(token).getBody().getSubject();
-    	} catch (JwtException e) {
-				e.printStackTrace();
-    		return null;
-    	}
-
-		return username;
-
-    }
+  }
 }

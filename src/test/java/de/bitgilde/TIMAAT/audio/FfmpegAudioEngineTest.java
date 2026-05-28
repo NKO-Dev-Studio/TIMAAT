@@ -9,10 +9,19 @@ import de.bitgilde.TIMAAT.processing.audio.exception.AudioEngineException;
 import de.bitgilde.TIMAAT.processing.audio.io.FrequencyFileReader;
 import de.bitgilde.TIMAAT.storage.file.TemporaryFileStorage;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
+import javax.sound.sampled.AudioFileFormat;
+import javax.sound.sampled.AudioFormat;
+import javax.sound.sampled.AudioInputStream;
+import javax.sound.sampled.AudioSystem;
+import java.io.ByteArrayInputStream;
+import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -97,5 +106,90 @@ public class FfmpegAudioEngineTest {
         Assertions.assertTrue(secondAndThirdInterval.isPresent());
         Assertions.assertEquals(100, secondAndThirdInterval.get().getMinimumFrequency(), 1);
         Assertions.assertEquals(150, secondAndThirdInterval.get().getMaximumFrequency(), 1);
+    }
+
+    /**
+     * Verifies that the engine writes the converted mono PCM data as a raw stream (no container)
+     * when {@code persistInContainerFormat} is {@code false}.
+     *
+     * @throws Exception if test setup or ffmpeg invocation fails
+     */
+    @Test
+    public void shouldPersistOutputAsRawPcmWhenNotUsingContainerFormat() throws Exception {
+        Path ffmpegDirectory = findFfmpegDirectory();
+        Assumptions.assumeTrue(ffmpegDirectory != null, "ffmpeg not available on PATH");
+
+        PropertyManagement propertyManagement = mock(PropertyManagement.class);
+        when(propertyManagement.getProp(eq(PropertyConstants.STORAGE_TEMP_LOCATION))).thenReturn(TEST_OUTPUT_DIRECTORY.toString());
+        when(propertyManagement.getProp(eq(PropertyConstants.FFMPEG_LOCATION))).thenReturn(ffmpegDirectory.toString());
+
+        TemporaryFileStorage temporaryFileStorage = new TemporaryFileStorage(propertyManagement);
+        FfmpegAudioEngine ffmpegAudioEngine = new FfmpegAudioEngine(propertyManagement, temporaryFileStorage);
+
+        Path inputPath = TEST_OUTPUT_DIRECTORY.resolve("convert_input_raw.wav");
+        writeSilentWav(inputPath);
+
+        try (PcmMono16BitLittleEndian result = ffmpegAudioEngine.convertAudioChannelsTo16BitLittleEndian(inputPath, false)) {
+            byte[] header = readFirstBytes(result.getAudioFilePath(), 4);
+            Assertions.assertNotEquals("RIFF", new String(header, StandardCharsets.US_ASCII),
+                    "Expected raw PCM output without RIFF container header");
+        }
+    }
+
+    /**
+     * Verifies that the engine wraps the converted mono PCM data inside a WAV container
+     * when {@code persistInContainerFormat} is {@code true}.
+     *
+     * @throws Exception if test setup or ffmpeg invocation fails
+     */
+    @Test
+    public void shouldPersistOutputInsideWavContainerWhenUsingContainerFormat() throws Exception {
+        Path ffmpegDirectory = findFfmpegDirectory();
+        Assumptions.assumeTrue(ffmpegDirectory != null, "ffmpeg not available on PATH");
+
+        PropertyManagement propertyManagement = mock(PropertyManagement.class);
+        when(propertyManagement.getProp(eq(PropertyConstants.STORAGE_TEMP_LOCATION))).thenReturn(TEST_OUTPUT_DIRECTORY.toString());
+        when(propertyManagement.getProp(eq(PropertyConstants.FFMPEG_LOCATION))).thenReturn(ffmpegDirectory.toString());
+
+        TemporaryFileStorage temporaryFileStorage = new TemporaryFileStorage(propertyManagement);
+        FfmpegAudioEngine ffmpegAudioEngine = new FfmpegAudioEngine(propertyManagement, temporaryFileStorage);
+
+        Path inputPath = TEST_OUTPUT_DIRECTORY.resolve("convert_input_wav.wav");
+        writeSilentWav(inputPath);
+
+        try (PcmMono16BitLittleEndian result = ffmpegAudioEngine.convertAudioChannelsTo16BitLittleEndian(inputPath, true)) {
+            byte[] header = readFirstBytes(result.getAudioFilePath(), 12);
+            Assertions.assertEquals("RIFF", new String(header, 0, 4, StandardCharsets.US_ASCII));
+            Assertions.assertEquals("WAVE", new String(header, 8, 4, StandardCharsets.US_ASCII));
+        }
+    }
+
+    private static Path findFfmpegDirectory() {
+        String pathEnvironmentVariable = System.getenv("PATH");
+        if (pathEnvironmentVariable == null) {
+            return null;
+        }
+        for (String pathEntry : pathEnvironmentVariable.split(File.pathSeparator)) {
+            Path candidate = Paths.get(pathEntry, "ffmpeg");
+            if (Files.isExecutable(candidate)) {
+                return candidate.getParent();
+            }
+        }
+        return null;
+    }
+
+    private static void writeSilentWav(Path outputPath) throws IOException {
+        AudioFormat format = new AudioFormat(44100.0f, 16, 1, true, false);
+        int sampleCount = 4410;
+        byte[] silentSamples = new byte[sampleCount * 2];
+        try (AudioInputStream audioInputStream = new AudioInputStream(new ByteArrayInputStream(silentSamples), format, sampleCount)) {
+            AudioSystem.write(audioInputStream, AudioFileFormat.Type.WAVE, outputPath.toFile());
+        }
+    }
+
+    private static byte[] readFirstBytes(Path path, int byteCount) throws IOException {
+        try (InputStream inputStream = Files.newInputStream(path)) {
+            return inputStream.readNBytes(byteCount);
+        }
     }
 }

@@ -89,11 +89,25 @@ public final class FfmpegAudioEngine extends ExternalProcessExecutor {
         }
     }
 
-    public PcmMono16BitLittleEndian convertAudioChannelsTo16BitLittleEndian(Path pathToAudioFile) throws AudioEngineException {
+    /**
+     * Converts the audio of the given file to a single mono channel of 16 bit little endian PCM samples
+     * at the engine's sample rate by invoking ffmpeg. Depending on {@code persistInContainerFormat} the
+     * resulting samples are either written as a raw PCM stream ({@code -f s16le}) or wrapped inside a
+     * WAV container ({@code -f wav}).
+     *
+     * @param pathToAudioFile          path to the source audio file
+     * @param persistInContainerFormat when {@code true} the converted audio is wrapped inside a WAV
+     *                                 container; when {@code false} the samples are persisted as raw
+     *                                 16 bit little endian PCM without container metadata
+     * @return a handle to the converted audio file; the caller is responsible for closing it
+     * @throws AudioEngineException if creating the temporary output file or executing ffmpeg fails
+     */
+    public PcmMono16BitLittleEndian convertAudioChannelsTo16BitLittleEndian(Path pathToAudioFile, boolean persistInContainerFormat) throws AudioEngineException {
         logger.log(Level.FINE, "Converting file {0} to mono", pathToAudioFile);
         try {
             TemporaryFile temporaryFile = temporaryFileStorage.createTemporaryFile();
-            String[] commandLine = {pathToFfmpeg.toString(), "-i", pathToAudioFile.toString(), "-ac", "1", "-ar", String.valueOf(SAMPLE_RATE), "-f", "s16le", temporaryFile.getTemporaryFilePath().toString()};
+            String outputFormat = persistInContainerFormat ? "wav" : "s16le";
+            String[] commandLine = {pathToFfmpeg.toString(), "-i", pathToAudioFile.toString(), "-ac", "1", "-ar", String.valueOf(SAMPLE_RATE), "-f", outputFormat, temporaryFile.getTemporaryFilePath().toString()};
             syncExecuteProcess(commandLine);
 
             return new PcmMono16BitLittleEndian(temporaryFile);

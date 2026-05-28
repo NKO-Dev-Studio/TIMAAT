@@ -59,7 +59,7 @@ public class EndpointSegmentStructureElement {
 
     UserAccount userAccount = (UserAccount) containerRequestContext.getProperty(
             AuthenticationFilter.USER_ACCOUNT_PROPERTY_NAME);
-    List<SegmentStructureElement> matchingEntries = segmentStructureElementsStorage.getEntriesAsStreamRespectingAuthorization(queryParameter,
+    List<SegmentStructureElement> matchingEntries = segmentStructureElementsStorage.getEntriesAsStream(queryParameter,
             queryParameter, queryParameter, userAccount).map(SegmentStructureElement::new).collect(Collectors.toList());
     long countOfMatchingEntries = segmentStructureElementsStorage.getNumberOfMatchingEntriesRespectingAuthorization(queryParameter, userAccount);
     long totalCount = segmentStructureElementsStorage.getNumberOfTotalEntriesRespectingAuthorization(userAccount);
