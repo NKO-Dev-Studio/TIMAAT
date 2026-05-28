@@ -89,12 +89,29 @@ public class MediumStorage extends DbStorage<Medium, MediumFilterCriteria, Mediu
     return executeDbTransaction(entityManager -> {
       Transcription transcription = entityManager.getReference(Transcription.class, transcriptionId);
       int updated = entityManager.createQuery(
-              "UPDATE Medium m SET m.defaultTranscription = :transcription " +
-                      "WHERE m.id = :mediumId AND m.defaultTranscription IS NULL")
-              .setParameter("transcription", transcription)
-              .setParameter("mediumId", mediumId)
-              .executeUpdate();
+                                         "UPDATE Medium m SET m.defaultTranscription = :transcription " + "WHERE m.id = :mediumId AND m.defaultTranscription IS NULL")
+                                 .setParameter("transcription", transcription).setParameter("mediumId", mediumId)
+                                 .executeUpdate();
       return updated == 1;
+    });
+  }
+
+  public void updateDefaultTranscription(int mediumId, int transcriptionId) {
+    logger.log(Level.FINE, "Setting transcription {0} as default for medium {1}",
+            new Object[]{transcriptionId, mediumId});
+    executeDbTransaction(entityManagert -> {
+      Medium medium = entityManagert.getReference(Medium.class, mediumId);
+      Transcription transcription = entityManagert.getReference(Transcription.class, transcriptionId);
+
+      if (transcription.getMedium().getId() == mediumId) {
+        medium.setDefaultTranscription(transcription);
+      }
+      else {
+        throw new IllegalArgumentException(
+                "Transcription with id " + transcription + " is not a transcription of medium with id " + mediumId);
+      }
+
+      return Void.TYPE;
     });
   }
 
@@ -111,15 +128,13 @@ public class MediumStorage extends DbStorage<Medium, MediumFilterCriteria, Mediu
    * @return {@code true} if the default transcription was replaced, {@code false} otherwise
    */
   public boolean replaceDefaultTranscription(int mediumId, int currentDefaultTranscriptionId, @Nullable Integer newDefaultTranscriptionId) {
-    logger.log(Level.FINE,
-            "Replacing default transcription of medium {0} from transcription {1} to transcription {2}",
+    logger.log(Level.FINE, "Replacing default transcription of medium {0} from transcription {1} to transcription {2}",
             new Object[]{mediumId, currentDefaultTranscriptionId, newDefaultTranscriptionId});
     return executeDbTransaction(entityManager -> {
       Transcription newDefault = newDefaultTranscriptionId == null ? null : entityManager.getReference(
               Transcription.class, newDefaultTranscriptionId);
       int updated = entityManager.createQuery(
-                                         "UPDATE Medium m SET m.defaultTranscription = :newDefault " +
-                                                 "WHERE m.id = :mediumId AND m.defaultTranscription.id = :currentDefaultId")
+                                         "UPDATE Medium m SET m.defaultTranscription = :newDefault " + "WHERE m.id = :mediumId AND m.defaultTranscription.id = :currentDefaultId")
                                  .setParameter("newDefault", newDefault).setParameter("mediumId", mediumId)
                                  .setParameter("currentDefaultId", currentDefaultTranscriptionId).executeUpdate();
       return updated == 1;
@@ -165,7 +180,7 @@ public class MediumStorage extends DbStorage<Medium, MediumFilterCriteria, Mediu
   protected List<Predicate> createPredicates(MediumFilterCriteria filter, Root<Medium> root, CriteriaBuilder criteriaBuilder, CriteriaQuery<?> criteriaQuery, UserAccount userAccount) {
     List<Predicate> predicates = new ArrayList<>();
 
-    if(filter != null) {
+    if (filter != null) {
       if (filter.getMediumNameSearch().isPresent()) {
         String searchText = filter.getMediumNameSearch().get();
         predicates.add(criteriaBuilder.like(root.get(Medium_.displayTitle).get(Title_.name), "%" + searchText + "%"));

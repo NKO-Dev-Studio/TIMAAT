@@ -47,6 +47,7 @@ import de.bitgilde.TIMAAT.rest.RangedStreamingOutput;
 import de.bitgilde.TIMAAT.rest.Secured;
 import de.bitgilde.TIMAAT.rest.filter.AuthenticationFilter;
 import de.bitgilde.TIMAAT.rest.model.medium.MediumListingQueryParameter;
+import de.bitgilde.TIMAAT.rest.model.medium.UpdateMediumDefaultTranscriptionPayload;
 import de.bitgilde.TIMAAT.rest.model.medium.UpdateMediumHasMusicListPayload;
 import de.bitgilde.TIMAAT.rest.model.medium.UpdateMediumHasMusicListPayload.MediumHasMusicListEntry;
 import de.bitgilde.TIMAAT.rest.model.medium.UpdateMediumVideoThumbnailPayload;
@@ -4617,12 +4618,11 @@ public class EndpointMedium {
   @Produces(jakarta.ws.rs.core.MediaType.APPLICATION_JSON)
   @Secured
   @Path("{id}/transcriptions/{transcriptionId}")
-  public Response deleteMediumTranscription(@PathParam("id") int mediumId,
-                                            @PathParam("transcriptionId") int transcriptionId) {
+  public Response deleteMediumTranscription(@PathParam("id") int mediumId, @PathParam("transcriptionId") int transcriptionId) {
     if (!transcriptionService.existsForMedium(mediumId, transcriptionId)) {
       return Response.status(Status.NOT_FOUND)
-                     .entity("{\"reason\":\"Transcription " + transcriptionId + " does not exist for medium " + mediumId
-                             + "\"}").build();
+                     .entity("{\"reason\":\"Transcription " + transcriptionId + " does not exist for medium " + mediumId + "\"}")
+                     .build();
     }
 
     try {
@@ -4631,6 +4631,19 @@ public class EndpointMedium {
     } catch (TranscriptionNotFoundException e) {
       return Response.status(Status.NOT_FOUND).entity("{\"reason\":\"" + e.getMessage() + "\"}").build();
     } catch (TranscriptionServiceException e) {
+      return Response.status(Status.INTERNAL_SERVER_ERROR).entity("{\"reason\":\"" + e.getMessage() + "\"}").build();
+    }
+  }
+
+  @POST
+  @Produces(jakarta.ws.rs.core.MediaType.APPLICATION_JSON)
+  @Secured
+  @Path("{id}/transcriptions/default")
+  public Response updateDefaultTranscription(@PathParam("id") int mediumId, UpdateMediumDefaultTranscriptionPayload updateMediumDefaultTranscriptionPayload) {
+    try {
+      mediumStorage.updateDefaultTranscription(mediumId, updateMediumDefaultTranscriptionPayload.getTranscriptionId());
+      return Response.noContent().build();
+    } catch (Exception e) {
       return Response.status(Status.INTERNAL_SERVER_ERROR).entity("{\"reason\":\"" + e.getMessage() + "\"}").build();
     }
   }

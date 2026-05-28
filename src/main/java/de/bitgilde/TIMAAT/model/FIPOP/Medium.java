@@ -855,6 +855,10 @@ public class Medium implements Serializable {
     this.createdByUserAccountId = createdByUserAccountId;
   }
 
+  public Integer getDefaultTranscriptionId() {
+    return defaultTranscription != null ? defaultTranscription.getId() : null;
+  }
+
   @PostLoad
   public void setFileStatusAndViewTokenAfterLoad() {
     if (this.fileStatus == null) {
