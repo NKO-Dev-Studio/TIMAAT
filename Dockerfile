@@ -1,4 +1,4 @@
-FROM tomcat:10.1.47-jre11-temurin-noble
+FROM tomcat:10.1.47-jre25-temurin-noble
 LABEL org.opencontainers.image.title="TIMAAT Web Application"
 LABEL org.opencontainers.image.description="Java-based web application running on Tomcat, providing TIMAAT services."
 LABEL org.opencontainers.image.version="${TIMAAT_VERSION}"
