@@ -1,0 +1,104 @@
+name: timaat
+services:
+  db:
+    image: mariadb:11.4
+    ports:
+      - "3306:3306"
+    networks:
+      - timaat-backend
+    command: --lower_case_table_names=1
+    environment:
+      MYSQL_ROOT_PASSWORD_FILE: /run/secrets/database-root-password
+    volumes:
+      - db-data:/var/lib/mysql
+    secrets:
+      - database-root-password
+    healthcheck:
+      test: [ "CMD-SHELL", "mariadb-admin ping -u root --password=$(cat /run/secrets/database-root-password)" ]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+  webservice:
+    image: christophguentherunierfurt/timaat:0.15.0
+    pull_policy: always
+    networks:
+      - timaat-backend
+    # No host port binding anymore - the webservice is only reachable through the
+    # Traefik reverse proxy on the internal timaat-backend network.
+    expose:
+      - "8080"
+    environment:
+      DATABASE_USER: root
+      DATABASE_PASSWORD_FILE: /run/secrets/database-root-password
+      DATABASE_HOST: db
+      DATABASE_PORT: 3306
+    volumes:
+      - file-storage:/var/lib/timaat/storage
+    secrets:
+      - database-root-password
+    depends_on:
+      db:
+        condition: service_healthy
+    labels:
+      - "traefik.enable=true"
+      # Route incoming HTTPS traffic for the configured host to this service.
+      - "traefik.http.routers.timaat.rule=Host(`${TIMAAT_DOMAIN}`)"
+      - "traefik.http.routers.timaat.entrypoints=websecure"
+      - "traefik.http.routers.timaat.tls=true"
+      # Forward to the container's internal HTTP port 8080.
+      - "traefik.http.services.timaat.loadbalancer.server.port=8080"
+      - "traefik.http.routers.timaat.middlewares=owasp-secure-headers@file"
+      # Redirect requests to the host root ("/") to the application context
+      # path ("/TIMAAT/"). The more specific Path(`/`) rule wins over the bare
+      # Host rule above by Traefik's automatic priority (longer rule = higher).
+      - "traefik.http.routers.timaat-root.rule=Host(`${TIMAAT_DOMAIN}`) && Path(`/`)"
+      - "traefik.http.routers.timaat-root.entrypoints=websecure"
+      - "traefik.http.routers.timaat-root.tls=true"
+      - "traefik.http.routers.timaat-root.service=timaat"
+      - "traefik.http.routers.timaat-root.middlewares=redirect-root-to-timaat@file"
+  reverse-proxy:
+    image: traefik:v3.7.1
+    networks:
+      - timaat-backend
+    ports:
+      # Only HTTPS is exposed to the host; the proxy listens on 443 internally
+      # and is published on the host's port 443.
+      - "443:443"
+    command:
+      # Do NOT expose the API/dashboard.
+      - "--api.dashboard=false"
+      - "--api.insecure=false"
+      # Single HTTPS entrypoint on port 443.
+      - "--entrypoints.websecure.address=:443"
+      # Docker provider: read router/service/middleware definitions from labels,
+      # but only for containers that explicitly opt in (traefik.enable=true).
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--providers.docker.network=timaat-backend"
+      # File provider: TLS certificate material is configured via a mounted
+      # dynamic configuration file.
+      - "--providers.file.directory=/etc/traefik/dynamic"
+      - "--providers.file.watch=true"
+      # Keep logs lean and do not advertise version information anywhere.
+      - "--log.level=INFO"
+      - "--accesslog=false"
+    volumes:
+      - "${DOCKER_SOCKET:-/var/run/docker.sock}:/var/run/docker.sock:ro"
+      # Dynamic TLS configuration (references the certificate paths inside the container).
+      - ./traefik/dynamic:/etc/traefik/dynamic:ro
+      # Externally provided certificate + key, mounted from a host path supplied
+      # via the TIMAAT_TLS_CERT_DIR variable (see .env.example).
+      - "${TIMAAT_TLS_CERT_DIR}:/certs:ro"
+    depends_on:
+      - webservice
+networks:
+  timaat-backend:
+    driver: bridge
+    attachable: false
+volumes:
+  db-data:
+  file-storage:
+secrets:
+  database-root-password:
+    file: passwords/database-root-password.txt
