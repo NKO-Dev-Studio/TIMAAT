@@ -767,7 +767,7 @@
                 TIMAAT.UI.displayComponent('settings', 'settingsAccountCreationTab', 'settingsAccountCreation');
                 TIMAAT.Settings.loadSettingsAccountCreation();
               } else if (pathSegments[1] === 'transcriptions') {
-                TIMAAT.UI.displayComponent('settings', 'settingsTranscriptionsTab', 'settingsTranscriptions');
+                TIMAAT.Settings.showTranscriptionSettings()
               }
             } else {
               $('.adminAccessOnly').hide();

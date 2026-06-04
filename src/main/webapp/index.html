@@ -6807,15 +6807,38 @@
                     <div class="card-body">
                       <form class="p-2" id="transcriptionSettingsForm" novalidate>
                         <div class="form-group">
+                          <h6>General Settings</h6>
                           <div class="form-check">
                             <input class="form-check-input" type="checkbox" value=""
                                    id="automaticTranscriptionCheckBox">
                             <label class="form-check-label" for="automaticTranscriptionCheckBox">
-                              Create transcription after medium upload
+                              Automatically transcribe medium uploads
                             </label>
                           </div>
                         </div>
-                        <button type="submit" id="saveTranscriptionSettingsBtn" class="btn btn-success">Save
+                        <div class="form-group mt-4">
+                          <h6>Default model settings</h6>
+                          <div class="form-row">
+                            <div class="col">
+                              <label for="transcriptionSettingsEngineSelect">Engine</label>
+                              <select class="form-control"
+                                      id="transcriptionSettingsEngineSelect"
+                                      data-role="engineSelect">
+                              </select>
+                            </div>
+                            <div class="col">
+                              <label for="transcriptionSettingsModelSelect">Model</label>
+                              <select class="form-control"
+                                      id="transcriptionSettingsModelSelect"
+                                      data-role="modelSelect">
+                              </select>
+                            </div>
+                          </div>
+                        </div>
+                        <button type="submit" id="saveTranscriptionSettingsBtn" class="btn btn-success mt-4">
+                          <span class="spinner-border spinner-border-sm d-none" role="status"
+                                id="saveTranscriptionSettingsBtnLoadingIndicator" aria-hidden="true"></span>
+                          Save
                         </button>
                       </form>
                     </div>
