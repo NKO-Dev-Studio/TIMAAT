@@ -6709,6 +6709,12 @@
                 <i class="fas fa-users"></i> Account Creation
               </a>
             </li>
+            <li class="nav-item active">
+              <a class="nav-link navBarLinkTop" id="settingsTranscriptionsTab" data-toggle="tab" role="tab"
+                 aria-controls="settingsTranscriptionsTab" aria-selected="false">
+                <i class="fas fa-comments"></i> Transcriptions
+              </a>
+            </li>
           </ul>
           <div class="tabContent" id="settingsTabsContent">
             <div class="tab-pane fade show" id="settings" role="tabpanel" aria-labelledby="settings">
@@ -6790,6 +6796,26 @@
                           </div>
                         </div>
                         <button type="submit" id="createAccountSubmitButton" class="btn btn-success">Create account
+                        </button>
+                      </form>
+                    </div>
+                  </div>
+                  <div class="card dataTables" id="settingsTranscriptions">
+                    <div class="card-header">
+                      Transcription settings
+                    </div>
+                    <div class="card-body">
+                      <form class="p-2" id="transcriptionSettingsForm" novalidate>
+                        <div class="form-group">
+                          <div class="form-check">
+                            <input class="form-check-input" type="checkbox" value=""
+                                   id="automaticTranscriptionCheckBox">
+                            <label class="form-check-label" for="automaticTranscriptionCheckBox">
+                              Create transcription after medium upload
+                            </label>
+                          </div>
+                        </div>
+                        <button type="submit" id="saveTranscriptionSettingsBtn" class="btn btn-success">Save
                         </button>
                       </form>
                     </div>
