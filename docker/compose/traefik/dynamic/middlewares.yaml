@@ -1,0 +1,37 @@
+# Traefik dynamic configuration: HTTP middlewares.
+#
+# OWASP recommended secure response headers.
+# https://github.com/OWASP/www-project-secure-headers/blob/master/ci/headers_add.json
+#
+# Referenced from the webservice router as "owasp-secure-headers@file".
+http:
+  middlewares:
+    owasp-secure-headers:
+      headers:
+        customResponseHeaders:
+          Cache-Control: "no-store, max-age=0"
+          Clear-Site-Data: "\"cache\",\"cookies\",\"storage\""
+          # 'unsafe-inline' on script-src/style-src is required because the app
+          # ships inline <script>/<style> blocks and style="..." attributes.
+          # Prefer migrating to nonces/hashes later to drop 'unsafe-inline'.
+          Content-Security-Policy: "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; form-action 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; upgrade-insecure-requests"
+          Cross-Origin-Embedder-Policy: "require-corp"
+          Cross-Origin-Opener-Policy: "same-origin"
+          Cross-Origin-Resource-Policy: "same-origin"
+          Permissions-Policy: "accelerometer=(), autoplay=(), camera=(), cross-origin-isolated=(), display-capture=(), encrypted-media=(), fullscreen=(), geolocation=(), gyroscope=(), keyboard-map=(), magnetometer=(), microphone=(), midi=(), payment=(), picture-in-picture=(), publickey-credentials-get=(), screen-wake-lock=(), sync-xhr=(self), usb=(), web-share=(), xr-spatial-tracking=(), clipboard-read=(), clipboard-write=(), gamepad=(), hid=(), idle-detection=(), interest-cohort=(), serial=(), unload=()"
+          Referrer-Policy: "no-referrer"
+          Strict-Transport-Security: "max-age=63072000; includeSubDomains"
+          X-Content-Type-Options: "nosniff"
+          X-DNS-Prefetch-Control: "off"
+          X-Frame-Options: "deny"
+          X-Permitted-Cross-Domain-Policies: "none"
+          # Strip server-identifying headers (empty value removes the header).
+          Server: ""
+          X-Powered-By: ""
+    # Redirect the host root ("/") to the application context path ("/TIMAAT/").
+    # Referenced from the timaat-root router as "redirect-root-to-timaat@file".
+    redirect-root-to-timaat:
+      redirectRegex:
+        regex: "^https?://([^/]+)/?$"
+        replacement: "https://${1}/TIMAAT/"
+        permanent: true

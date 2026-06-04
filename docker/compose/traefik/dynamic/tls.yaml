@@ -1,0 +1,15 @@
+# Traefik dynamic configuration: TLS certificate material.
+#
+# The certificate and key are provided EXTERNALLY. The host directory that
+# contains them is mounted into the reverse-proxy container at /certs via the
+# TIMAAT_TLS_CERT_DIR variable (see docker-compose-prod.yaml / .env.example).
+# Adjust the file names below if your certificate/key are named differently.
+tls:
+  stores:
+    default:
+      defaultCertificate:
+        certFile: /certs/timaat.crt
+        keyFile: /certs/timaat.key
+  certificates:
+    - certFile: /certs/timaat.crt
+      keyFile: /certs/timaat.key

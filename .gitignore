@@ -12,3 +12,5 @@ test_output
 .idea/
 .project
 CLAUDE.local.md
+/docker/compose/.env
+/docker/compose/certs/
