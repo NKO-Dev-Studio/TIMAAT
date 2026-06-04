@@ -2,7 +2,7 @@ package de.bitgilde.TIMAAT.rest.endpoint;
 
 import de.bitgilde.TIMAAT.rest.Secured;
 import de.bitgilde.TIMAAT.service.transcription.TranscriptionService;
-import de.bitgilde.TIMAAT.service.transcription.api.TranscriptionEngineCapabilities;
+import de.bitgilde.TIMAAT.service.transcription.api.TranscriptionEngine;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
@@ -30,16 +30,18 @@ public class EndpointTranscription {
 
   /**
    * Returns the engines (and their models) currently offered by the connected speech-to-text-service.
-   * When the speech-to-text feature is disabled for this deployment an empty collection is returned
-   * so callers can render an "unavailable" state without special-casing the response code.
+   * Each model in the payload is tagged with an {@code isDefault} flag so clients can render engine
+   * and model selectors without issuing a separate request for the deployment-wide default. When the
+   * speech-to-text feature is disabled for this deployment an empty collection is returned so callers
+   * can render an "unavailable" state without special-casing the response code.
    *
-   * @return the available engine capabilities
+   * @return the available engine capabilities, each model annotated with whether it is the configured default
    */
   @GET
   @Produces(MediaType.APPLICATION_JSON)
   @Secured
   @Path("engines")
-  public Collection<TranscriptionEngineCapabilities> listAvailableEngines() {
+  public Collection<TranscriptionEngine> listAvailableEngines() {
     return transcriptionService.getAvailableEngineCapabilities();
   }
 }

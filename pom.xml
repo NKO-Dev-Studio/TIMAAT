@@ -1,4 +1,5 @@
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
   <groupId>studio.nko-dev</groupId>
   <artifactId>TIMAAT</artifactId>
@@ -34,9 +35,11 @@
         <version>3.11.0</version>
         <configuration>
           <release>${maven.compiler.release}</release>
-          <generatedSourcesDirectory>${project.build.directory}/generated-sources/annotations</generatedSourcesDirectory>
+          <generatedSourcesDirectory>${project.build.directory}/generated-sources/annotations
+          </generatedSourcesDirectory>
           <annotationProcessors>
-            <annotationProcessor>org.eclipse.persistence.internal.jpa.modelgen.CanonicalModelProcessor</annotationProcessor>
+            <annotationProcessor>org.eclipse.persistence.internal.jpa.modelgen.CanonicalModelProcessor
+            </annotationProcessor>
           </annotationProcessors>
           <annotationProcessorPaths>
             <path>
@@ -74,7 +77,9 @@
         <artifactId>maven-surefire-plugin</artifactId>
         <version>3.1.2</version>
         <configuration>
-          <argLine>-javaagent:${settings.localRepository}/org/mockito/mockito-core/${mockito.version}/mockito-core-${mockito.version}.jar</argLine>
+          <argLine>
+            -javaagent:${settings.localRepository}/org/mockito/mockito-core/${mockito.version}/mockito-core-${mockito.version}.jar
+          </argLine>
         </configuration>
       </plugin>
 
@@ -90,9 +95,9 @@
             </goals>
             <configuration>
               <rules>
-                <banDuplicatePomDependencyVersions />
-                <dependencyConvergence />
-                <requireUpperBoundDeps />
+                <banDuplicatePomDependencyVersions/>
+                <dependencyConvergence/>
+                <requireUpperBoundDeps/>
               </rules>
             </configuration>
           </execution>
@@ -136,6 +141,10 @@
   </dependencyManagement>
 
   <dependencies>
+    <dependency>
+      <groupId>com.fasterxml.jackson.datatype</groupId>
+      <artifactId>jackson-datatype-jsr310</artifactId>
+    </dependency>
     <!-- https://mvnrepository.com/artifact/org.glassfish.jersey.containers/jersey-container-servlet -->
     <dependency>
       <groupId>org.glassfish.jersey.containers</groupId>
@@ -183,19 +192,19 @@
       <artifactId>jaxb-runtime</artifactId>
       <version>4.0.8</version>
     </dependency>
-		<!-- https://mvnrepository.com/artifact/mysql/mysql-connector-java -->
+    <!-- https://mvnrepository.com/artifact/mysql/mysql-connector-java -->
     <dependency>
       <groupId>com.mysql</groupId>
       <artifactId>mysql-connector-j</artifactId>
       <version>${mysql.version}</version>
     </dependency>
-		<!-- https://mvnrepository.com/artifact/org.json/json -->
+    <!-- https://mvnrepository.com/artifact/org.json/json -->
     <dependency>
       <groupId>org.json</groupId>
       <artifactId>json</artifactId>
       <version>20210307</version>
     </dependency>
-		<!-- https://mvnrepository.com/artifact/io.jsonwebtoken/jjwt-api -->
+    <!-- https://mvnrepository.com/artifact/io.jsonwebtoken/jjwt-api -->
     <dependency>
       <groupId>io.jsonwebtoken</groupId>
       <artifactId>jjwt-api</artifactId>
