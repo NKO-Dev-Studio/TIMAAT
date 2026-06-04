@@ -13,5 +13,5 @@ import com.fasterxml.jackson.annotation.JsonInclude;
  */
 @JsonInclude(JsonInclude.Include.ALWAYS)
 public record TranscriptionSettingsDto(boolean featureEnabled, boolean autoTranscribeUploads,
-                                       TranscriptionDefaultModelDto transcriptionDefaultModelDto) {
+                                       TranscriptionDefaultModelDto transcriptionDefaultModel) {
 }

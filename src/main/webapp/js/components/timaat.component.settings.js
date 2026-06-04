@@ -18,84 +18,89 @@
  */
 'use strict';
 (function (factory, window) {
-    /*globals define, module, require*/
+  /*globals define, module, require*/
 
-    // define an AMD module that relies on 'TIMAAT'
-    if (typeof define === 'function' && define.amd) {
-        define(['TIMAAT'], factory);
+  // define an AMD module that relies on 'TIMAAT'
+  if (typeof define === 'function' && define.amd) {
+    define(['TIMAAT'], factory);
 
 
     // define a Common JS module that relies on 'TIMAAT'
-    } else if (typeof exports === 'object') {
-        module.exports = factory(require('TIMAAT'));
-    }
+  } else if (typeof exports === 'object') {
+    module.exports = factory(require('TIMAAT'));
+  }
 
-    // attach your plugin to the global 'TIMAAT' variable
-    if(typeof window !== 'undefined' && window.TIMAAT){
-        factory(window.TIMAAT);
-    }
+  // attach your plugin to the global 'TIMAAT' variable
+  if (typeof window !== 'undefined' && window.TIMAAT) {
+    factory(window.TIMAAT);
+  }
 
 }(function (TIMAAT) {
 
-	TIMAAT.Settings = {
+  TIMAAT.Settings = {
 
-		init: function() {
+    init: function () {
       this.initSettings();
       TIMAAT.UI.displayComponent('settings', 'settingsBugfixesTab', null);
-		},
+    },
 
-    initSettingsComponent: function() {
+    initSettingsComponent: function () {
       TIMAAT.UI.showComponent('settings');
       $('#settingsAccountCreationTab').trigger('click');
     },
 
-		initSettings: function() {
+    initSettings: function () {
       // nav-bar functionality
-			$('#settingsBugfixesTab').on('click', function(event) {
-				TIMAAT.Settings.loadSettingsBugfixes();
+      $('#settingsBugfixesTab').on('click', function (event) {
+        TIMAAT.Settings.loadSettingsBugfixes();
         TIMAAT.UI.displayComponent('settings', 'settingsBugfixesTab', 'settingsBugfixes');
-				TIMAAT.URLHistory.setURL(null, 'Settings', '#settings/bugfixes');
-			});
+        TIMAAT.URLHistory.setURL(null, 'Settings', '#settings/bugfixes');
+      });
 
-      $('#settingsAccountCreationTab').on('click', function(event) {
-				TIMAAT.Settings.loadSettingsAccountCreation();
+      $('#settingsAccountCreationTab').on('click', function (event) {
+        TIMAAT.Settings.loadSettingsAccountCreation();
         TIMAAT.UI.displayComponent('settings', 'settingsAccountCreationTab', 'settingsAccountCreation');
-				TIMAAT.URLHistory.setURL(null, 'Settings', '#settings/accountCreation');
-			});
+        TIMAAT.URLHistory.setURL(null, 'Settings', '#settings/accountCreation');
+      });
 
-      $('#fixDurationButton').on('click', function(event) {
+      $('#settingsTranscriptionsTab').on('click', function (event) {
+        TIMAAT.Settings.showTranscriptionSettings()
+      });
+
+
+      $('#fixDurationButton').on('click', function (event) {
         if (TIMAAT.Service.session.displayName == "admin") {
           // console.log("length fix button clicked");
           TIMAAT.Settings.fixLength();
         }
       });
 
-      $('#fixNoPermissionSetButton').on('click', function(event) {
+      $('#fixNoPermissionSetButton').on('click', function (event) {
         if (TIMAAT.Service.session.displayName == "admin") {
           // console.log("add missing permissions");
           TIMAAT.Settings.fixPermissions();
         }
       });
 
-      $('#fixKeyframeTimeSecondsToMillisecondsButton').on('click', function(event) {
+      $('#fixKeyframeTimeSecondsToMillisecondsButton').on('click', function (event) {
         if (TIMAAT.Service.session.displayName == "admin") {
           // console.log("fix annotation keyframe timestamps from s to ms");
           TIMAAT.Settings.fixKeyframeTimes();
         }
       });
 
-      $('#createRandomPassword').on('click', function(event) {
+      $('#createRandomPassword').on('click', function (event) {
         let randomPasswordString = '';
         let passwordCharacters = '1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
         let passwordCharactersLength = passwordCharacters.length;
         let i = 0;
         for (; i < 20; i++) {  // generated random password is of length 20
-          randomPasswordString += passwordCharacters.charAt(Math.floor(Math.random()*passwordCharactersLength));
+          randomPasswordString += passwordCharacters.charAt(Math.floor(Math.random() * passwordCharactersLength));
         }
         $('#newAccountPassword').val(randomPasswordString);
       });
 
-      $('#createAccountSubmitButton').on('click', async function(event) {
+      $('#createAccountSubmitButton').on('click', async function (event) {
         event.preventDefault();
         if (TIMAAT.Service.session.displayName != "admin") return;
         if (!$('#createNewAccountForm').valid()) return;
@@ -146,11 +151,11 @@
         $('#createNewAccountForm').trigger('reset');
         let modal = $('#accountCreatedModal');
         modal.find('.modal-body').html(`
-          Login details for <b>`+newAccountDisplayName+`</b>:
+          Login details for <b>` + newAccountDisplayName + `</b>:
           <br>
           <br>
-          <b>Username:</b> `+newAccountUsername+`<br>
-          <b>Password:</b> `+newAccountPassword+`<br>
+          <b>Username:</b> ` + newAccountUsername + `<br>
+          <b>Password:</b> ` + newAccountPassword + `<br>
           <hr>
           Please send these credentials to the corresponding person and urge them to change the initial password as soon as they log in for the first time.
           <br>
@@ -158,59 +163,172 @@
           </div>
         `);
         modal.modal({backdrop: 'static', keyboard: false}, 'show');
-
       });
 
-      $('#accountCreatedModal').on('hidden.bs.modal', function(event) {
+      $('#accountCreatedModal').on('hidden.bs.modal', function (event) {
         $('#createNewAccountForm').trigger('reset');
         $('#createRandomPassword').trigger('click');
       });
 
-      $('#newAccountUsername').on('change input', function(event) {
+      $('#newAccountUsername').on('change input', function (event) {
         $('#duplicateUsername').hide();
         $('#duplicateUsername').removeClass('invalid-feedback');
         $('#newAccountUsername').removeClass('is-invalid');
       });
 
-      $('#newAccountDisplayName').on('change input', function(event) {
+      $('#newAccountDisplayName').on('change input', function (event) {
         $('#duplicateDisplayName').hide();
         $('#duplicateDisplayName').removeClass('invalid-feedback');
         $('#newAccountDisplayName').removeClass('is-invalid');
       });
+
+      /**
+       * Transcription settings init
+       */
+      $('#saveTranscriptionSettingsBtn').on('click', function (event) {
+        const $transcriptionSettingsForm = $('#transcriptionSettingsForm');
+        const $automaticTranscriptionCheckBox = $transcriptionSettingsForm.find('#automaticTranscriptionCheckBox');
+        const $transcriptionSettingsEngineSelect = $transcriptionSettingsForm.find('#transcriptionSettingsEngineSelect')
+        const $transcriptionSettingsModelSelect = $transcriptionSettingsForm.find('#transcriptionSettingsModelSelect')
+
+        event.preventDefault();
+        if (!$transcriptionSettingsForm.valid()) return false;
+
+        $transcriptionSettingsForm.find('.alert').remove()
+        $('#saveTranscriptionSettingsBtnLoadingIndicator').removeClass('d-none');
+        $transcriptionSettingsForm.find('input, button, select').prop('disabled', true);
+
+        const autoTranscribe = $automaticTranscriptionCheckBox.prop('checked');
+        const defaultEngineIdentifier = $transcriptionSettingsEngineSelect.val()
+        const defaultModelIdentifier = $transcriptionSettingsModelSelect.val()
+
+        TIMAAT.SystemSettingsService.updateTranscriptionSettings(autoTranscribe, defaultEngineIdentifier, defaultModelIdentifier).catch(error => {
+          console.error("Error during updating transcription settings", error);
+          const alert = $('<div class="alert alert-danger" role="alert">Error during updating transcription settings.</div>')
+          $transcriptionSettingsForm.prepend(alert)
+        }).finally(() => {
+          $transcriptionSettingsForm.find('input, button, select').prop('disabled', false);
+          $('#saveTranscriptionSettingsBtnLoadingIndicator').addClass('d-none');
+        })
+      })
+
     },
 
-    loadSettingsBugfixes: function() {
-			// TIMAAT.UI.displayComponent('settings', 'settingsBugfixesTab', null);
-			// TIMAAT.UI.addSelectedClassToSelectedItem('settings', null);
-			// TIMAAT.UI.subNavTab = 'dataSheet';
-		},
+    showTranscriptionSettings: function () {
+      const $transcriptionSettingsForm = $('#transcriptionSettingsForm');
+      $transcriptionSettingsForm.find('.alert').remove()
+      $transcriptionSettingsForm.find('input, button, select').prop('disabled', true);
+      $('#saveTranscriptionSettingsBtnLoadingIndicator').addClass('d-none');
 
-    loadSettingsAccountCreation: function() {
+      TIMAAT.UI.displayComponent('settings', 'settingsTranscriptionsTab', 'settingsTranscriptions');
+      TIMAAT.URLHistory.setURL(null, 'Settings', '#settings/transcriptions');
+
+      const transcriptionsSettingsPromise = TIMAAT.SystemSettingsService.getTranscriptionSettings()
+      const availableEnginePromise = TIMAAT.TranscriptionService.listAvailableEngines()
+
+      Promise.all([transcriptionsSettingsPromise, availableEnginePromise]).then((promiseResults) => {
+        const transcriptionSettings = promiseResults[0]
+        const availableEngines = promiseResults[1]
+
+
+        $('#automaticTranscriptionCheckBox').prop("checked", transcriptionSettings.autoTranscribeUploads)
+        let initialSelectedEngineIdentifier = transcriptionSettings.transcriptionDefaultModel.engineIdentifier
+        let initialSelectedModelIdentifier = transcriptionSettings.transcriptionDefaultModel.modelIdentifier
+
+        const engineSelectionData = []
+        const modelSelectionDataByEngine = new Map()
+
+        for (const currentEngine of availableEngines.sort((a, b) => a.engineName.localeCompare(b.engineName))) {
+          engineSelectionData.push({
+            id: currentEngine.engineIdentifier,
+            text: currentEngine.engineName
+          })
+
+          const modelSelectionData = []
+          for (const currentModel of currentEngine.models.sort((a, b) => a.modelIdentifier.localeCompare(b.modelIdentifier))) {
+            modelSelectionData.push({
+              id: currentModel.modelIdentifier,
+              text: currentModel.modelIdentifier
+            })
+          }
+          modelSelectionDataByEngine.set(currentEngine.engineIdentifier, modelSelectionData)
+        }
+
+        initialSelectedEngineIdentifier = initialSelectedEngineIdentifier ?? engines[0].engineIdentifier
+        initialSelectedModelIdentifier = initialSelectedModelIdentifier ?? modelSelectionDataByEngine.get(initialSelectedEngineIdentifier)[0]
+
+        const $transcriptionSettingsEngineSelect = $('#transcriptionSettingsEngineSelect')
+        const $transcriptionSettingsModelSelect = $('#transcriptionSettingsModelSelect')
+
+        $transcriptionSettingsEngineSelect.select2({
+          closeOnSelect: true,
+          width: '100%',
+          data: engineSelectionData,
+          minimumInputLength: 0,
+          minimumResultsForSearch: Infinity
+        });
+        $transcriptionSettingsModelSelect.select2({
+          closeOnSelect: true,
+          width: '100%',
+          data: modelSelectionDataByEngine.get(initialSelectedEngineIdentifier),
+          minimumInputLength: 0,
+          minimumResultsForSearch: Infinity
+        });
+
+        $transcriptionSettingsEngineSelect.val(initialSelectedEngineIdentifier).trigger('change');
+        $transcriptionSettingsModelSelect.val(initialSelectedModelIdentifier).trigger('change');
+
+        $transcriptionSettingsEngineSelect.on('select2:select', e => {
+          $transcriptionSettingsModelSelect.select2('destroy');
+          $transcriptionSettingsModelSelect.empty();
+          $transcriptionSettingsModelSelect.select2({
+            closeOnSelect: true,
+            width: '100%',
+            data: modelSelectionDataByEngine.get(e.params.data.id),
+            minimumInputLength: 0,
+            minimumResultsForSearch: Infinity
+          })
+        })
+        $transcriptionSettingsForm.find('input, button, select').prop('disabled', false);
+      }).catch(error => {
+        console.error("Error while loading required information of transcription settings")
+        const alert = $('<div class="alert alert-danger" role="alert">Error loading current transcription settings.</div>')
+        $transcriptionSettingsForm.prepend(alert)
+      })
+    },
+
+    loadSettingsBugfixes: function () {
+      // TIMAAT.UI.displayComponent('settings', 'settingsBugfixesTab', null);
+      // TIMAAT.UI.addSelectedClassToSelectedItem('settings', null);
+      // TIMAAT.UI.subNavTab = 'dataSheet';
+    },
+
+    loadSettingsAccountCreation: function () {
       $('#createRandomPassword').trigger('click');
     },
 
-    isLoginNameInUse: async function(loginName) {
+    isLoginNameInUse: async function (loginName) {
       let isInUse = await TIMAAT.Service.loginNameExists(loginName);
       return isInUse;
     },
 
-    isDisplayNameInUse: async function(displayName) {
+    isDisplayNameInUse: async function (displayName) {
       let isInUse = await TIMAAT.Service.displayNameExists(displayName);
       return isInUse;
     },
 
-    fixLength: async function() {
+    fixLength: async function () {
       return new Promise(resolve => {
         $.ajax({
-          url:window.location.protocol+'//'+window.location.host+"/TIMAAT/api/medium/fileLengthFix"+'?authToken='+TIMAAT.Service.session.token,
-          type:"PATCH",
-          contentType:"application/json; charset=utf-8",
+          url: window.location.protocol + '//' + window.location.host + "/TIMAAT/api/medium/fileLengthFix" + '?authToken=' + TIMAAT.Service.session.token,
+          type: "PATCH",
+          contentType: "application/json; charset=utf-8",
           beforeSend: function (xhr) {
-            xhr.setRequestHeader('Authorization', 'Bearer '+TIMAAT.Service.token);
+            xhr.setRequestHeader('Authorization', 'Bearer ' + TIMAAT.Service.token);
           },
-        }).done(function(data) {
+        }).done(function (data) {
           resolve(data);
-        }).fail(function(error) {
+        }).fail(function (error) {
           console.error("ERROR: ", error);
           console.error("ERROR responseText: ", error.responseText);
         });
@@ -219,19 +337,19 @@
       });
     },
 
-    fixPermissions: async function() {
+    fixPermissions: async function () {
       // console.log("fix permissions");
       return new Promise(resolve => {
         $.ajax({
-          url:window.location.protocol+'//'+window.location.host+"/TIMAAT/api/user/permissionFix"+'?authToken='+TIMAAT.Service.session.token,
-          type:"PATCH",
-          contentType:"application/json; charset=utf-8",
+          url: window.location.protocol + '//' + window.location.host + "/TIMAAT/api/user/permissionFix" + '?authToken=' + TIMAAT.Service.session.token,
+          type: "PATCH",
+          contentType: "application/json; charset=utf-8",
           beforeSend: function (xhr) {
-            xhr.setRequestHeader('Authorization', 'Bearer '+TIMAAT.Service.token);
+            xhr.setRequestHeader('Authorization', 'Bearer ' + TIMAAT.Service.token);
           },
-        }).done(function(data) {
+        }).done(function (data) {
           resolve(data);
-        }).fail(function(error) {
+        }).fail(function (error) {
           console.error("ERROR: ", error);
           console.error("ERROR responseText: ", error.responseText);
         });
@@ -240,19 +358,19 @@
       });
     },
 
-    fixAnnotationUUIDs: async function() {
+    fixAnnotationUUIDs: async function () {
       // console.log("fix annotation uuids");
       return new Promise(resolve => {
         $.ajax({
-          url:window.location.protocol+'//'+window.location.host+"/TIMAAT/api/annotation/uuidFix"+'?authToken='+TIMAAT.Service.session.token,
-          type:"PATCH",
-          contentType:"application/json; charset=utf-8",
+          url: window.location.protocol + '//' + window.location.host + "/TIMAAT/api/annotation/uuidFix" + '?authToken=' + TIMAAT.Service.session.token,
+          type: "PATCH",
+          contentType: "application/json; charset=utf-8",
           beforeSend: function (xhr) {
-            xhr.setRequestHeader('Authorization', 'Bearer '+TIMAAT.Service.token);
+            xhr.setRequestHeader('Authorization', 'Bearer ' + TIMAAT.Service.token);
           },
-        }).done(function(data) {
+        }).done(function (data) {
           resolve(data);
-        }).fail(function(error) {
+        }).fail(function (error) {
           console.error("ERROR: ", error);
           console.error("ERROR responseText: ", error.responseText);
         });
@@ -261,19 +379,19 @@
       });
     },
 
-    fixKeyframeTimes: async function() {
+    fixKeyframeTimes: async function () {
       // console.log("fix keyframe timestamps");
       let selectorSvgList = await this.getSelectorSvgData();
       // console.log("selectorSvgList", selectorSvgList);
       let svgDataList = [];
-      selectorSvgList.forEach(function(selectorSvg) {
+      selectorSvgList.forEach(function (selectorSvg) {
         svgDataList.push(JSON.parse(selectorSvg.svgData));
       });
       // console.log("svgDataList: ", svgDataList);
-      let i = selectorSvgList.length -1;
+      let i = selectorSvgList.length - 1;
       for (; i >= 0; i--) {
         if (svgDataList[i].keyframes && svgDataList[i].keyframes.length > 1) { // fix time data s -> ms
-          svgDataList[i].keyframes.forEach(function(keyframe) {
+          svgDataList[i].keyframes.forEach(function (keyframe) {
             // console.log("TCL: fix value from ", keyframe.time);
             if (keyframe.time < 50) {
               keyframe.time *= 1000;
@@ -282,8 +400,8 @@
             // console.log("TCL: to ", keyframe.time);
           });
         } else { // reduce list to entries which have animation data
-          selectorSvgList.splice(i,1);
-          svgDataList.splice(i,1);
+          selectorSvgList.splice(i, 1);
+          svgDataList.splice(i, 1);
         }
       }
       // console.log("svgDataList: ", svgDataList);
@@ -296,19 +414,19 @@
       await this.setFixedSelectorSvgData(selectorSvgList);
     },
 
-    getSelectorSvgData: async function() {
+    getSelectorSvgData: async function () {
       return new Promise(resolve => {
         $.ajax({
-          url:window.location.protocol+'//'+window.location.host+"/TIMAAT/api/analysisList/keyframeFix"+'?authToken='+TIMAAT.Service.session.token,
-          type:"GET",
+          url: window.location.protocol + '//' + window.location.host + "/TIMAAT/api/analysisList/keyframeFix" + '?authToken=' + TIMAAT.Service.session.token,
+          type: "GET",
           dataType: 'json',
-          contentType:"application/json; charset=utf-8",
+          contentType: "application/json; charset=utf-8",
           beforeSend: function (xhr) {
-            xhr.setRequestHeader('Authorization', 'Bearer '+TIMAAT.Service.token);
+            xhr.setRequestHeader('Authorization', 'Bearer ' + TIMAAT.Service.token);
           },
-        }).done(function(data) {
+        }).done(function (data) {
           resolve(data);
-        }).fail(function(error) {
+        }).fail(function (error) {
           console.error("ERROR: ", error);
           console.error("ERROR responseText: ", error.responseText);
         });
@@ -317,19 +435,19 @@
       });
     },
 
-    setFixedSelectorSvgData: async function(model) {
+    setFixedSelectorSvgData: async function (model) {
       return new Promise(resolve => {
         $.ajax({
-          url:window.location.protocol+'//'+window.location.host+"/TIMAAT/api/analysisList/keyframeFix"+'?authToken='+TIMAAT.Service.session.token,
-          type:"PATCH",
+          url: window.location.protocol + '//' + window.location.host + "/TIMAAT/api/analysisList/keyframeFix" + '?authToken=' + TIMAAT.Service.session.token,
+          type: "PATCH",
           data: JSON.stringify(model),
-          contentType:"application/json; charset=utf-8",
+          contentType: "application/json; charset=utf-8",
           beforeSend: function (xhr) {
-            xhr.setRequestHeader('Authorization', 'Bearer '+TIMAAT.Service.token);
+            xhr.setRequestHeader('Authorization', 'Bearer ' + TIMAAT.Service.token);
           },
-        }).done(function(data) {
+        }).done(function (data) {
           resolve(data);
-        }).fail(function(error) {
+        }).fail(function (error) {
           console.error("ERROR: ", error);
           console.error("ERROR responseText: ", error.responseText);
         });
@@ -338,6 +456,6 @@
       });
     },
 
-	}
+  }
 
 }, window));

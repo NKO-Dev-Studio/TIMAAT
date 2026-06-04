@@ -13,7 +13,8 @@ import de.bitgilde.TIMAAT.service.task.api.TaskType;
 import de.bitgilde.TIMAAT.service.task.api.TranscriptionMediumPreparationTask;
 import de.bitgilde.TIMAAT.service.task.storage.TaskStateUpdater;
 import de.bitgilde.TIMAAT.service.transcription.api.GenerateTranscriptionConfiguration;
-import de.bitgilde.TIMAAT.service.transcription.api.TranscriptionEngineCapabilities;
+import de.bitgilde.TIMAAT.service.transcription.api.TranscriptionEngine;
+import de.bitgilde.TIMAAT.service.transcription.api.TranscriptionEngineModel;
 import de.bitgilde.TIMAAT.service.transcription.exception.TranscriptionFeatureDisabledException;
 import de.bitgilde.TIMAAT.service.transcription.exception.TranscriptionNotFoundException;
 import de.bitgilde.TIMAAT.service.transcription.exception.TranscriptionServiceException;
@@ -34,6 +35,7 @@ import de.bitgilde.TIMAAT.storage.file.TemporaryFileStorage.TemporaryFile;
 import de.bitgilde.TIMAAT.storage.file.TranscriptionFileStorage;
 import de.bitgilde.TIMAAT.storage.file.VideoFileStorage;
 import jakarta.annotation.Nullable;
+import jakarta.annotation.PreDestroy;
 import jakarta.inject.Inject;
 import jakarta.inject.Provider;
 import studio.nkodev.stt.client.SpeechToTextServiceClient;
@@ -48,6 +50,7 @@ import studio.nkodev.stt.client.config.SpeechToTextTransferConfiguration;
 import studio.nkodev.stt.client.config.SpeechToTextTransferConfigurationFactory;
 import studio.nkodev.stt.client.config.SpeechToTextTransferType;
 
+import java.io.Closeable;
 import java.nio.file.Path;
 import java.util.Collection;
 import java.util.List;
@@ -62,7 +65,7 @@ import java.util.logging.Logger;
  * @author Nico Kotlenga (nico@nko-dev.studio)
  * @since 12.05.26
  */
-public class TranscriptionService implements TaskStateUpdater, SpeechToTextTaskStateConsumer {
+public class TranscriptionService implements TaskStateUpdater, SpeechToTextTaskStateConsumer, Closeable {
 
   private static final Logger logger = Logger.getLogger(TranscriptionService.class.getName());
 
@@ -105,6 +108,28 @@ public class TranscriptionService implements TaskStateUpdater, SpeechToTextTaskS
     else {
       logger.info(
               "Speech-to-text feature is disabled (" + PropertyConstants.SPEECH_TO_TEXT_ENABLED.key() + "=false). " + "TranscriptionService is running in inactive mode.");
+    }
+  }
+
+  /**
+   * Releases the underlying {@link SpeechToTextServiceClient} when the service is
+   * destroyed. The client owns a gRPC channel whose non-daemon Netty event-loop
+   * threads would otherwise keep the JVM alive and block a clean web application
+   * shutdown. When the feature is disabled no client exists, so nothing happens.
+   * Any error raised while closing is logged and swallowed so that it cannot
+   * disrupt the remaining shutdown steps.
+   */
+  @PreDestroy
+  @Override
+  public void close() {
+    if (speechToTextServiceClient == null) {
+      return;
+    }
+    try {
+      logger.info("Shutting down speech-to-text service client");
+      speechToTextServiceClient.close();
+    } catch (RuntimeException e) {
+      logger.log(Level.WARNING, "Failed to close the speech-to-text service client during shutdown.", e);
     }
   }
 
@@ -182,18 +207,32 @@ public class TranscriptionService implements TaskStateUpdater, SpeechToTextTaskS
 
   /**
    * Returns the engines (with their models) currently offered by the connected speech-to-text-service.
-   * If the feature is disabled for this deployment, an empty collection is returned and no connection
-   * to the speech-to-text-service is attempted.
+   * Each model carries a flag indicating whether it is the deployment's configured default, derived
+   * from the persisted system settings, so clients can render selectors without issuing a separate
+   * request for the default model. If the feature is disabled for this deployment, an empty
+   * collection is returned and no connection to the speech-to-text-service is attempted.
    *
-   * @return the available engine capabilities, or an empty collection when the feature is disabled
+   * @return the available engine capabilities with default-flag per model, or an empty collection
+   * when the feature is disabled
    */
-  public Collection<TranscriptionEngineCapabilities> getAvailableEngineCapabilities() {
+  public Collection<TranscriptionEngine> getAvailableEngineCapabilities() {
     if (!featureEnabled) {
       return List.of();
     }
+    Optional<TranscriptionModel> defaultModel = systemSettingStorage.getDefaultTranscriptionModel();
+    String defaultEngineIdentifier = defaultModel.map(model -> model.getId().getEngineIdentifier()).orElse(null);
+    String defaultModelIdentifier = defaultModel.map(model -> model.getId().getModelIdentifier()).orElse(null);
+
     return speechToTextServiceClient.getAvailableEngines().stream()
-                                    .map(engine -> new TranscriptionEngineCapabilities(engine.engineIdentifier(),
-                                            engine.engineName(), List.copyOf(engine.modelIdentifiers()))).toList();
+                                    .map(engine -> new TranscriptionEngine(engine.engineIdentifier(),
+                                            engine.engineName(),
+                                            engine.modelIdentifiers().stream()
+                                                  .map(modelIdentifier -> new TranscriptionEngineModel(
+                                                          modelIdentifier,
+                                                          engine.engineIdentifier().equals(defaultEngineIdentifier)
+                                                                  && modelIdentifier.equals(defaultModelIdentifier)))
+                                                  .toList()))
+                                    .toList();
   }
 
   /**

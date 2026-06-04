@@ -617,6 +617,10 @@
                             this.setDataSetContentActiveNavTab('mediumMusicTab');
                             TIMAAT.MediumDatasets.mediumFormMusic(mode, data)
 						break;
+						case 'transcriptions':
+							this.setDataSetContentActiveNavTab('mediumTranscriptionTab');
+							TIMAAT.MediumDatasets.mediumFormTranscriptions(mode, data);
+						break;
 					}
         break;
         case 'mediumCollection':

@@ -1,8 +1,11 @@
 package de.bitgilde.TIMAAT.service.transcription;
 
+import de.bitgilde.TIMAAT.model.FIPOP.TranscriptionModel;
+import de.bitgilde.TIMAAT.model.FIPOP.TranscriptionModelId;
 import de.bitgilde.TIMAAT.model.FIPOP.UserAccount;
 import de.bitgilde.TIMAAT.service.task.TaskService;
-import de.bitgilde.TIMAAT.service.transcription.api.TranscriptionEngineCapabilities;
+import de.bitgilde.TIMAAT.service.transcription.api.TranscriptionEngine;
+import de.bitgilde.TIMAAT.service.transcription.api.TranscriptionEngineModel;
 import de.bitgilde.TIMAAT.service.transcription.exception.TranscriptionFeatureDisabledException;
 import de.bitgilde.TIMAAT.storage.entity.SystemSettingStorage;
 import de.bitgilde.TIMAAT.storage.entity.api.TranscriptionSystemSettings;
@@ -116,7 +119,7 @@ public class TranscriptionServiceSettingsTest {
     void shouldReturnEmptyEngineListWhenFeatureDisabled() {
       TranscriptionService service = featureDisabledService();
 
-      Collection<TranscriptionEngineCapabilities> engines = service.getAvailableEngineCapabilities();
+      Collection<TranscriptionEngine> engines = service.getAvailableEngineCapabilities();
 
       assertThat(engines).isEmpty();
       verifyNoInteractions(speechToTextServiceClient);
@@ -134,14 +137,79 @@ public class TranscriptionServiceSettingsTest {
     void shouldReturnLiveEngineCapabilitiesWhenFeatureEnabled() {
       TranscriptionService service = featureEnabledService();
 
-      Collection<TranscriptionEngineCapabilities> engines = service.getAvailableEngineCapabilities();
+      Collection<TranscriptionEngine> engines = service.getAvailableEngineCapabilities();
 
       assertThat(engines).hasSize(1);
-      TranscriptionEngineCapabilities capability = engines.iterator().next();
+      TranscriptionEngine capability = engines.iterator().next();
       assertThat(capability.engineIdentifier()).isEqualTo(ENGINE_ID);
       assertThat(capability.engineName()).isEqualTo(ENGINE_NAME);
-      assertThat(capability.modelIdentifiers()).containsExactly(MODEL_ID);
+      assertThat(capability.models()).containsExactly(new TranscriptionEngineModel(MODEL_ID, false));
     }
+
+    @Test
+    void shouldMarkConfiguredDefaultModelInEngineCapabilities() {
+      when(systemSettingStorage.getDefaultTranscriptionModel()).thenReturn(
+              Optional.of(buildTranscriptionModel(ENGINE_ID, MODEL_ID)));
+      TranscriptionService service = featureEnabledService();
+
+      Collection<TranscriptionEngine> engines = service.getAvailableEngineCapabilities();
+
+      assertThat(engines).singleElement().satisfies(capability -> {
+        assertThat(capability.engineIdentifier()).isEqualTo(ENGINE_ID);
+        assertThat(capability.models()).containsExactly(new TranscriptionEngineModel(MODEL_ID, true));
+      });
+    }
+
+    @Test
+    void shouldMarkOnlyTheMatchingModelAsDefaultAcrossMultipleEnginesAndModels() {
+      when(speechToTextServiceClient.getAvailableEngines()).thenReturn(List.of(
+              new SpeechToTextEngine(ENGINE_ID, ENGINE_NAME, List.of(MODEL_ID, "small-v3"),
+                      List.of(SpeechToTextEngineOutputFormat.SRT)),
+              new SpeechToTextEngine("vosk", "Vosk", List.of("de", "en"),
+                      List.of(SpeechToTextEngineOutputFormat.SRT))));
+      when(systemSettingStorage.getDefaultTranscriptionModel()).thenReturn(
+              Optional.of(buildTranscriptionModel("vosk", "de")));
+      TranscriptionService service = new TranscriptionService(transcriptionStorage, systemSettingStorage,
+              audioFileStorage, videoFileStorage, taskServiceProvider, temporaryFileStorage, transcriptionFileStorage,
+              mediumStorage, speechToTextServiceClient);
+      clearInvocations(transcriptionStorage, systemSettingStorage);
+
+      Collection<TranscriptionEngine> engines = service.getAvailableEngineCapabilities();
+
+      assertThat(engines).hasSize(2);
+      assertThat(engines).filteredOn(capability -> capability.engineIdentifier().equals(ENGINE_ID))
+                        .singleElement()
+                        .satisfies(capability -> assertThat(capability.models()).containsExactly(
+                                new TranscriptionEngineModel(MODEL_ID, false),
+                                new TranscriptionEngineModel("small-v3", false)));
+      assertThat(engines).filteredOn(capability -> capability.engineIdentifier().equals("vosk"))
+                        .singleElement()
+                        .satisfies(capability -> assertThat(capability.models()).containsExactly(
+                                new TranscriptionEngineModel("de", true),
+                                new TranscriptionEngineModel("en", false)));
+    }
+
+    @Test
+    void shouldNotMarkAnyModelAsDefaultWhenDefaultIsConfiguredOnDifferentEngine() {
+      when(systemSettingStorage.getDefaultTranscriptionModel()).thenReturn(
+              Optional.of(buildTranscriptionModel("some-other-engine", MODEL_ID)));
+      TranscriptionService service = featureEnabledService();
+
+      Collection<TranscriptionEngine> engines = service.getAvailableEngineCapabilities();
+
+      assertThat(engines).singleElement()
+                        .satisfies(capability -> assertThat(capability.models()).containsExactly(
+                                new TranscriptionEngineModel(MODEL_ID, false)));
+    }
+  }
+
+  private static TranscriptionModel buildTranscriptionModel(String engineIdentifier, String modelIdentifier) {
+    TranscriptionModelId id = new TranscriptionModelId();
+    id.setEngineIdentifier(engineIdentifier);
+    id.setModelIdentifier(modelIdentifier);
+    TranscriptionModel model = new TranscriptionModel();
+    model.setId(id);
+    return model;
   }
 
   @Nested

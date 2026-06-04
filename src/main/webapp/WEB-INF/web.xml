@@ -49,11 +49,12 @@
   </servlet>
 
   
-   <!-- <listener>
-    <listener-class>
-            de.bitgilde.TIMAAT.ServiceScheduler
-        </listener-class>
-  </listener> -->
+  <!-- Releases the EntityManagerFactory and stops the MySQL Connector/J
+       abandoned-connection cleanup thread on undeploy/shutdown so the web
+       application stops cleanly without leaking threads. -->
+  <listener>
+    <listener-class>de.bitgilde.TIMAAT.ApplicationShutdownListener</listener-class>
+  </listener>
   
   <servlet-mapping>
     <servlet-name>TIMAAT</servlet-name>
