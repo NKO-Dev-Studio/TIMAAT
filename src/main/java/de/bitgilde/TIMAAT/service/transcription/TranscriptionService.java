@@ -49,6 +49,7 @@ import studio.nkodev.stt.client.config.SpeechToTextServiceClientConfigurationBui
 import studio.nkodev.stt.client.config.SpeechToTextTransferConfiguration;
 import studio.nkodev.stt.client.config.SpeechToTextTransferConfigurationFactory;
 import studio.nkodev.stt.client.config.SpeechToTextTransferType;
+import studio.nkodev.stt.client.exception.SpeechToTextServiceClientErrorType;
 
 import java.io.Closeable;
 import java.nio.file.Path;
@@ -225,14 +226,13 @@ public class TranscriptionService implements TaskStateUpdater, SpeechToTextTaskS
 
     return speechToTextServiceClient.getAvailableEngines().stream()
                                     .map(engine -> new TranscriptionEngine(engine.engineIdentifier(),
-                                            engine.engineName(),
-                                            engine.modelIdentifiers().stream()
-                                                  .map(modelIdentifier -> new TranscriptionEngineModel(
-                                                          modelIdentifier,
-                                                          engine.engineIdentifier().equals(defaultEngineIdentifier)
-                                                                  && modelIdentifier.equals(defaultModelIdentifier)))
-                                                  .toList()))
-                                    .toList();
+                                            engine.engineName(), engine.modelIdentifiers().stream()
+                                                                       .map(modelIdentifier -> new TranscriptionEngineModel(
+                                                                               modelIdentifier,
+                                                                               engine.engineIdentifier()
+                                                                                     .equals(defaultEngineIdentifier) && modelIdentifier.equals(
+                                                                                       defaultModelIdentifier)))
+                                                                       .toList())).toList();
   }
 
   /**
@@ -627,6 +627,15 @@ public class TranscriptionService implements TaskStateUpdater, SpeechToTextTaskS
     switch (speechToTextTaskState) {
       case DONE -> handleSpeechToTextTaskCompleted(taskId);
       case FAILED -> handleSpeechToTextTaskFailed(taskId);
+    }
+  }
+
+  @Override
+  public void onObservationError(long taskId, SpeechToTextServiceClientErrorType errorType, boolean terminal) {
+    logger.log(Level.WARNING, "Received speech to text task observation error: {0}, terminal: {1}",
+            new Object[]{errorType, terminal});
+    if (terminal) {
+      handleSpeechToTextTaskFailed(taskId);
     }
   }
 
