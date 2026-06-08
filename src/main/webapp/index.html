@@ -2733,6 +2733,28 @@
               </div>
             </div>
           </div>
+          <div class="modal fade" id="mediumDatasetsTranscriptionDeleteModal" tabindex="-1" role="dialog"
+               aria-labelledby="mediumDeleteLabel" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered" role="document">
+              <div class="modal-content">
+                <div class="modal-header">
+                  <h5 class="modal-title">Delete transcription</h5>
+                  <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                  </button>
+                </div>
+                <div class="modal-body">
+                  Do you want to delete the selected transcription?
+                </div>
+                <div class="modal-footer">
+                  <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                  <button type="button" class="btn btn-danger" id="mediumDatasetsTranscriptionDeleteBtn">Delete
+                    transcription
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
           <div class="modal fade" id="mediumCollectionDatasetsMediumCollectionDeleteModal" tabindex="-1" role="dialog"
                aria-labelledby="mediumCollectionDeleteLabel" aria-hidden="true">
             <div class="modal-dialog modal-dialog-centered" role="document">
@@ -4325,7 +4347,7 @@
                           </div>
                         </div>
                       </div>
-                      <div class="form-row">
+                      <div class="form-row" id="mediumFormTranscriptionsContentRow">
                         <!-- Linke Spalte: Transkriptionsliste -->
                         <div class="col-md-6">
                           <div class="card">
@@ -4346,36 +4368,69 @@
                           <div class="card" id="mediumTranscriptionViewer"
                                data-role="transcriptionViewer">
                             <div class="card-header">
-                              <span data-role="viewerTitle">Transcription viewer</span>
-                            </div>
-                            <div class="card-body p-1">
                               <div data-role="viewerEmptyState">
-                                <p class="text-muted">Select a transcription.</p>
+                                No transcription selected.
                               </div>
+                              <div data-role="viewerSelectedState">
+                                <div class="d-flex justify-content-between align-items-center">
+                                  <div>
+                                    <div class="d-flex flex-column flex-grow-1">
+                                      <span class="transcriptionViewerNameField"></span>
+                                      <small class="transcriptionViewerCreatedAtField"></small>
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <button class="btn btn-sm btn-primary m-1"><span
+                                            class="fas fa-sm fa-pen mr-1"></span>Edit
+                                    </button>
+                                    <button class="btn btn-sm btn-light m-1 dropdown-toggle dropdown-toggle-hide-caret"
+                                            data-toggle="dropdown"
+                                            role="button"><span
+                                            class="fas fa-sm fa-ellipsis-v"></span></button>
+                                    <div class="dropdown-menu">
+                                      <a class="dropdown-item ui-selectable" id="transcriptionViewerSetDefaultBtn"><span
+                                              class="fas fa-toggle-on mr-2"></span>Set
+                                        default</a>
+                                      <a class="dropdown-item ui-selectable"><span class="fas fa-download mr-2"></span>Download
+                                        SRT</a>
+                                      <div class="dropdown-divider"></div>
+                                      <a class="dropdown-item text-danger ui-selectable"
+                                         id="transcriptionViewerDeleteBtn"><span
+                                              class="fas fa-trash mr-2"></span>Delete</a>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                              <div data-role="viewerEditState">
+
+                              </div>
+                            </div>
+                            <div class="card-body p-2">
                               <div data-role="viewerInProgressState" class="d-none">
-                                <div class="d-flex align-items-center">
+                                <div class="d-flex align-items-center justify-content-center flex-column">
                                   <div class="spinner-border spinner-border-sm mr-2" role="status"></div>
-                                  <span data-role="inProgressMessage">Transcription is being processed…</span>
+                                  <span data-role="inProgressMessage">Transcription creation in progress…</span>
                                 </div>
                               </div>
                               <div data-role="viewerCompletedState" class="d-none">
                                 <div class="mb-2">
-                                  <button type="button"
-                                          class="btn btn-outline-secondary btn-sm"
-                                          data-role="downloadSrtButton">
-                                    <i class="fas fa-download"></i> Download SRT
-                                  </button>
                                   <!-- Add SRT viewer here-->
                                 </div>
                                 <pre data-role="transcriptionContent" class="bg-light p-2"></pre>
                               </div>
                               <div data-role="viewerFailedState" class="d-none">
-                                <div class="alert alert-danger mb-0">
-                                  <strong>Transcription failed.</strong>
-                                  <span data-role="failureMessage"></span>
+                                <div class="d-flex justify-content-center flex-column align-items-center">
+                                  <span class="fas fa-exclamation-triangle"></span>
+                                  <p>Error during creating transcription</p>
                                 </div>
                               </div>
                             </div>
+                          </div>
+                        </div>
+                      </div>
+                      <div class="w-100" id="mediumFormTranscriptionsLoadingRow">
+                        <div class="d-flex justify-content-center">
+                          <div class="spinner-border" role="status">
                           </div>
                         </div>
                       </div>
