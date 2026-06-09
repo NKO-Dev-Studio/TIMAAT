@@ -1359,7 +1359,6 @@
     },
 
     mediumFormTranscriptions: function (mode, medium) {
-      console.log("medium form transcription")
       let defaultTranscriptionId = medium.model.defaultTranscriptionId
       const $mediumFormTranscriptionsLoadingRow = $('#mediumFormTranscriptionsLoadingRow')
       const $mediumFormTranscriptionsContentRow = $('#mediumFormTranscriptionsContentRow')
