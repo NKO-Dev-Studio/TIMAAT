@@ -1513,6 +1513,8 @@
 
       const $mediumTranscriptionViewerCardBody = $mediumTranscriptionViewer.find(".card-body")
       const $mediumTranscriptionViewerCardHeader = $mediumTranscriptionViewer.find(".card-header")
+      const $mediumTranscriptionDownloadSrtButton = $mediumTranscriptionViewerCardHeader.find("#transcriptionViewerDownloadSrtBtn")
+      $mediumTranscriptionDownloadSrtButton.hide()
 
       $mediumTranscriptionViewerCardBody.children().addClass("d-none")
       $mediumTranscriptionViewerCardHeader.children().addClass("d-none")
@@ -1526,6 +1528,7 @@
 
         if (transcription.state === "COMPLETED") {
           $mediumTranscriptionViewerCardBody.find('[data-role="viewerCompletedState"]').removeClass("d-none")
+          $mediumTranscriptionDownloadSrtButton.show()
         } else if (transcription.state === "FAILED") {
           $mediumTranscriptionViewerCardBody.find('[data-role="viewerFailedState"]').removeClass("d-none")
         } else {
