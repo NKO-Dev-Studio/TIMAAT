@@ -1474,8 +1474,6 @@
       return bounds;
     },
     handleMediumAudioAnalysisEntityUpdateMessage: function (mediumAudioAnalysisUpdateMessage) {
-      console.log(mediumAudioAnalysisUpdateMessage)
-
       if (mediumAudioAnalysisUpdateMessage.type === "CHANGE" && TIMAAT.VideoPlayer.model.medium?.id === mediumAudioAnalysisUpdateMessage.id) {
         TIMAAT.VideoPlayer.model.medium.mediumAudioAnalysis = {...TIMAAT.VideoPlayer.model.medium.mediumAudioAnalysis, ...mediumAudioAnalysisUpdateMessage.entity}
         TIMAAT.VideoPlayer.drawWaveform()

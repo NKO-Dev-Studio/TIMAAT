@@ -1193,6 +1193,8 @@
     },
 
     initTranscriptions: function () {
+      TIMAAT.EntityUpdate.registerEntityUpdateListener("transcription", TIMAAT.MediumDatasets.handleTranscriptionEntityUpdateMessage)
+
       $('#mediumTranscriptionTab').on('click', () => {
         let medium = $('#mediumFormMetadata').data('medium');
         let type = medium.model.mediaType.mediaTypeTranslations[0].type;
@@ -1356,6 +1358,102 @@
           TIMAAT.MediumService.updateMediumDefaultTranscription(medium.model.id, transcription.id)
         }
       })
+
+      $('#mediumTranscriptionList').on('click', '.medium-transcription-list-group-item', function (e) {
+        const transcription = $(e.currentTarget).data("transcription")
+        const $mediumTranscriptionListGroupItems = $('.medium-transcription-list-group-item')
+
+        $mediumTranscriptionListGroupItems.removeClass("active")
+        $mediumTranscriptionListGroupItems.filter(`[data-id="${transcription.id}"]`).addClass("active")
+
+        TIMAAT.MediumDatasets.openTranscription(transcription)
+      })
+    },
+
+    handleTranscriptionEntityUpdateMessage: function (transcriptionUpdateMessage) {
+      const $mediumTranscriptionTab = $("#mediumTranscriptionTab")
+
+      if ($mediumTranscriptionTab.hasClass("active")) {
+        const $mediumTranscriptionList = $("#mediumTranscriptionList");
+        const $mediumTranscriptionViewer = $("#mediumTranscriptionViewer")
+        const medium = $('#mediumFormMetadata').data('medium')
+
+        //We only need to consume transcription messages when the tab is currently visible
+        if (transcriptionUpdateMessage.type === "CREATE") {
+          const mediumId = medium.model.id
+
+          if (mediumId === transcriptionUpdateMessage.entity.mediumId) {
+            const isDefault = medium.model.defaultTranscriptionId === transcriptionUpdateMessage.id
+            const isActive = $mediumTranscriptionList.find(".medium-transcription-list-group-item").length === 0
+
+            const $createdTranscriptionListItem = TIMAAT.MediumDatasets.createTranscriptionListGroupItem(transcriptionUpdateMessage.entity, isActive, isDefault)
+            $mediumTranscriptionList.append($createdTranscriptionListItem)
+
+            if (isActive) {
+              TIMAAT.MediumDatasets.openTranscription(transcriptionUpdateMessage.entity)
+            }
+          }
+        } else if (transcriptionUpdateMessage.type === "CHANGE") {
+          const $matchingTranscriptionListGroupItem = $(`.medium-transcription-list-group-item[data-id="${transcriptionUpdateMessage.id}"`)
+          if ($matchingTranscriptionListGroupItem.length > 0) {
+            const transcription = $matchingTranscriptionListGroupItem.data("transcription")
+            const updatedTranscription = {...transcription, ...transcriptionUpdateMessage.entity}
+            const isDefault = updatedTranscription.id === medium.model.defaultTranscriptionId
+            const isActive = $matchingTranscriptionListGroupItem.hasClass("active")
+
+            const $updatedTranscriptionListGroupItem = TIMAAT.MediumDatasets.createTranscriptionListGroupItem(updatedTranscription, isActive, isDefault)
+            $matchingTranscriptionListGroupItem.replaceWith($updatedTranscriptionListGroupItem)
+
+            if (isActive) {
+              TIMAAT.MediumDatasets.openTranscription(updatedTranscription)
+            }
+          }
+        } else {
+          const $matchingTranscriptionListGroupItem = $(`.medium-transcription-list-group-item[data-id="${transcriptionUpdateMessage.id}"`)
+          if ($matchingTranscriptionListGroupItem.length > 0) {
+            const isActive = $matchingTranscriptionListGroupItem.hasClass("active")
+            $matchingTranscriptionListGroupItem.remove()
+            if (isActive) {
+              TIMAAT.MediumDatasets.openTranscription(undefined)
+            }
+          }
+        }
+      }
+    },
+
+    createTranscriptionListGroupItem: function (transcription, active, defaultTranscription) {
+      const createdAt = TIMAAT.Util.formatDate(transcription.createdAt)
+
+      const $listGroupItem = $(`<li class="list-group-item medium-transcription-list-group-item d-flex justify-content-between align-items-center"></li>`)
+      $listGroupItem.data("transcription", transcription)
+      $listGroupItem.attr("data-id", transcription.id)
+
+
+      const $currentListGroupItemTranscriptionInfo = $(`<div class="d-flex flex-column flex-grow-1">${transcription.name}<small>${createdAt}</small></div>`)
+      let $currentListGroupItemTranscriptionState = $('<div class="transcription-state-container"></div>')
+      if (transcription.state === "COMPLETED") {
+        $currentListGroupItemTranscriptionState.append(`<div class="transcription-state-pill completed" title="Transcription creation completed"></div>`)
+      } else if (transcription.state === "FAILED") {
+        $currentListGroupItemTranscriptionState.append(`<div class="transcription-state-pill failed" title="Transcription creation failed"></div>`)
+      } else {
+        $currentListGroupItemTranscriptionState.append(`<div class="spinner-border spinner-border-sm text-secondary"></div>`)
+      }
+
+      $listGroupItem.append($currentListGroupItemTranscriptionState)
+      $listGroupItem.append($currentListGroupItemTranscriptionInfo)
+
+
+      if (active) {
+        $listGroupItem.addClass("active")
+      }
+
+      const $currentListGroupItemBadges = $('<div class="d-flex flex-column"></div>')
+      if (defaultTranscription) {
+        $currentListGroupItemBadges.append('<span class="badge badge-secondary">default</span>')
+      }
+      $listGroupItem.append($currentListGroupItemBadges)
+
+      return $listGroupItem
     },
 
     mediumFormTranscriptions: function (mode, medium) {
@@ -1383,50 +1481,10 @@
             isActive = true
           }
 
-          const createdAt = TIMAAT.Util.formatDate(transcription.createdAt)
-
-          const $currentListGroupItem = $(`<li class="list-group-item medium-transcription-list-group-item d-flex justify-content-between align-items-center"></li>`)
-          $currentListGroupItem.data("transcription", transcription)
-          $currentListGroupItem.attr("data-id", transcription.id)
-
-
-          const $currentListGroupItemTranscriptionInfo = $(`<div class="d-flex flex-column flex-grow-1">${transcription.name}<small>${createdAt}</small></div>`)
-          let $currentListGroupItemTranscriptionState = $('<div class="transcription-state-container"></div>')
-          if (transcription.state === "COMPLETED") {
-            $currentListGroupItemTranscriptionState.append(`<div class="transcription-state-pill completed" title="Transcription creation completed"></div>`)
-          } else if (transcription.state === "FAILED") {
-            $currentListGroupItemTranscriptionState.append(`<div class="transcription-state-pill failed" title="Transcription creation failed"></div>`)
-          } else {
-            $currentListGroupItemTranscriptionState.append(`<div class="spinner-border spinner-border-sm text-secondary"></div>`)
-          }
-
-          $currentListGroupItem.append($currentListGroupItemTranscriptionState)
-          $currentListGroupItem.append($currentListGroupItemTranscriptionInfo)
-
-
-          if (isActive) {
-            $currentListGroupItem.addClass("active")
-          }
-
-          const $currentListGroupItemBadges = $('<div class="d-flex flex-column"></div>')
-          if (isDefault) {
-            $currentListGroupItemBadges.append('<span class="badge badge-secondary">default</span>')
-          }
-
-          $currentListGroupItem.append($currentListGroupItemBadges)
+          const $currentListGroupItem = TIMAAT.MediumDatasets.createTranscriptionListGroupItem(transcription, isActive, isDefault)
           $mediumTranscriptionList.append($currentListGroupItem)
         }
 
-        const $mediumTranscriptionListGroupItems = $mediumTranscriptionList.children()
-
-        $mediumTranscriptionListGroupItems.on('click', function () {
-          const transcription = $(this).data("transcription")
-
-          $mediumTranscriptionListGroupItems.removeClass("active")
-          $mediumTranscriptionListGroupItems.filter(`[data-id="${transcription.id}"]`).addClass("active")
-
-          TIMAAT.MediumDatasets.openTranscription(transcription)
-        })
         TIMAAT.MediumDatasets.openTranscription(activeTranscription)
 
         $mediumFormTranscriptionsLoadingRow.hide()
@@ -7578,8 +7636,6 @@
       });
     },
     handleMediumAudioAnalysisUpdateMessage: function (mediumAudioAnalysisUpdateMessage) {
-      console.log(mediumAudioAnalysisUpdateMessage);
-
       if (mediumAudioAnalysisUpdateMessage.type === "CHANGE") {
         const allMediumVideoRow = this.dataTableAllVideosList?.row('#' + mediumAudioAnalysisUpdateMessage.id);
         const allAudioRow = this.dataTableAllAudiosList?.row('#' + mediumAudioAnalysisUpdateMessage.id)

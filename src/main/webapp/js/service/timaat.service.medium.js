@@ -1083,7 +1083,6 @@
             xhr.setRequestHeader('Authorization', 'Bearer ' + TIMAAT.Service.token);
           },
         }).done(function (data) {
-          console.log(data)
           resolve(data);
         }).fail(function (error) {
           console.error("ERROR: ", error);
