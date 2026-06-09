@@ -63,7 +63,7 @@
       this.initMusic();
       this.initTranscriptions();
 
-      TIMAAT.EntityUpdate.registerEntityUpdateListener("MediumAudioAnalysis", this.handleMediumAudioAnalysisChanged.bind(this))
+      TIMAAT.EntityUpdate.registerEntityUpdateListener("medium-audio-analysis", this.handleMediumAudioAnalysisUpdateMessage.bind(this))
     },
 
     initMediaComponent: function () {
@@ -7577,58 +7577,62 @@
         },
       });
     },
-    handleMediumAudioAnalysisChanged: function (mediumAudioAnalysis) {
-      const allMediumVideoRow = this.dataTableAllVideosList?.row('#' + mediumAudioAnalysis.mediumId);
-      const allAudioRow = this.dataTableAllAudiosList?.row('#' + mediumAudioAnalysis.mediumId)
-      const allMediaRow = this.dataTableAllMediaList?.row('#' + mediumAudioAnalysis.mediumId)
-      const mediumVideoRow = this.dataTableVideo?.row('#' + mediumAudioAnalysis.mediumId)
-      const mediumAudioRow = this.dataTableAudio?.row('#' + mediumAudioAnalysis.mediumId)
-      const mediaRow = this.dataTableMedia?.row('#' + mediumAudioAnalysis.mediumId)
+    handleMediumAudioAnalysisUpdateMessage: function (mediumAudioAnalysisUpdateMessage) {
+      console.log(mediumAudioAnalysisUpdateMessage);
 
-      if (allMediumVideoRow?.length) {
-        const currentData = allMediumVideoRow.data()
-        currentData.mediumAudioAnalysis = mediumAudioAnalysis
-      }
-      if (allAudioRow?.length) {
-        const currentData = allAudioRow.data()
-        currentData.mediumAudioAnalysis = mediumAudioAnalysis
-      }
-      if (allMediaRow?.length) {
-        const currentData = allMediaRow.data()
-        currentData.mediumAudioAnalysis = mediumAudioAnalysis
-      }
+      if (mediumAudioAnalysisUpdateMessage.type === "CHANGE") {
+        const allMediumVideoRow = this.dataTableAllVideosList?.row('#' + mediumAudioAnalysisUpdateMessage.id);
+        const allAudioRow = this.dataTableAllAudiosList?.row('#' + mediumAudioAnalysisUpdateMessage.id)
+        const allMediaRow = this.dataTableAllMediaList?.row('#' + mediumAudioAnalysisUpdateMessage.id)
+        const mediumVideoRow = this.dataTableVideo?.row('#' + mediumAudioAnalysisUpdateMessage.id)
+        const mediumAudioRow = this.dataTableAudio?.row('#' + mediumAudioAnalysisUpdateMessage.id)
+        const mediaRow = this.dataTableMedia?.row('#' + mediumAudioAnalysisUpdateMessage.id)
 
-      if (mediumVideoRow?.length) {
-        const currentData = mediumVideoRow.data()
-        currentData.mediumAudioAnalysis = mediumAudioAnalysis
-      }
-      if (mediumAudioRow?.length) {
-        const currentData = mediumAudioRow.data()
-        currentData.mediumAudioAnalysis = mediumAudioAnalysis
-      }
-      if (mediaRow?.length) {
-        const currentData = mediaRow.data()
-        currentData.mediumAudioAnalysis = mediumAudioAnalysis
-      }
+        if (allMediumVideoRow?.length) {
+          const currentData = allMediumVideoRow.data()
+          currentData.mediumAudioAnalysis = {...currentData.mediumAudioAnalysis, ...mediumAudioAnalysisUpdateMessage.entity}
+        }
+        if (allAudioRow?.length) {
+          const currentData = allAudioRow.data()
+          currentData.mediumAudioAnalysis = {...currentData.mediumAudioAnalysis, ...mediumAudioAnalysisUpdateMessage.entity}
+        }
+        if (allMediaRow?.length) {
+          const currentData = allMediaRow.data()
+          currentData.mediumAudioAnalysis = {...currentData.mediumAudioAnalysis, ...mediumAudioAnalysisUpdateMessage.entity}
+        }
+
+        if (mediumVideoRow?.length) {
+          const currentData = mediumVideoRow.data()
+          currentData.mediumAudioAnalysis = {...currentData.mediumAudioAnalysis, ...mediumAudioAnalysisUpdateMessage.entity}
+        }
+        if (mediumAudioRow?.length) {
+          const currentData = mediumAudioRow.data()
+          currentData.mediumAudioAnalysis = {...currentData.mediumAudioAnalysis, ...mediumAudioAnalysisUpdateMessage.entity}
+        }
+        if (mediaRow?.length) {
+          const currentData = mediaRow.data()
+          currentData.mediumAudioAnalysis = {...currentData.mediumAudioAnalysis, ...mediumAudioAnalysisUpdateMessage.entity}
+        }
 
 
-      const currentVideo = this.videos?.find(video => video.model.id === mediumAudioAnalysis.mediumId)
-      if (currentVideo) {
-        currentVideo.model.mediumAudioAnalysis = mediumAudioAnalysis
-      }
+        const currentVideo = this.videos?.find(video => video.model.id === mediumAudioAnalysisUpdateMessage.id)
+        if (currentVideo) {
+          currentVideo.model.mediumAudioAnalysis = {...currentVideo.model.mediumAudioAnalysis, ...mediumAudioAnalysisUpdateMessage.entity}
+        }
 
-      const currentMedia = this.media?.find(media => media.model.id === mediumAudioAnalysis.mediumId)
-      if (currentMedia) {
-        currentMedia.model.mediumAudioAnalysis = mediumAudioAnalysis
-      }
-      const currentAudio = this.audios?.find(audio => audio.model.id === mediumAudioAnalysis.mediumId)
-      if (currentAudio) {
-        currentAudio.model.mediumAudioAnalysis = mediumAudioAnalysis
-      }
+        const currentMedia = this.media?.find(media => media.model.id === mediumAudioAnalysisUpdateMessage.id)
+        if (currentMedia) {
+          currentMedia.model.mediumAudioAnalysis = {...currentMedia.model.mediumAudioAnalysis, ...mediumAudioAnalysisUpdateMessage.entity}
+        }
+        const currentAudio = this.audios?.find(audio => audio.model.id === mediumAudioAnalysisUpdateMessage.id)
+        if (currentAudio) {
+          currentAudio.model.mediumAudioAnalysis = {...currentAudio.model.mediumAudioAnalysis, ...mediumAudioAnalysisUpdateMessage.entity}
+        }
 
-      const mediumFormMetadataMedium = $('#mediumFormMetadata').data('medium')
-      if (mediumFormMetadataMedium?.model.id === mediumAudioAnalysis.mediumId) {
-        mediumFormMetadataMedium.model.mediumAudioAnalysis = mediumAudioAnalysis
+        const mediumFormMetadataMedium = $('#mediumFormMetadata').data('medium')
+        if (mediumFormMetadataMedium?.model.id === mediumAudioAnalysisUpdateMessage.id) {
+          mediumFormMetadataMedium.model.mediumAudioAnalysis = {...mediumFormMetadataMedium.model.mediumAudioAnalysis, ...mediumAudioAnalysisUpdateMessage.entity}
+        }
       }
     },
     setupVideogameDataTable: function () {

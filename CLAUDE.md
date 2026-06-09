@@ -72,7 +72,7 @@ Long-running work (audio analysis, transcription preparation) goes through this 
 ### Realtime channels
 
 - `notification/NotificationWebSocket` — WebSocket endpoint for user-targeted push notifications; subscriptions tracked in `UserSubscriptions`.
-- `sse/EntityUpdateEventService` + `rest/endpoint/EndpointEntityUpdateEvents` — Server-Sent Events stream so the UI can react to entity changes from other sessions.
+- `sse/EntityUpdateEventService` + `rest/endpoint/EndpointEntityUpdateEvents` — Server-Sent Events stream so the UI can react to entity lifecycle changes (create/change/delete) from other sessions. `EntityUpdateEventService` is a singleton broadcaster; services inject it and call `sendEntityCreate/Change/DeleteMessage()`. Each call wraps the payload in the corresponding `EntityUpdateMessage` subclass (`EntityCreateMessage`, `EntityChangeMessage`, `EntityDeleteMessage`) and broadcasts it as an SSE event named after the `EntityType` (e.g. `transcription`, `medium-audio-analysis`). The frontend subscribes via `TIMAAT.EntityUpdate.registerEntityUpdateListener(eventName, callback)` in `js/timaat.entityupdate.js`. See `docs/entity-update-events.md` for the full protocol, message shapes, and instructions for adding new entity types.
 
 ### Publication output (`publication/`)
 
