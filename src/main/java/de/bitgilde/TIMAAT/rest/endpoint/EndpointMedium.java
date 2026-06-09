@@ -4526,8 +4526,7 @@ public class EndpointMedium {
     try {
       Collection<de.bitgilde.TIMAAT.model.FIPOP.Transcription> transcriptions = transcriptionService.getTranscriptionsForMedium(
               mediumId);
-      List<TranscriptionDto> dtos = transcriptions.stream().map(EndpointMedium::toTranscriptionDto)
-                                                  .collect(Collectors.toList());
+      List<TranscriptionDto> dtos = transcriptions.stream().map(TranscriptionDto::new).collect(Collectors.toList());
       return Response.ok(dtos).build();
     } catch (MediumNotFoundException e) {
       return Response.status(Status.NOT_FOUND).entity("{\"reason\":\"" + e.getMessage() + "\"}").build();
@@ -4552,7 +4551,7 @@ public class EndpointMedium {
     try {
       de.bitgilde.TIMAAT.model.FIPOP.Transcription transcription = transcriptionService.getTranscription(mediumId,
               transcriptionId);
-      return Response.ok(toTranscriptionDto(transcription)).build();
+      return Response.ok(new TranscriptionDto(transcription)).build();
     } catch (TranscriptionNotFoundException e) {
       return Response.status(Status.NOT_FOUND).entity("{\"reason\":\"" + e.getMessage() + "\"}").build();
     }
@@ -4591,9 +4590,8 @@ public class EndpointMedium {
             request.engineIdentifier(), request.modelIdentifier());
 
     try {
-      de.bitgilde.TIMAAT.model.FIPOP.Transcription created = transcriptionService.createTranscription(configuration,
-              userId);
-      return Response.status(Status.CREATED).entity(toTranscriptionDto(created)).build();
+      TranscriptionDto created = transcriptionService.createTranscription(configuration, userId);
+      return Response.status(Status.CREATED).entity(created).build();
     } catch (TranscriptionFeatureDisabledException e) {
       return Response.status(Status.FORBIDDEN).entity("{\"reason\":\"" + e.getMessage() + "\"}").build();
     } catch (IllegalArgumentException e) {
@@ -4700,20 +4698,5 @@ public class EndpointMedium {
     return value == null || value.isBlank();
   }
 
-  private static TranscriptionDto toTranscriptionDto(de.bitgilde.TIMAAT.model.FIPOP.Transcription transcription) {
-    String engineIdentifier = null;
-    String modelIdentifier = null;
-    if (transcription.getTranscriptionModel() != null && transcription.getTranscriptionModel().getId() != null) {
-      engineIdentifier = transcription.getTranscriptionModel().getId().getEngineIdentifier();
-      modelIdentifier = transcription.getTranscriptionModel().getId().getModelIdentifier();
-    }
-
-    return new TranscriptionDto(transcription.getId(), transcription.getName(), transcription.getMedium().getId(),
-            engineIdentifier, modelIdentifier,
-            de.bitgilde.TIMAAT.storage.entity.transcription.api.TranscriptionState.fromDatabaseId(
-                    transcription.getTranscriptionState().getId()),
-            de.bitgilde.TIMAAT.storage.entity.transcription.api.TranscriptionType.fromDatabaseId(
-                    transcription.getTranscriptionType().getId()), transcription.getCreatedAt());
-  }
 
 }

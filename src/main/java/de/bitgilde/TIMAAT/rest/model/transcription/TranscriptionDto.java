@@ -1,5 +1,6 @@
 package de.bitgilde.TIMAAT.rest.model.transcription;
 
+import de.bitgilde.TIMAAT.model.FIPOP.Transcription;
 import de.bitgilde.TIMAAT.storage.entity.transcription.api.TranscriptionState;
 import de.bitgilde.TIMAAT.storage.entity.transcription.api.TranscriptionType;
 import jakarta.annotation.Nullable;
@@ -16,12 +17,21 @@ import java.time.Instant;
  * @author Nico Kotlenga (nico@nko-dev.studio)
  * @since 2026-05-24
  */
-public record TranscriptionDto(int id,
-                               String name,
-                               int mediumId,
-                               @Nullable String engineIdentifier,
-                               @Nullable String modelIdentifier,
-                               TranscriptionState state,
-                               TranscriptionType type,
+public record TranscriptionDto(int id, String name, int mediumId, @Nullable String engineIdentifier,
+                               @Nullable String modelIdentifier, TranscriptionState state, TranscriptionType type,
                                Instant createdAt) {
+  public TranscriptionDto(Transcription transcription) {
+    String engineIdentifier = null;
+    String modelIdentifier = null;
+    if (transcription.getTranscriptionModel() != null && transcription.getTranscriptionModel().getId() != null) {
+      engineIdentifier = transcription.getTranscriptionModel().getId().getEngineIdentifier();
+      modelIdentifier = transcription.getTranscriptionModel().getId().getModelIdentifier();
+    }
+
+    this(transcription.getId(), transcription.getName(), transcription.getMedium().getId(), engineIdentifier,
+            modelIdentifier, de.bitgilde.TIMAAT.storage.entity.transcription.api.TranscriptionState.fromDatabaseId(
+                    transcription.getTranscriptionState().getId()),
+            de.bitgilde.TIMAAT.storage.entity.transcription.api.TranscriptionType.fromDatabaseId(
+                    transcription.getTranscriptionType().getId()), transcription.getCreatedAt());
+  }
 }
