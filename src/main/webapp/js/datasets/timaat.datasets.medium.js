@@ -64,6 +64,7 @@
       this.initTranscriptions();
 
       TIMAAT.EntityUpdate.registerEntityUpdateListener("medium-audio-analysis", this.handleMediumAudioAnalysisUpdateMessage.bind(this))
+      TIMAAT.EntityUpdate.registerEntityUpdateListener("medium", this.handleMediumUpdateMessage)
     },
 
     initMediaComponent: function () {
@@ -1375,7 +1376,6 @@
 
       if ($mediumTranscriptionTab.hasClass("active")) {
         const $mediumTranscriptionList = $("#mediumTranscriptionList");
-        const $mediumTranscriptionViewer = $("#mediumTranscriptionViewer")
         const medium = $('#mediumFormMetadata').data('medium')
 
         //We only need to consume transcription messages when the tab is currently visible
@@ -1421,6 +1421,17 @@
       }
     },
 
+    updateDefaultTranscriptionBadgePositionToCurrentMediumDefaultTranscription() {
+      const medium = $('#mediumFormMetadata').data('medium')
+      const defaultTranscriptionId = medium.model.defaultTranscriptionId
+      $(".transcription-default-badge").remove()
+
+      const $badges = $(`.medium-transcription-list-group-item[data-id="${defaultTranscriptionId}"] .transcription-list-group-item-badges`)
+      if ($badges.length) {
+        $badges.append('<span class="badge badge-secondary transcription-default-badge">default</span>')
+      }
+    },
+
     createTranscriptionListGroupItem: function (transcription, active, defaultTranscription) {
       const createdAt = TIMAAT.Util.formatDate(transcription.createdAt)
 
@@ -1447,9 +1458,9 @@
         $listGroupItem.addClass("active")
       }
 
-      const $currentListGroupItemBadges = $('<div class="d-flex flex-column"></div>')
+      const $currentListGroupItemBadges = $('<div class="d-flex flex-column transcription-list-group-item-badges"></div>')
       if (defaultTranscription) {
-        $currentListGroupItemBadges.append('<span class="badge badge-secondary">default</span>')
+        $currentListGroupItemBadges.append('<span class="badge badge-secondary transcription-default-badge">default</span>')
       }
       $listGroupItem.append($currentListGroupItemBadges)
 
@@ -7635,62 +7646,92 @@
         },
       });
     },
-    handleMediumAudioAnalysisUpdateMessage: function (mediumAudioAnalysisUpdateMessage) {
-      if (mediumAudioAnalysisUpdateMessage.type === "CHANGE") {
-        const allMediumVideoRow = this.dataTableAllVideosList?.row('#' + mediumAudioAnalysisUpdateMessage.id);
-        const allAudioRow = this.dataTableAllAudiosList?.row('#' + mediumAudioAnalysisUpdateMessage.id)
-        const allMediaRow = this.dataTableAllMediaList?.row('#' + mediumAudioAnalysisUpdateMessage.id)
-        const mediumVideoRow = this.dataTableVideo?.row('#' + mediumAudioAnalysisUpdateMessage.id)
-        const mediumAudioRow = this.dataTableAudio?.row('#' + mediumAudioAnalysisUpdateMessage.id)
-        const mediaRow = this.dataTableMedia?.row('#' + mediumAudioAnalysisUpdateMessage.id)
 
-        if (allMediumVideoRow?.length) {
-          const currentData = allMediumVideoRow.data()
-          currentData.mediumAudioAnalysis = {...currentData.mediumAudioAnalysis, ...mediumAudioAnalysisUpdateMessage.entity}
-        }
-        if (allAudioRow?.length) {
-          const currentData = allAudioRow.data()
-          currentData.mediumAudioAnalysis = {...currentData.mediumAudioAnalysis, ...mediumAudioAnalysisUpdateMessage.entity}
-        }
-        if (allMediaRow?.length) {
-          const currentData = allMediaRow.data()
-          currentData.mediumAudioAnalysis = {...currentData.mediumAudioAnalysis, ...mediumAudioAnalysisUpdateMessage.entity}
+    updateMediumInAllPlaces: function (mediumId, mediumUpdateFunction) {
+      const allMediumVideoRow = this.dataTableAllVideosList?.row('#' + mediumId);
+      const allAudioRow = this.dataTableAllAudiosList?.row('#' + mediumId)
+      const allMediaRow = this.dataTableAllMediaList?.row('#' + mediumId)
+      const mediumVideoRow = this.dataTableVideo?.row('#' + mediumId)
+      const mediumAudioRow = this.dataTableAudio?.row('#' + mediumId)
+      const mediaRow = this.dataTableMedia?.row('#' + mediumId)
+
+      if (allMediumVideoRow?.length) {
+        const currentData = allMediumVideoRow.data()
+        allMediumVideoRow.data(mediumUpdateFunction(currentData))
+      }
+      if (allAudioRow?.length) {
+        const currentData = allAudioRow.data()
+        allAudioRow.data(mediumUpdateFunction(currentData))
+      }
+      if (allMediaRow?.length) {
+        const currentData = allMediaRow.data()
+        allMediaRow.data(mediumUpdateFunction(currentData))
+      }
+
+      if (mediumVideoRow?.length) {
+        const currentData = mediumVideoRow.data()
+        mediumVideoRow.data(mediumUpdateFunction(currentData))
+      }
+      if (mediumAudioRow?.length) {
+        const currentData = mediumAudioRow.data()
+        mediumAudioRow.data(mediumUpdateFunction(currentData))
+      }
+      if (mediaRow?.length) {
+        const currentData = mediaRow.data()
+        mediaRow.data(mediumUpdateFunction(currentData))
+      }
+
+      const currentVideo = this.videos?.find(video => video.model.id === mediumId)
+      if (currentVideo) {
+        currentVideo.model = mediumUpdateFunction(currentVideo.model)
+      }
+
+      const currentMedia = this.media?.find(media => media.model.id === mediumId)
+      if (currentMedia) {
+        currentMedia.model = mediumUpdateFunction(currentMedia.model)
+      }
+      const currentAudio = this.audios?.find(audio => audio.model.id === mediumId)
+      if (currentAudio) {
+        currentAudio.model = mediumUpdateFunction(currentAudio.model)
+      }
+
+      const mediumFormMetadataMedium = $('#mediumFormMetadata').data('medium')
+      if (mediumFormMetadataMedium?.model.id === mediumId) {
+        mediumFormMetadataMedium.model = mediumUpdateFunction(mediumFormMetadataMedium.model)
+      }
+    },
+
+    handleMediumUpdateMessage: function (mediumUpdateMessage) {
+      /**
+       * Currently we only consume CHANGE messages updating the default transcription id of a medium
+       */
+      if (mediumUpdateMessage.type === "CHANGE" && "defaultTranscriptionId" in mediumUpdateMessage.entity) {
+        const mediumUpdateFunction = (currentMedium) => {
+          return {...currentMedium, ...mediumUpdateMessage.entity}
         }
 
-        if (mediumVideoRow?.length) {
-          const currentData = mediumVideoRow.data()
-          currentData.mediumAudioAnalysis = {...currentData.mediumAudioAnalysis, ...mediumAudioAnalysisUpdateMessage.entity}
-        }
-        if (mediumAudioRow?.length) {
-          const currentData = mediumAudioRow.data()
-          currentData.mediumAudioAnalysis = {...currentData.mediumAudioAnalysis, ...mediumAudioAnalysisUpdateMessage.entity}
-        }
-        if (mediaRow?.length) {
-          const currentData = mediaRow.data()
-          currentData.mediumAudioAnalysis = {...currentData.mediumAudioAnalysis, ...mediumAudioAnalysisUpdateMessage.entity}
-        }
-
-
-        const currentVideo = this.videos?.find(video => video.model.id === mediumAudioAnalysisUpdateMessage.id)
-        if (currentVideo) {
-          currentVideo.model.mediumAudioAnalysis = {...currentVideo.model.mediumAudioAnalysis, ...mediumAudioAnalysisUpdateMessage.entity}
-        }
-
-        const currentMedia = this.media?.find(media => media.model.id === mediumAudioAnalysisUpdateMessage.id)
-        if (currentMedia) {
-          currentMedia.model.mediumAudioAnalysis = {...currentMedia.model.mediumAudioAnalysis, ...mediumAudioAnalysisUpdateMessage.entity}
-        }
-        const currentAudio = this.audios?.find(audio => audio.model.id === mediumAudioAnalysisUpdateMessage.id)
-        if (currentAudio) {
-          currentAudio.model.mediumAudioAnalysis = {...currentAudio.model.mediumAudioAnalysis, ...mediumAudioAnalysisUpdateMessage.entity}
-        }
-
+        TIMAAT.MediumDatasets.updateMediumInAllPlaces(mediumUpdateMessage.id, mediumUpdateFunction)
+        const $mediumTranscriptionTab = $("#mediumTranscriptionTab")
         const mediumFormMetadataMedium = $('#mediumFormMetadata').data('medium')
-        if (mediumFormMetadataMedium?.model.id === mediumAudioAnalysisUpdateMessage.id) {
-          mediumFormMetadataMedium.model.mediumAudioAnalysis = {...mediumFormMetadataMedium.model.mediumAudioAnalysis, ...mediumAudioAnalysisUpdateMessage.entity}
+
+        if ($mediumTranscriptionTab.hasClass("active") && mediumFormMetadataMedium.model.id === mediumUpdateMessage.id) {
+          TIMAAT.MediumDatasets.updateDefaultTranscriptionBadgePositionToCurrentMediumDefaultTranscription()
         }
       }
     },
+
+    handleMediumAudioAnalysisUpdateMessage: function (mediumAudioAnalysisUpdateMessage) {
+      if (mediumAudioAnalysisUpdateMessage.type === "CHANGE") {
+        const mediumAudioAnalysisUpdateFunction = (currentMedium) => {
+          const updatedMedium = {...currentMedium}
+          updatedMedium.mediumAudioAnalysis = {...updatedMedium.mediumAudioAnalysis, ...mediumAudioAnalysisUpdateMessage.entity}
+          return updatedMedium
+        }
+
+        TIMAAT.MediumDatasets.updateMediumInAllPlaces(mediumAudioAnalysisUpdateMessage.id, mediumAudioAnalysisUpdateFunction)
+      }
+    },
+
     setupVideogameDataTable: function () {
       // console.log("TCL: setupDataTable");
       // setup dataTable
