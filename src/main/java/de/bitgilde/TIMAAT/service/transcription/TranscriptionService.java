@@ -14,12 +14,14 @@ import de.bitgilde.TIMAAT.service.task.api.TaskType;
 import de.bitgilde.TIMAAT.service.task.api.TranscriptionMediumPreparationTask;
 import de.bitgilde.TIMAAT.service.task.storage.TaskStateUpdater;
 import de.bitgilde.TIMAAT.service.transcription.api.GenerateTranscriptionConfiguration;
+import de.bitgilde.TIMAAT.service.transcription.api.TranscriptionContent;
 import de.bitgilde.TIMAAT.service.transcription.api.TranscriptionEngine;
 import de.bitgilde.TIMAAT.service.transcription.api.TranscriptionEngineModel;
 import de.bitgilde.TIMAAT.service.transcription.api.TranscriptionStateEntityUpdateMessage;
 import de.bitgilde.TIMAAT.service.transcription.exception.TranscriptionFeatureDisabledException;
 import de.bitgilde.TIMAAT.service.transcription.exception.TranscriptionNotFoundException;
 import de.bitgilde.TIMAAT.service.transcription.exception.TranscriptionServiceException;
+import de.bitgilde.TIMAAT.service.transcription.format.vtt.VttParser;
 import de.bitgilde.TIMAAT.sse.EntityUpdateEventService;
 import de.bitgilde.TIMAAT.sse.api.EntityType;
 import de.bitgilde.TIMAAT.storage.api.PagingParameter;
@@ -56,6 +58,8 @@ import studio.nkodev.stt.client.config.SpeechToTextTransferType;
 import studio.nkodev.stt.client.exception.SpeechToTextServiceClientErrorType;
 
 import java.io.Closeable;
+import java.io.InputStream;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Collection;
 import java.util.List;
@@ -87,16 +91,17 @@ public class TranscriptionService implements TaskStateUpdater, SpeechToTextTaskS
   private final MediumStorage mediumStorage;
   private final boolean featureEnabled;
   private final EntityUpdateEventService entityUpdateEventService;
+  private final VttParser vttParser;
 
   @Inject
-  public TranscriptionService(TranscriptionStorage transcriptionStorage, SystemSettingStorage systemSettingStorage, AudioFileStorage audioFileStorage, VideoFileStorage videoFileStorage, Provider<TaskService> taskServiceProvider, TemporaryFileStorage temporaryFileStorage, TranscriptionFileStorage transcriptionFileStorage, MediumStorage mediumStorage, PropertyManagement propertyManagement, EntityUpdateEventService entityUpdateEventService) {
+  public TranscriptionService(TranscriptionStorage transcriptionStorage, SystemSettingStorage systemSettingStorage, AudioFileStorage audioFileStorage, VideoFileStorage videoFileStorage, Provider<TaskService> taskServiceProvider, TemporaryFileStorage temporaryFileStorage, TranscriptionFileStorage transcriptionFileStorage, MediumStorage mediumStorage, PropertyManagement propertyManagement, EntityUpdateEventService entityUpdateEventService, VttParser vttParser) {
     this(transcriptionStorage, systemSettingStorage, audioFileStorage, videoFileStorage, taskServiceProvider,
             temporaryFileStorage, transcriptionFileStorage, mediumStorage,
             isFeatureEnabled(propertyManagement) ? initSpeechToTextServiceClient(propertyManagement) : null,
-            entityUpdateEventService);
+            entityUpdateEventService, vttParser);
   }
 
-  TranscriptionService(TranscriptionStorage transcriptionStorage, SystemSettingStorage systemSettingStorage, AudioFileStorage audioFileStorage, VideoFileStorage videoFileStorage, Provider<TaskService> taskServiceProvider, TemporaryFileStorage temporaryFileStorage, TranscriptionFileStorage transcriptionFileStorage, MediumStorage mediumStorage, @jakarta.annotation.Nullable SpeechToTextServiceClient speechToTextServiceClient, EntityUpdateEventService entityUpdateEventService) {
+  TranscriptionService(TranscriptionStorage transcriptionStorage, SystemSettingStorage systemSettingStorage, AudioFileStorage audioFileStorage, VideoFileStorage videoFileStorage, Provider<TaskService> taskServiceProvider, TemporaryFileStorage temporaryFileStorage, TranscriptionFileStorage transcriptionFileStorage, MediumStorage mediumStorage, @jakarta.annotation.Nullable SpeechToTextServiceClient speechToTextServiceClient, EntityUpdateEventService entityUpdateEventService, VttParser vttParser) {
     this.transcriptionStorage = transcriptionStorage;
     this.systemSettingStorage = systemSettingStorage;
     this.audioFileStorage = audioFileStorage;
@@ -108,6 +113,7 @@ public class TranscriptionService implements TaskStateUpdater, SpeechToTextTaskS
     this.speechToTextServiceClient = speechToTextServiceClient;
     this.featureEnabled = speechToTextServiceClient != null;
     this.entityUpdateEventService = entityUpdateEventService;
+    this.vttParser = vttParser;
 
     if (featureEnabled) {
       resumeMonitoringOfActiveTranscriptions();
@@ -407,6 +413,20 @@ public class TranscriptionService implements TaskStateUpdater, SpeechToTextTaskS
       throw new TranscriptionNotFoundException(transcriptionId);
     }
     return transcription;
+  }
+
+  public TranscriptionContent getTranscriptionContent(int mediumId, int transcriptionId) throws TranscriptionServiceException {
+    boolean transcriptionOfMedium = transcriptionStorage.existsForMedium(mediumId, transcriptionId);
+    Optional<Path> transcriptionPath = transcriptionFileStorage.getPathToTranscription(transcriptionId);
+    if (transcriptionPath.isEmpty() || !transcriptionOfMedium) {
+      throw new TranscriptionNotFoundException(transcriptionId);
+    }
+
+    try (InputStream inputStream = Files.newInputStream(transcriptionPath.get())) {
+      return vttParser.parseVttStream(inputStream);
+    } catch (Exception e) {
+      throw new TranscriptionServiceException("Error during parsing VTT file", e);
+    }
   }
 
   /**

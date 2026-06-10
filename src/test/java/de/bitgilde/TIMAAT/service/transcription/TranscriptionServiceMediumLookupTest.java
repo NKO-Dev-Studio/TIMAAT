@@ -4,6 +4,7 @@ import de.bitgilde.TIMAAT.model.FIPOP.Medium;
 import de.bitgilde.TIMAAT.model.FIPOP.Transcription;
 import de.bitgilde.TIMAAT.service.task.TaskService;
 import de.bitgilde.TIMAAT.service.transcription.exception.TranscriptionNotFoundException;
+import de.bitgilde.TIMAAT.sse.EntityUpdateEventService;
 import de.bitgilde.TIMAAT.storage.entity.SystemSettingStorage;
 import de.bitgilde.TIMAAT.storage.entity.medium.MediumStorage;
 import de.bitgilde.TIMAAT.storage.entity.medium.exception.MediumNotFoundException;
@@ -21,7 +22,6 @@ import studio.nkodev.stt.client.SpeechToTextServiceClient;
 
 import java.util.Collection;
 import java.util.Collections;
-import java.util.List;
 import java.util.Optional;
 import java.util.stream.Stream;
 
@@ -59,6 +59,7 @@ public class TranscriptionServiceMediumLookupTest {
   private TranscriptionFileStorage transcriptionFileStorage;
   private MediumStorage mediumStorage;
   private SpeechToTextServiceClient speechToTextServiceClient;
+  private EntityUpdateEventService entityUpdateEventService;
 
   private TranscriptionService service;
 
@@ -76,6 +77,7 @@ public class TranscriptionServiceMediumLookupTest {
     transcriptionFileStorage = mock(TranscriptionFileStorage.class);
     mediumStorage = mock(MediumStorage.class);
     speechToTextServiceClient = mock(SpeechToTextServiceClient.class);
+    entityUpdateEventService = mock(EntityUpdateEventService.class);
 
     when(speechToTextServiceClient.getAvailableEngines()).thenReturn(Collections.emptyList());
     when(systemSettingStorage.getDefaultTranscriptionModel()).thenReturn(Optional.empty());
@@ -83,7 +85,7 @@ public class TranscriptionServiceMediumLookupTest {
 
     service = new TranscriptionService(transcriptionStorage, systemSettingStorage, audioFileStorage, videoFileStorage,
             taskServiceProvider, temporaryFileStorage, transcriptionFileStorage, mediumStorage,
-            speechToTextServiceClient);
+            speechToTextServiceClient, entityUpdateEventService);
 
     // The constructor triggers resumeMonitoringOfActiveTranscriptions which calls
     // getEntriesAsStream once; clear that so per-test verify counts start from zero.
@@ -94,8 +96,8 @@ public class TranscriptionServiceMediumLookupTest {
   void shouldReturnTranscriptionsFilteredByMedium() throws Exception {
     when(mediumStorage.existsById(MEDIUM_ID)).thenReturn(true);
     Transcription transcription = transcription(TRANSCRIPTION_ID, MEDIUM_ID);
-    when(transcriptionStorage.getEntriesAsStream(any(TranscriptionFilterCriteria.class), any(), any(), any()))
-            .thenReturn(Stream.of(transcription));
+    when(transcriptionStorage.getEntriesAsStream(any(TranscriptionFilterCriteria.class), any(), any(),
+            any())).thenReturn(Stream.of(transcription));
 
     Collection<Transcription> result = service.getTranscriptionsForMedium(MEDIUM_ID);
 
@@ -109,8 +111,8 @@ public class TranscriptionServiceMediumLookupTest {
   @Test
   void shouldReturnEmptyCollectionWhenMediumHasNoTranscriptions() throws Exception {
     when(mediumStorage.existsById(MEDIUM_ID)).thenReturn(true);
-    when(transcriptionStorage.getEntriesAsStream(any(TranscriptionFilterCriteria.class), any(), any(), any()))
-            .thenReturn(Stream.empty());
+    when(transcriptionStorage.getEntriesAsStream(any(TranscriptionFilterCriteria.class), any(), any(),
+            any())).thenReturn(Stream.empty());
 
     Collection<Transcription> result = service.getTranscriptionsForMedium(MEDIUM_ID);
 
@@ -121,10 +123,10 @@ public class TranscriptionServiceMediumLookupTest {
   void shouldThrowMediumNotFoundExceptionWhenListingTranscriptionsForMissingMedium() {
     when(mediumStorage.existsById(MEDIUM_ID)).thenReturn(false);
 
-    assertThatThrownBy(() -> service.getTranscriptionsForMedium(MEDIUM_ID))
-            .isInstanceOf(MediumNotFoundException.class);
+    assertThatThrownBy(() -> service.getTranscriptionsForMedium(MEDIUM_ID)).isInstanceOf(MediumNotFoundException.class);
 
-    verify(transcriptionStorage, never()).getEntriesAsStream(any(TranscriptionFilterCriteria.class), any(), any(), any());
+    verify(transcriptionStorage, never()).getEntriesAsStream(any(TranscriptionFilterCriteria.class), any(), any(),
+            any());
   }
 
   @Test
@@ -141,8 +143,8 @@ public class TranscriptionServiceMediumLookupTest {
   void shouldThrowNotFoundExceptionWhenTranscriptionDoesNotExist() {
     when(transcriptionStorage.findById(TRANSCRIPTION_ID)).thenReturn(Optional.empty());
 
-    assertThatThrownBy(() -> service.getTranscription(MEDIUM_ID, TRANSCRIPTION_ID))
-            .isInstanceOf(TranscriptionNotFoundException.class);
+    assertThatThrownBy(() -> service.getTranscription(MEDIUM_ID, TRANSCRIPTION_ID)).isInstanceOf(
+            TranscriptionNotFoundException.class);
   }
 
   @Test
@@ -150,8 +152,8 @@ public class TranscriptionServiceMediumLookupTest {
     Transcription transcription = transcription(TRANSCRIPTION_ID, OTHER_MEDIUM_ID);
     when(transcriptionStorage.findById(TRANSCRIPTION_ID)).thenReturn(Optional.of(transcription));
 
-    assertThatThrownBy(() -> service.getTranscription(MEDIUM_ID, TRANSCRIPTION_ID))
-            .isInstanceOf(TranscriptionNotFoundException.class);
+    assertThatThrownBy(() -> service.getTranscription(MEDIUM_ID, TRANSCRIPTION_ID)).isInstanceOf(
+            TranscriptionNotFoundException.class);
   }
 
   @Test

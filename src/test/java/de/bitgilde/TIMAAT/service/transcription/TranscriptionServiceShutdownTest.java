@@ -1,6 +1,7 @@
 package de.bitgilde.TIMAAT.service.transcription;
 
 import de.bitgilde.TIMAAT.service.task.TaskService;
+import de.bitgilde.TIMAAT.sse.EntityUpdateEventService;
 import de.bitgilde.TIMAAT.storage.entity.SystemSettingStorage;
 import de.bitgilde.TIMAAT.storage.entity.medium.MediumStorage;
 import de.bitgilde.TIMAAT.storage.entity.transcription.TranscriptionStorage;
@@ -43,6 +44,7 @@ class TranscriptionServiceShutdownTest {
   private TranscriptionFileStorage transcriptionFileStorage;
   private MediumStorage mediumStorage;
   private SpeechToTextServiceClient speechToTextServiceClient;
+  private EntityUpdateEventService entityUpdateEventService;
 
   @BeforeEach
   @SuppressWarnings("unchecked")
@@ -56,6 +58,7 @@ class TranscriptionServiceShutdownTest {
     transcriptionFileStorage = mock(TranscriptionFileStorage.class);
     mediumStorage = mock(MediumStorage.class);
     speechToTextServiceClient = mock(SpeechToTextServiceClient.class);
+    entityUpdateEventService = mock(EntityUpdateEventService.class);
 
     when(systemSettingStorage.getDefaultTranscriptionModel()).thenReturn(Optional.empty());
     when(transcriptionStorage.getEntriesAsStream(any(), any(), any(), any())).thenReturn(Stream.empty());
@@ -64,13 +67,13 @@ class TranscriptionServiceShutdownTest {
   private TranscriptionService featureEnabledService() {
     return new TranscriptionService(transcriptionStorage, systemSettingStorage, audioFileStorage, videoFileStorage,
             taskServiceProvider, temporaryFileStorage, transcriptionFileStorage, mediumStorage,
-            speechToTextServiceClient);
+            speechToTextServiceClient, entityUpdateEventService);
   }
 
   private TranscriptionService featureDisabledService() {
     return new TranscriptionService(transcriptionStorage, systemSettingStorage, audioFileStorage, videoFileStorage,
             taskServiceProvider, temporaryFileStorage, transcriptionFileStorage, mediumStorage,
-            (SpeechToTextServiceClient) null);
+            (SpeechToTextServiceClient) null, entityUpdateEventService);
   }
 
   @Test

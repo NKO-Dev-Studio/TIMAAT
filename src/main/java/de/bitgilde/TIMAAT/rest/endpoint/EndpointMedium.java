@@ -62,6 +62,7 @@ import de.bitgilde.TIMAAT.service.task.api.TaskState;
 import de.bitgilde.TIMAAT.service.task.exception.TaskServiceException;
 import de.bitgilde.TIMAAT.service.transcription.TranscriptionService;
 import de.bitgilde.TIMAAT.service.transcription.api.GenerateTranscriptionConfiguration;
+import de.bitgilde.TIMAAT.service.transcription.api.TranscriptionContent;
 import de.bitgilde.TIMAAT.service.transcription.exception.TranscriptionFeatureDisabledException;
 import de.bitgilde.TIMAAT.service.transcription.exception.TranscriptionNotFoundException;
 import de.bitgilde.TIMAAT.service.transcription.exception.TranscriptionServiceException;
@@ -4685,6 +4686,22 @@ public class EndpointMedium {
                            "attachment; filename=\"" + transcription.getName() + "_" + transcription.getCreatedAt()
                                                                                                     .getEpochSecond() + ".srt\"")
                    .build();
+  }
+
+  @GET
+  @Produces(jakarta.ws.rs.core.MediaType.APPLICATION_JSON)
+  @Secured
+  @Path("{id}/transcriptions/{transcriptionId}/content")
+  public Response getTranscriptionContent(@PathParam("id") int mediumId, @PathParam("transcriptionId") int transcriptionId) {
+    try {
+      TranscriptionContent transcriptionContent = transcriptionService.getTranscriptionContent(mediumId,
+              transcriptionId);
+      return Response.ok(transcriptionContent).build();
+    } catch (TranscriptionNotFoundException e) {
+      return Response.status(Status.NOT_FOUND).entity("{\"reason\":\"" + e.getMessage() + "\"}").build();
+    } catch (TranscriptionServiceException e) {
+      return Response.status(Status.INTERNAL_SERVER_ERROR).entity("{\"reason\":\"" + e.getMessage() + "\"}").build();
+    }
   }
 
   @POST

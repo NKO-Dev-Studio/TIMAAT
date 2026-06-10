@@ -151,8 +151,9 @@ public class EndpointMediumTranscriptionsTest {
   @Test
   void shouldCreateTranscriptionAndReturnCreatedWithDto() throws Exception {
     Transcription created = transcription(TRANSCRIPTION_ID, MEDIUM_ID, ENGINE, MODEL);
+    TranscriptionDto createdDto = new TranscriptionDto(created);
     when(transcriptionService.createTranscription(any(GenerateTranscriptionConfiguration.class),
-            eq(USER_ID))).thenReturn(created);
+            eq(USER_ID))).thenReturn(createdDto);
     CreateTranscriptionRequest request = new CreateTranscriptionRequest(ENGINE, MODEL);
 
     Response response = endpoint.createMediumTranscription(MEDIUM_ID, request);
