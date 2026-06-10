@@ -74,7 +74,7 @@ public class TranscriptionService implements TaskStateUpdater, SpeechToTextTaskS
 
   private static final Logger logger = Logger.getLogger(TranscriptionService.class.getName());
 
-  private static final SpeechToTextEngineOutputFormat engineOutputFormat = SpeechToTextEngineOutputFormat.SRT;
+  private static final SpeechToTextEngineOutputFormat engineOutputFormat = SpeechToTextEngineOutputFormat.VTT;
 
   private final TranscriptionStorage transcriptionStorage;
   private final SystemSettingStorage systemSettingStorage;

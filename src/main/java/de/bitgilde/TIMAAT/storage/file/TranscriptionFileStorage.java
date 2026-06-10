@@ -67,6 +67,6 @@ public class TranscriptionFileStorage {
   }
 
   private Path createTranscriptionPath(int transcriptionId) {
-    return transcriptionStoragePath.resolve(transcriptionId + ".srt");
+    return transcriptionStoragePath.resolve(transcriptionId + ".vtt");
   }
 }

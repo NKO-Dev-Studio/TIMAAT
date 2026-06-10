@@ -33,6 +33,7 @@ import de.bitgilde.TIMAAT.model.FIPOP.Role;
 import de.bitgilde.TIMAAT.model.FIPOP.Source;
 import de.bitgilde.TIMAAT.model.FIPOP.Tag;
 import de.bitgilde.TIMAAT.model.FIPOP.Title;
+import de.bitgilde.TIMAAT.model.FIPOP.Transcription;
 import de.bitgilde.TIMAAT.model.FIPOP.UserAccount;
 import de.bitgilde.TIMAAT.model.TimeRange;
 import de.bitgilde.TIMAAT.model.fileInformation.AudioInformation;
@@ -4654,7 +4655,10 @@ public class EndpointMedium {
   @Secured
   @Path("{id}/transcriptions/{transcriptionId}/file")
   public Response downloadTranscriptionFile(@PathParam("id") int mediumId, @PathParam("transcriptionId") int transcriptionId) {
-    if (!transcriptionService.existsForMedium(mediumId, transcriptionId)) {
+    Transcription transcription;
+    try {
+      transcription = transcriptionService.getTranscription(mediumId, transcriptionId);
+    } catch (TranscriptionNotFoundException e) {
       return Response.status(Status.NOT_FOUND)
                      .entity("{\"reason\":\"Transcription " + transcriptionId + " does not exist for medium " + mediumId + "\"}")
                      .build();
@@ -4677,8 +4681,10 @@ public class EndpointMedium {
       }
     };
 
-    return Response.ok(stream, "text/plain")
-                   .header("Content-Disposition", "attachment; filename=\"" + transcriptionId + ".srt\"").build();
+    return Response.ok(stream, "text/vtt").header("Content-Disposition",
+                           "attachment; filename=\"" + transcription.getName() + "_" + transcription.getCreatedAt()
+                                                                                                    .getEpochSecond() + ".srt\"")
+                   .build();
   }
 
   @POST

@@ -1513,8 +1513,8 @@
 
       const $mediumTranscriptionViewerCardBody = $mediumTranscriptionViewer.find(".card-body")
       const $mediumTranscriptionViewerCardHeader = $mediumTranscriptionViewer.find(".card-header")
-      const $mediumTranscriptionDownloadSrtButton = $mediumTranscriptionViewerCardHeader.find("#transcriptionViewerDownloadSrtBtn")
-      $mediumTranscriptionDownloadSrtButton.hide()
+      const $mediumTranscriptionDownloadVttButton = $mediumTranscriptionViewerCardHeader.find("#transcriptionViewerDownloadVttBtn")
+      $mediumTranscriptionDownloadVttButton.hide()
 
       $mediumTranscriptionViewerCardBody.children().addClass("d-none")
       $mediumTranscriptionViewerCardHeader.children().addClass("d-none")
@@ -1527,8 +1527,21 @@
         $mediumTranscriptionViewerCardHeader.find('.transcriptionViewerCreatedAtField').text(TIMAAT.Util.formatDate(transcription.createdAt))
 
         if (transcription.state === "COMPLETED") {
+          $mediumTranscriptionDownloadVttButton.off('click.transcriptionDownload').on('click.transcriptionDownload', async function (event) {
+            event.preventDefault();
+            const blob = await TIMAAT.MediumService.downloadTranscriptionFile(transcription.mediumId, transcription.id);
+            if (!blob) return;
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = transcription.name + '.vtt';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+          });
           $mediumTranscriptionViewerCardBody.find('[data-role="viewerCompletedState"]').removeClass("d-none")
-          $mediumTranscriptionDownloadSrtButton.show()
+          $mediumTranscriptionDownloadVttButton.show()
         } else if (transcription.state === "FAILED") {
           $mediumTranscriptionViewerCardBody.find('[data-role="viewerFailedState"]').removeClass("d-none")
         } else {
