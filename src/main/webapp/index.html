@@ -3339,7 +3339,7 @@
                       <li class="nav-item">
                         <a class="nav-link navBarLinkContent" id="mediumMusicTab">Music</a>
                       </li>
-                      <li class="nav-item">
+                      <li class="nav-item" id="mediumTranscriptionTabNavItem">
                         <a class="nav-link navBarLinkContent" id="mediumTranscriptionTab">Transcriptions</a>
                       </li>
                     </ul>
@@ -6861,7 +6861,7 @@
                     <div class="card-header">
                       Transcription settings
                     </div>
-                    <div class="card-body">
+                    <div class="card-body" data-role="transcriptionFeatureEnabled">
                       <form class="p-2" id="transcriptionSettingsForm" novalidate>
                         <div class="form-group">
                           <h6>General Settings</h6>
@@ -6898,6 +6898,11 @@
                           Save
                         </button>
                       </form>
+                    </div>
+                    <div class="card-body" data-role="transcriptionFeatureDisabled">
+                      <div class="alert alert-info">Transcription feature currently disabled. Please contact your
+                        administrator for further information.
+                      </div>
                     </div>
                   </div>
                 </div>

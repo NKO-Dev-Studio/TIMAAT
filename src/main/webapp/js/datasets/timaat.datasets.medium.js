@@ -2503,7 +2503,6 @@
           this.setVideogameList();
           break;
       }
-      ;
     },
 
     loadRequiredRoleIds: async function () {
