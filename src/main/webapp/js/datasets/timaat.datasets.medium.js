@@ -1374,6 +1374,7 @@
 
     handleTranscriptionEntityUpdateMessage: function (transcriptionUpdateMessage) {
       const $mediumTranscriptionTab = $("#mediumTranscriptionTab")
+      const $mediumPreviewTab = $("#mediumPreviewTab")
 
       if ($mediumTranscriptionTab.hasClass("active")) {
         const $mediumTranscriptionList = $("#mediumTranscriptionList");
@@ -1418,6 +1419,12 @@
               TIMAAT.MediumDatasets.openTranscription(undefined)
             }
           }
+        }
+      } else if ($mediumPreviewTab.hasClass("active")) {
+        const mediumFormMetadataMedium = $('#mediumFormMetadata').data('medium')
+
+        if (transcriptionUpdateMessage.type === "CHANGE" && mediumFormMetadataMedium.model.defaultTranscriptionId === transcriptionUpdateMessage.id && transcriptionUpdateMessage.entity.state === "COMPLETED") {
+          TIMAAT.MediumDatasets.updateFormPreviewSubtitle(mediumFormMetadataMedium)
         }
       }
     },
@@ -2969,6 +2976,16 @@
             $mediumAudioPreview.append(track);
           }
 
+        }).catch(error => {
+          console.error("Error during loading transcription file.", error)
+
+          if (type === "video") {
+            const $mediumVideoPreview = $('#mediumVideoPreview')
+            $mediumVideoPreview.empty()
+          } else if (type === "audio") {
+            const $mediumAudioPreview = $('#mediumAudioPreview')
+            $mediumAudioPreview.empty()
+          }
         })
       }
     },
@@ -7840,11 +7857,18 @@
         }
 
         TIMAAT.MediumDatasets.updateMediumInAllPlaces(mediumUpdateMessage.id, mediumUpdateFunction)
-        const $mediumTranscriptionTab = $("#mediumTranscriptionTab")
         const mediumFormMetadataMedium = $('#mediumFormMetadata').data('medium')
 
-        if ($mediumTranscriptionTab.hasClass("active") && mediumFormMetadataMedium.model.id === mediumUpdateMessage.id) {
-          TIMAAT.MediumDatasets.updateDefaultTranscriptionBadgePositionToCurrentMediumDefaultTranscription()
+        if (mediumFormMetadataMedium.model.id === mediumUpdateMessage.id) {
+          const $mediumTranscriptionTab = $("#mediumTranscriptionTab")
+          const $mediumPreviewTab = $("#mediumPreviewTab")
+
+          if ($mediumTranscriptionTab.hasClass("active")) {
+            TIMAAT.MediumDatasets.updateDefaultTranscriptionBadgePositionToCurrentMediumDefaultTranscription()
+          } else if ($mediumPreviewTab.hasClass("active")) {
+            console.log("Update transcription of preview")
+            TIMAAT.MediumDatasets.updateFormPreviewSubtitle(mediumFormMetadataMedium)
+          }
         }
       }
     },
