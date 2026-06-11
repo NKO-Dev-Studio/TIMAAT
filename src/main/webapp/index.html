@@ -1664,6 +1664,13 @@
                         <span class="playbackSpeedInfo">1&times;</span>
                       </button>
                     </div>
+                    <!-- Subtitle Control -->
+                    <div class="btn-group btn-group-sm mr-1">
+                      <button title="Playback speed [s]" id="mediumPlayerSubtitle"
+                              class="btn btn-outline-secondary">
+                        <i class="fas fa-closed-captioning"></i>
+                      </button>
+                    </div>
                     <div class="btn-group btn-group-sm">
                       <button title="Capture current player position as thumbnail" id="mediumPlayerSetThumbnailButton"
                               class="btn btn-outline-secondary">
@@ -3718,9 +3725,9 @@
                             </video>
                           </div>
                           <div class="audioPreview">
-                            <audio id="mediumAudioPreview" class="center max-height--100 max-width--100" src="" controls
+                            <video id="mediumAudioPreview" class="center max-height--100 max-width--100" src="" controls
                                    controlslist="nodownload">
-                            </audio>
+                            </video>
                           </div>
                         </div>
                       </div>

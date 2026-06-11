@@ -61,6 +61,7 @@
     model: Object(),
     overlay: null,
     repeatMode: "NONE", //one of NONE | ANNOTATION | SELECTION
+    subtitleEnabled: false,
     selectedElementType: null,
     selectedMedium: null,
     tagAutocomplete: [],
@@ -121,6 +122,9 @@
       this.waveformContainer.one("mousedown", TIMAAT.VideoPlayer.handleTemporaryWaveformDragStart)
 
       TIMAAT.EntityUpdate.registerEntityUpdateListener("medium-audio-analysis", this.handleMediumAudioAnalysisEntityUpdateMessage.bind(this))
+      TIMAAT.EntityUpdate.registerEntityUpdateListener("medium", this.handleMediumUpdateMessage.bind(this))
+      TIMAAT.EntityUpdate.registerEntityUpdateListener("transcription", this.handleTranscriptionUpdateMessage.bind(this))
+
       $('#retryWaveformGenerationButton').attr('onclick', 'TIMAAT.VideoPlayer.triggerWaveformGeneration()');
 
       $('#audioWaveformTimelineCollapseWidgetIcon').on("click", () => {
@@ -1254,6 +1258,29 @@
         updateRepeatButtonStates()
       });
 
+
+      $('#mediumPlayerSubtitle').on('click', function (ev) {
+        TIMAAT.VideoPlayer.subtitleEnabled = !TIMAAT.VideoPlayer.subtitleEnabled
+        const $mediumPlayerSubtitle = $('#mediumPlayerSubtitle')
+        const videoElement = TIMAAT.VideoPlayer.overlay.getElement()
+
+        if (TIMAAT.VideoPlayer.subtitleEnabled) {
+          $mediumPlayerSubtitle.removeClass('btn-outline-secondary')
+          $mediumPlayerSubtitle.addClass('btn-primary')
+
+          if (videoElement && videoElement.textTracks.length) {
+            videoElement.textTracks[0].mode = "showing"
+          }
+        } else {
+          $mediumPlayerSubtitle.addClass('btn-outline-secondary')
+          $mediumPlayerSubtitle.removeClass('btn-primary')
+
+          if (videoElement && videoElement.textTracks.length) {
+            videoElement.textTracks[0].mode = "hidden"
+          }
+        }
+      })
+
       $('.repeatButtonSelection').on('click', function (ev) {
         ev.preventDefault();
         ev.stopPropagation();
@@ -1481,6 +1508,23 @@
       }
     },
 
+    handleTranscriptionUpdateMessage: function (transcriptionUpdateMessage) {
+      if (transcriptionUpdateMessage.type === "CHANGE" && transcriptionUpdateMessage.id === TIMAAT.VideoPlayer.model.medium?.defaultTranscriptionId && transcriptionUpdateMessage.entity.state === "COMPLETED") {
+        TIMAAT.VideoPlayer.updateVideoPlayerSubtitles()
+      }
+    },
+
+    handleMediumUpdateMessage: function (mediumUpdateMessage) {
+      if (mediumUpdateMessage.type === "CHANGE" && mediumUpdateMessage.id === TIMAAT.VideoPlayer.model.medium?.id) {
+        const previousDefaultTranscriptionId = TIMAAT.VideoPlayer.model.medium.defaultTranscriptionId
+        TIMAAT.VideoPlayer.model.medium = {...TIMAAT.VideoPlayer.model.medium, ...mediumUpdateMessage.entity}
+
+        if (TIMAAT.VideoPlayer.model.medium.defaultTranscriptionId !== previousDefaultTranscriptionId) {
+          TIMAAT.VideoPlayer.updateVideoPlayerSubtitles()
+        }
+      }
+    },
+
     setupMedium: async function (medium) {
       // console.log("TCL: setupMedium: -> medium", medium);
       this.mediaType = medium.mediaType.mediaTypeTranslations[0].type;
@@ -1612,6 +1656,7 @@
             loop: false
           }).addTo(TIMAAT.VideoPlayer.viewer);
           this.medium = this.overlay.getElement();
+          TIMAAT.VideoPlayer.updateVideoPlayerSubtitles()
 
           TIMAAT.VideoPlayer.drawWaveform()
 
@@ -1796,6 +1841,27 @@
         }
       }
     },
+
+    updateVideoPlayerSubtitles: function () {
+      const $medium = $(TIMAAT.VideoPlayer.medium)
+      $medium.find("track").remove()
+
+      if (TIMAAT.VideoPlayer.model.medium.defaultTranscriptionId) {
+        TIMAAT.MediumService.downloadTranscriptionFile(TIMAAT.VideoPlayer.model.medium.id, TIMAAT.VideoPlayer.model.medium.defaultTranscriptionId).then(blob => {
+          const blobUrl = URL.createObjectURL(blob);
+          const isDefault = TIMAAT.VideoPlayer.subtitleEnabled
+
+          const track = $("<track/>")
+          track.attr('src', blobUrl);
+          if (isDefault) {
+            track.attr('default', true);
+          }
+          $medium.append(track);
+        })
+      }
+
+    },
+
     drawFrequencyInformation: function () {
       if (TIMAAT.VideoPlayer.mediumFrequencyInformation) {
         const minimumFrequency = Math.round(TIMAAT.VideoPlayer.mediumFrequencyInformation.minimumFrequency);

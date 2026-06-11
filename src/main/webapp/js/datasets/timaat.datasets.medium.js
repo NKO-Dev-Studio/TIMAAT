@@ -1374,6 +1374,7 @@
 
     handleTranscriptionEntityUpdateMessage: function (transcriptionUpdateMessage) {
       const $mediumTranscriptionTab = $("#mediumTranscriptionTab")
+      const $mediumPreviewTab = $("#mediumPreviewTab")
 
       if ($mediumTranscriptionTab.hasClass("active")) {
         const $mediumTranscriptionList = $("#mediumTranscriptionList");
@@ -1418,6 +1419,12 @@
               TIMAAT.MediumDatasets.openTranscription(undefined)
             }
           }
+        }
+      } else if ($mediumPreviewTab.hasClass("active")) {
+        const mediumFormMetadataMedium = $('#mediumFormMetadata').data('medium')
+
+        if (transcriptionUpdateMessage.type === "CHANGE" && mediumFormMetadataMedium.model.defaultTranscriptionId === transcriptionUpdateMessage.id && transcriptionUpdateMessage.entity.state === "COMPLETED") {
+          TIMAAT.MediumDatasets.updateFormPreviewSubtitle(mediumFormMetadataMedium)
         }
       }
     },
@@ -2911,6 +2918,7 @@
           case 'audio': // TODO check audioPreview functionality
             $('#mediumAudioPreview').attr('src', '/TIMAAT/api/medium/audio/' + data.model.id + '/download' + '?token=' + data.model.viewToken);
             $('.audioPreview').show();
+            TIMAAT.MediumDatasets.updateFormPreviewSubtitle(data)
             break;
           case 'image':
             $('#mediumImagePreview').attr('src', '/TIMAAT/api/medium/image/' + data.model.id + '/preview' + '?token=' + data.model.viewToken);
@@ -2925,7 +2933,11 @@
               $('#mediumImagePreview').attr('alt', 'placeholder');
               $('.imagePreview').show();
             } else {
-              $('#mediumVideoPreview').attr('src', '/TIMAAT/api/medium/video/' + data.model.id + '/download' + '?token=' + data.model.viewToken);
+              const $mediumVideoPreview = $('#mediumVideoPreview')
+              $mediumVideoPreview.attr('src', '/TIMAAT/api/medium/video/' + data.model.id + '/download' + '?token=' + data.model.viewToken);
+
+              TIMAAT.MediumDatasets.updateFormPreviewSubtitle(data)
+
               $('.videoPreview').show();
               $('.mediumDataSheetFormCaptureThumbnail').prop('disabled', false);
             }
@@ -2942,6 +2954,40 @@
       $('.mediumDataSheetFormDeleteButton :input').prop('disabled', false);
       $('.mediumDataSheetFormDeleteButton').show();
       $('#mediumFormPreviewHeader').html(type + " Preview (#" + data.model.id + ')');
+    },
+
+    updateFormPreviewSubtitle: function (medium) {
+      if (medium.model.defaultTranscriptionId) {
+        const type = medium.model.mediaType.mediaTypeTranslations[0].type
+
+
+        TIMAAT.MediumService.downloadTranscriptionFile(medium.model.id, medium.model.defaultTranscriptionId).then(blob => {
+          const blobUrl = URL.createObjectURL(blob);
+          const track = $("<track default/>")
+          track.attr('src', blobUrl);
+
+          if (type === "video") {
+            const $mediumVideoPreview = $('#mediumVideoPreview')
+            $mediumVideoPreview.empty()
+            $mediumVideoPreview.append(track);
+          } else if (type === "audio") {
+            const $mediumAudioPreview = $('#mediumAudioPreview')
+            $mediumAudioPreview.empty()
+            $mediumAudioPreview.append(track);
+          }
+
+        }).catch(error => {
+          console.error("Error during loading transcription file.", error)
+
+          if (type === "video") {
+            const $mediumVideoPreview = $('#mediumVideoPreview')
+            $mediumVideoPreview.empty()
+          } else if (type === "audio") {
+            const $mediumAudioPreview = $('#mediumAudioPreview')
+            $mediumAudioPreview.empty()
+          }
+        })
+      }
     },
 
     mediumFormTitles: function (action, medium) {
@@ -7811,11 +7857,18 @@
         }
 
         TIMAAT.MediumDatasets.updateMediumInAllPlaces(mediumUpdateMessage.id, mediumUpdateFunction)
-        const $mediumTranscriptionTab = $("#mediumTranscriptionTab")
         const mediumFormMetadataMedium = $('#mediumFormMetadata').data('medium')
 
-        if ($mediumTranscriptionTab.hasClass("active") && mediumFormMetadataMedium.model.id === mediumUpdateMessage.id) {
-          TIMAAT.MediumDatasets.updateDefaultTranscriptionBadgePositionToCurrentMediumDefaultTranscription()
+        if (mediumFormMetadataMedium.model.id === mediumUpdateMessage.id) {
+          const $mediumTranscriptionTab = $("#mediumTranscriptionTab")
+          const $mediumPreviewTab = $("#mediumPreviewTab")
+
+          if ($mediumTranscriptionTab.hasClass("active")) {
+            TIMAAT.MediumDatasets.updateDefaultTranscriptionBadgePositionToCurrentMediumDefaultTranscription()
+          } else if ($mediumPreviewTab.hasClass("active")) {
+            console.log("Update transcription of preview")
+            TIMAAT.MediumDatasets.updateFormPreviewSubtitle(mediumFormMetadataMedium)
+          }
         }
       }
     },

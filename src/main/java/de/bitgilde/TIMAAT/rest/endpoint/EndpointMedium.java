@@ -4662,7 +4662,7 @@ public class EndpointMedium {
    * Error} when the file could not be streamed because of an IO failure
    */
   @GET
-  @Produces("text/plain")
+  @Produces("text/vtt")
   @Secured
   @Path("{id}/transcriptions/{transcriptionId}/file")
   public Response downloadTranscriptionFile(@PathParam("id") int mediumId, @PathParam("transcriptionId") int transcriptionId) {
