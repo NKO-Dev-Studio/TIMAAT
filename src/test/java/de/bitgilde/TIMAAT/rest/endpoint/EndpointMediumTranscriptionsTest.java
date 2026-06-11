@@ -7,8 +7,11 @@ import de.bitgilde.TIMAAT.model.FIPOP.TranscriptionModelId;
 import de.bitgilde.TIMAAT.rest.filter.AuthenticationFilter;
 import de.bitgilde.TIMAAT.rest.model.transcription.CreateTranscriptionRequest;
 import de.bitgilde.TIMAAT.rest.model.transcription.TranscriptionDto;
+import de.bitgilde.TIMAAT.rest.model.transcription.UpdateTranscriptionRequest;
 import de.bitgilde.TIMAAT.service.transcription.TranscriptionService;
 import de.bitgilde.TIMAAT.service.transcription.api.GenerateTranscriptionConfiguration;
+import de.bitgilde.TIMAAT.service.transcription.api.TranscriptionContent;
+import de.bitgilde.TIMAAT.service.transcription.api.TranscriptionCue;
 import de.bitgilde.TIMAAT.service.transcription.exception.TranscriptionFeatureDisabledException;
 import de.bitgilde.TIMAAT.service.transcription.exception.TranscriptionNotFoundException;
 import de.bitgilde.TIMAAT.service.transcription.exception.TranscriptionServiceException;
@@ -31,6 +34,7 @@ import java.lang.reflect.Field;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
@@ -335,6 +339,94 @@ public class EndpointMediumTranscriptionsTest {
             WebApplicationException.class);
     assertThat(thrown).isNotNull();
     assertThat(thrown.getResponse().getStatus()).isEqualTo(Response.Status.INTERNAL_SERVER_ERROR.getStatusCode());
+  }
+
+  @Test
+  void shouldUpdateNameAndReturnOkWithDto() throws Exception {
+    TranscriptionDto updatedDto = new TranscriptionDto(transcription(TRANSCRIPTION_ID, MEDIUM_ID, ENGINE, MODEL));
+    when(transcriptionService.updateTranscriptionName(MEDIUM_ID, TRANSCRIPTION_ID, "Neuer Name", USER_ID)).thenReturn(
+            updatedDto);
+
+    Response response = endpoint.updateMediumTranscription(MEDIUM_ID, TRANSCRIPTION_ID,
+            new UpdateTranscriptionRequest("Neuer Name"));
+
+    assertThat(response.getStatus()).isEqualTo(Response.Status.OK.getStatusCode());
+    assertThat(response.getEntity()).isSameAs(updatedDto);
+    verify(transcriptionService).updateTranscriptionName(MEDIUM_ID, TRANSCRIPTION_ID, "Neuer Name", USER_ID);
+  }
+
+  @Test
+  void shouldReturnBadRequestWhenUpdateNameBodyIsNull() throws Exception {
+    Response response = endpoint.updateMediumTranscription(MEDIUM_ID, TRANSCRIPTION_ID, null);
+
+    assertThat(response.getStatus()).isEqualTo(Response.Status.BAD_REQUEST.getStatusCode());
+    verify(transcriptionService, never()).updateTranscriptionName(anyInt(), anyInt(), any(), anyInt());
+  }
+
+  @Test
+  void shouldReturnBadRequestWhenUpdateNameIsBlank() throws Exception {
+    Response response = endpoint.updateMediumTranscription(MEDIUM_ID, TRANSCRIPTION_ID,
+            new UpdateTranscriptionRequest("   "));
+
+    assertThat(response.getStatus()).isEqualTo(Response.Status.BAD_REQUEST.getStatusCode());
+    verify(transcriptionService, never()).updateTranscriptionName(anyInt(), anyInt(), any(), anyInt());
+  }
+
+  @Test
+  void shouldReturnNotFoundWhenUpdatingNameOfMissingTranscription() throws Exception {
+    doThrow(new TranscriptionNotFoundException(TRANSCRIPTION_ID)).when(transcriptionService)
+                                                                .updateTranscriptionName(MEDIUM_ID, TRANSCRIPTION_ID,
+                                                                        "Neuer Name", USER_ID);
+
+    Response response = endpoint.updateMediumTranscription(MEDIUM_ID, TRANSCRIPTION_ID,
+            new UpdateTranscriptionRequest("Neuer Name"));
+
+    assertThat(response.getStatus()).isEqualTo(Response.Status.NOT_FOUND.getStatusCode());
+  }
+
+  @Test
+  void shouldUpdateContentAndReturnNoContent() throws Exception {
+    TranscriptionContent content = content();
+
+    Response response = endpoint.updateMediumTranscriptionContent(MEDIUM_ID, TRANSCRIPTION_ID, content);
+
+    assertThat(response.getStatus()).isEqualTo(Response.Status.NO_CONTENT.getStatusCode());
+    verify(transcriptionService).updateTranscriptionContent(MEDIUM_ID, TRANSCRIPTION_ID, content, USER_ID);
+  }
+
+  @Test
+  void shouldReturnBadRequestWhenUpdateContentBodyIsNull() throws Exception {
+    Response response = endpoint.updateMediumTranscriptionContent(MEDIUM_ID, TRANSCRIPTION_ID, null);
+
+    assertThat(response.getStatus()).isEqualTo(Response.Status.BAD_REQUEST.getStatusCode());
+    verify(transcriptionService, never()).updateTranscriptionContent(anyInt(), anyInt(), any(), anyInt());
+  }
+
+  @Test
+  void shouldReturnNotFoundWhenUpdatingContentOfMissingTranscription() throws Exception {
+    doThrow(new TranscriptionNotFoundException(TRANSCRIPTION_ID)).when(transcriptionService)
+                                                                .updateTranscriptionContent(eq(MEDIUM_ID),
+                                                                        eq(TRANSCRIPTION_ID), any(), eq(USER_ID));
+
+    Response response = endpoint.updateMediumTranscriptionContent(MEDIUM_ID, TRANSCRIPTION_ID, content());
+
+    assertThat(response.getStatus()).isEqualTo(Response.Status.NOT_FOUND.getStatusCode());
+  }
+
+  @Test
+  void shouldReturnInternalServerErrorWhenUpdatingContentFails() throws Exception {
+    doThrow(new TranscriptionServiceException("write failure")).when(transcriptionService)
+                                                               .updateTranscriptionContent(eq(MEDIUM_ID),
+                                                                       eq(TRANSCRIPTION_ID), any(), eq(USER_ID));
+
+    Response response = endpoint.updateMediumTranscriptionContent(MEDIUM_ID, TRANSCRIPTION_ID, content());
+
+    assertThat(response.getStatus()).isEqualTo(Response.Status.INTERNAL_SERVER_ERROR.getStatusCode());
+  }
+
+  private TranscriptionContent content() {
+    return new TranscriptionContent(
+            List.of(new TranscriptionCue(Duration.ofSeconds(1), Duration.ofSeconds(2), "Hallo")));
   }
 
   private Transcription transcription(int id, int mediumId, String engineIdentifier, String modelIdentifier) {

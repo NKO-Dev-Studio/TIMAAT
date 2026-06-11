@@ -2,6 +2,7 @@ package de.bitgilde.TIMAAT.service.transcription;
 
 import de.bitgilde.TIMAAT.service.task.TaskService;
 import de.bitgilde.TIMAAT.service.transcription.format.vtt.VttParser;
+import de.bitgilde.TIMAAT.service.transcription.format.vtt.VttWriter;
 import de.bitgilde.TIMAAT.sse.EntityUpdateEventService;
 import de.bitgilde.TIMAAT.storage.entity.SystemSettingStorage;
 import de.bitgilde.TIMAAT.storage.entity.medium.MediumStorage;
@@ -47,6 +48,7 @@ class TranscriptionServiceShutdownTest {
   private SpeechToTextServiceClient speechToTextServiceClient;
   private EntityUpdateEventService entityUpdateEventService;
   private VttParser vttParser;
+  private VttWriter vttWriter;
 
   @BeforeEach
   @SuppressWarnings("unchecked")
@@ -62,6 +64,7 @@ class TranscriptionServiceShutdownTest {
     speechToTextServiceClient = mock(SpeechToTextServiceClient.class);
     entityUpdateEventService = mock(EntityUpdateEventService.class);
     vttParser = mock(VttParser.class);
+    vttWriter = mock(VttWriter.class);
 
     when(systemSettingStorage.getDefaultTranscriptionModel()).thenReturn(Optional.empty());
     when(transcriptionStorage.getEntriesAsStream(any(), any(), any(), any())).thenReturn(Stream.empty());
@@ -70,13 +73,13 @@ class TranscriptionServiceShutdownTest {
   private TranscriptionService featureEnabledService() {
     return new TranscriptionService(transcriptionStorage, systemSettingStorage, audioFileStorage, videoFileStorage,
             taskServiceProvider, temporaryFileStorage, transcriptionFileStorage, mediumStorage,
-            speechToTextServiceClient, entityUpdateEventService, vttParser);
+            speechToTextServiceClient, entityUpdateEventService, vttParser, vttWriter);
   }
 
   private TranscriptionService featureDisabledService() {
     return new TranscriptionService(transcriptionStorage, systemSettingStorage, audioFileStorage, videoFileStorage,
             taskServiceProvider, temporaryFileStorage, transcriptionFileStorage, mediumStorage,
-            (SpeechToTextServiceClient) null, entityUpdateEventService, vttParser);
+            (SpeechToTextServiceClient) null, entityUpdateEventService, vttParser, vttWriter);
   }
 
   @Test

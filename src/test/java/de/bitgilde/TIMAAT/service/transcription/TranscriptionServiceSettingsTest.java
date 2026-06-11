@@ -8,6 +8,7 @@ import de.bitgilde.TIMAAT.service.transcription.api.TranscriptionEngine;
 import de.bitgilde.TIMAAT.service.transcription.api.TranscriptionEngineModel;
 import de.bitgilde.TIMAAT.service.transcription.exception.TranscriptionFeatureDisabledException;
 import de.bitgilde.TIMAAT.service.transcription.format.vtt.VttParser;
+import de.bitgilde.TIMAAT.service.transcription.format.vtt.VttWriter;
 import de.bitgilde.TIMAAT.sse.EntityUpdateEventService;
 import de.bitgilde.TIMAAT.storage.entity.SystemSettingStorage;
 import de.bitgilde.TIMAAT.storage.entity.api.TranscriptionSystemSettings;
@@ -67,6 +68,7 @@ public class TranscriptionServiceSettingsTest {
   private SpeechToTextServiceClient speechToTextServiceClient;
   private EntityUpdateEventService entityUpdateEventService;
   private VttParser vttParser;
+  private VttWriter vttWriter;
 
   @BeforeEach
   @SuppressWarnings("unchecked")
@@ -82,6 +84,7 @@ public class TranscriptionServiceSettingsTest {
     speechToTextServiceClient = mock(SpeechToTextServiceClient.class);
     entityUpdateEventService = mock(EntityUpdateEventService.class);
     vttParser = mock(VttParser.class);
+    vttWriter = mock(VttWriter.class);
 
     when(systemSettingStorage.getDefaultTranscriptionModel()).thenReturn(Optional.empty());
     when(transcriptionStorage.getEntriesAsStream(any(), any(), any(), any())).thenReturn(Stream.empty());
@@ -93,7 +96,7 @@ public class TranscriptionServiceSettingsTest {
                     List.of(SpeechToTextEngineOutputFormat.SRT))));
     TranscriptionService service = new TranscriptionService(transcriptionStorage, systemSettingStorage,
             audioFileStorage, videoFileStorage, taskServiceProvider, temporaryFileStorage, transcriptionFileStorage,
-            mediumStorage, speechToTextServiceClient, entityUpdateEventService, vttParser);
+            mediumStorage, speechToTextServiceClient, entityUpdateEventService, vttParser, vttWriter);
     clearInvocations(transcriptionStorage, systemSettingStorage);
     return service;
   }
@@ -101,7 +104,7 @@ public class TranscriptionServiceSettingsTest {
   private TranscriptionService featureDisabledService() {
     return new TranscriptionService(transcriptionStorage, systemSettingStorage, audioFileStorage, videoFileStorage,
             taskServiceProvider, temporaryFileStorage, transcriptionFileStorage, mediumStorage,
-            (SpeechToTextServiceClient) null, entityUpdateEventService, vttParser);
+            (SpeechToTextServiceClient) null, entityUpdateEventService, vttParser, vttWriter);
   }
 
   @Nested
@@ -177,7 +180,7 @@ public class TranscriptionServiceSettingsTest {
               Optional.of(buildTranscriptionModel("vosk", "de")));
       TranscriptionService service = new TranscriptionService(transcriptionStorage, systemSettingStorage,
               audioFileStorage, videoFileStorage, taskServiceProvider, temporaryFileStorage, transcriptionFileStorage,
-              mediumStorage, speechToTextServiceClient, entityUpdateEventService, vttParser);
+              mediumStorage, speechToTextServiceClient, entityUpdateEventService, vttParser, vttWriter);
       clearInvocations(transcriptionStorage, systemSettingStorage);
 
       Collection<TranscriptionEngine> engines = service.getAvailableEngineCapabilities();

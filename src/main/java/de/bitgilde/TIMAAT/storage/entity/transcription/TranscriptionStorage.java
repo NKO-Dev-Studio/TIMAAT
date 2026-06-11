@@ -183,9 +183,8 @@ public class TranscriptionStorage extends DbStorage<Transcription, Transcription
   public boolean existsForMedium(int mediumId, int transcriptionId) {
     return executeDbTransaction(entityManager -> {
       Long count = entityManager.createQuery(
-                                        "select count(transcription) from Transcription transcription " + "where transcription.id = :id and transcription.medium.id = :mediumId",
-                                        Long.class).setParameter("id", transcriptionId).setParameter("mediumId", mediumId)
-                                .getSingleResult();
+              "select count(transcription) from Transcription transcription " + "where transcription.id = :id and transcription.medium.id = :mediumId",
+              Long.class).setParameter("id", transcriptionId).setParameter("mediumId", mediumId).getSingleResult();
       return count != null && count > 0L;
     });
   }
@@ -230,6 +229,49 @@ public class TranscriptionStorage extends DbStorage<Transcription, Transcription
       } catch (NoResultException e) {
         return Optional.empty();
       }
+    });
+  }
+
+  /**
+   * Updates the editable base information of the {@link Transcription} identified by
+   * {@code transcriptionId}. Currently only the name is changeable. The edit is stamped with the
+   * current time and the editing user. The transcription is expected to exist; the existence and
+   * medium-scope check is performed by the calling service.
+   *
+   * @param transcriptionId        identifies the {@link Transcription} to update
+   * @param name                   the new name of the transcription
+   * @param editedByUserAccountId  id of the {@link UserAccount} performing the change
+   * @return the updated {@link Transcription}
+   */
+  public Transcription updateTranscriptionMetadata(int transcriptionId, String name, int editedByUserAccountId) {
+    return executeDbTransaction(entityManager -> {
+      Transcription transcription = entityManager.find(Transcription.class, transcriptionId);
+
+      transcription.setName(name);
+      transcription.setLastEditedAt(Instant.now());
+      transcription.setLastEditedByUserAccount(entityManager.getReference(UserAccount.class, editedByUserAccountId));
+
+      return transcription;
+    });
+  }
+
+  /**
+   * Stamps the {@link Transcription} identified by {@code transcriptionId} as edited by setting its
+   * {@code lastEditedAt} to the current time and its {@code lastEditedByUserAccount} to the editing
+   * user, without changing any other field. Used when only the transcription content (the VTT file)
+   * was changed. The transcription is expected to exist; the existence and medium-scope check is
+   * performed by the calling service.
+   *
+   * @param transcriptionId       identifies the {@link Transcription} to stamp
+   * @param editedByUserAccountId id of the {@link UserAccount} performing the change
+   */
+  public void touchTranscription(int transcriptionId, int editedByUserAccountId) {
+    executeDbTransaction(entityManager -> {
+      Transcription transcription = entityManager.find(Transcription.class, transcriptionId);
+      transcription.setLastEditedAt(Instant.now());
+      transcription.setLastEditedByUserAccount(entityManager.getReference(UserAccount.class, editedByUserAccountId));
+
+      return Void.TYPE;
     });
   }
 
