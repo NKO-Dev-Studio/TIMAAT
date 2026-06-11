@@ -61,6 +61,7 @@
     model: Object(),
     overlay: null,
     repeatMode: "NONE", //one of NONE | ANNOTATION | SELECTION
+    subtitleEnabled: false,
     selectedElementType: null,
     selectedMedium: null,
     tagAutocomplete: [],
@@ -1254,6 +1255,29 @@
         updateRepeatButtonStates()
       });
 
+
+      $('#mediumPlayerSubtitle').on('click', function (ev) {
+        TIMAAT.VideoPlayer.subtitleEnabled = !TIMAAT.VideoPlayer.subtitleEnabled
+        const $mediumPlayerSubtitle = $('#mediumPlayerSubtitle')
+        const videoElement = TIMAAT.VideoPlayer.overlay.getElement()
+
+        if (TIMAAT.VideoPlayer.subtitleEnabled) {
+          $mediumPlayerSubtitle.removeClass('btn-outline-secondary')
+          $mediumPlayerSubtitle.addClass('btn-primary')
+
+          if (videoElement && videoElement.textTracks.length) {
+            videoElement.textTracks[0].mode = "showing"
+          }
+        } else {
+          $mediumPlayerSubtitle.addClass('btn-outline-secondary')
+          $mediumPlayerSubtitle.removeClass('btn-primary')
+
+          if (videoElement && videoElement.textTracks.length) {
+            videoElement.textTracks[0].mode = "hidden"
+          }
+        }
+      })
+
       $('.repeatButtonSelection').on('click', function (ev) {
         ev.preventDefault();
         ev.stopPropagation();
@@ -1612,6 +1636,23 @@
             loop: false
           }).addTo(TIMAAT.VideoPlayer.viewer);
           this.medium = this.overlay.getElement();
+          if (this.model.medium.defaultTranscriptionId) {
+            console.log("Found default transcription model for current selected medium in annotation perspective")
+            TIMAAT.MediumService.downloadTranscriptionFile(this.model.medium.id, this.model.medium.defaultTranscriptionId).then(blob => {
+              const $medium = $(this.medium)
+              const blobUrl = URL.createObjectURL(blob);
+              const isDefault = TIMAAT.VideoPlayer.subtitleEnabled
+
+              const track = $("<track/>")
+              track.attr('src', blobUrl);
+              if (isDefault) {
+                track.attr('default', true);
+              }
+
+              $medium.empty()
+              $medium.append(track);
+            })
+          }
 
           TIMAAT.VideoPlayer.drawWaveform()
 

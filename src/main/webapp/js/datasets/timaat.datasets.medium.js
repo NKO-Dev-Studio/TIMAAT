@@ -2911,6 +2911,7 @@
           case 'audio': // TODO check audioPreview functionality
             $('#mediumAudioPreview').attr('src', '/TIMAAT/api/medium/audio/' + data.model.id + '/download' + '?token=' + data.model.viewToken);
             $('.audioPreview').show();
+            TIMAAT.MediumDatasets.updateFormPreviewSubtitle(data)
             break;
           case 'image':
             $('#mediumImagePreview').attr('src', '/TIMAAT/api/medium/image/' + data.model.id + '/preview' + '?token=' + data.model.viewToken);
@@ -2925,7 +2926,11 @@
               $('#mediumImagePreview').attr('alt', 'placeholder');
               $('.imagePreview').show();
             } else {
-              $('#mediumVideoPreview').attr('src', '/TIMAAT/api/medium/video/' + data.model.id + '/download' + '?token=' + data.model.viewToken);
+              const $mediumVideoPreview = $('#mediumVideoPreview')
+              $mediumVideoPreview.attr('src', '/TIMAAT/api/medium/video/' + data.model.id + '/download' + '?token=' + data.model.viewToken);
+
+              TIMAAT.MediumDatasets.updateFormPreviewSubtitle(data)
+
               $('.videoPreview').show();
               $('.mediumDataSheetFormCaptureThumbnail').prop('disabled', false);
             }
@@ -2942,6 +2947,30 @@
       $('.mediumDataSheetFormDeleteButton :input').prop('disabled', false);
       $('.mediumDataSheetFormDeleteButton').show();
       $('#mediumFormPreviewHeader').html(type + " Preview (#" + data.model.id + ')');
+    },
+
+    updateFormPreviewSubtitle: function (medium) {
+      if (medium.model.defaultTranscriptionId) {
+        const type = medium.model.mediaType.mediaTypeTranslations[0].type
+
+
+        TIMAAT.MediumService.downloadTranscriptionFile(medium.model.id, medium.model.defaultTranscriptionId).then(blob => {
+          const blobUrl = URL.createObjectURL(blob);
+          const track = $("<track default/>")
+          track.attr('src', blobUrl);
+
+          if (type === "video") {
+            const $mediumVideoPreview = $('#mediumVideoPreview')
+            $mediumVideoPreview.empty()
+            $mediumVideoPreview.append(track);
+          } else if (type === "audio") {
+            const $mediumAudioPreview = $('#mediumAudioPreview')
+            $mediumAudioPreview.empty()
+            $mediumAudioPreview.append(track);
+          }
+
+        })
+      }
     },
 
     mediumFormTitles: function (action, medium) {
