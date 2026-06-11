@@ -4,6 +4,7 @@ import de.bitgilde.TIMAAT.model.FIPOP.Medium;
 import de.bitgilde.TIMAAT.model.FIPOP.Transcription;
 import de.bitgilde.TIMAAT.service.task.TaskService;
 import de.bitgilde.TIMAAT.service.transcription.exception.TranscriptionNotFoundException;
+import de.bitgilde.TIMAAT.service.transcription.format.vtt.VttParser;
 import de.bitgilde.TIMAAT.sse.EntityUpdateEventService;
 import de.bitgilde.TIMAAT.storage.entity.SystemSettingStorage;
 import de.bitgilde.TIMAAT.storage.entity.medium.MediumStorage;
@@ -60,6 +61,7 @@ public class TranscriptionServiceMediumLookupTest {
   private MediumStorage mediumStorage;
   private SpeechToTextServiceClient speechToTextServiceClient;
   private EntityUpdateEventService entityUpdateEventService;
+  private VttParser vttParser;
 
   private TranscriptionService service;
 
@@ -78,6 +80,7 @@ public class TranscriptionServiceMediumLookupTest {
     mediumStorage = mock(MediumStorage.class);
     speechToTextServiceClient = mock(SpeechToTextServiceClient.class);
     entityUpdateEventService = mock(EntityUpdateEventService.class);
+    vttParser = mock(VttParser.class);
 
     when(speechToTextServiceClient.getAvailableEngines()).thenReturn(Collections.emptyList());
     when(systemSettingStorage.getDefaultTranscriptionModel()).thenReturn(Optional.empty());
@@ -85,7 +88,7 @@ public class TranscriptionServiceMediumLookupTest {
 
     service = new TranscriptionService(transcriptionStorage, systemSettingStorage, audioFileStorage, videoFileStorage,
             taskServiceProvider, temporaryFileStorage, transcriptionFileStorage, mediumStorage,
-            speechToTextServiceClient, entityUpdateEventService);
+            speechToTextServiceClient, entityUpdateEventService, vttParser);
 
     // The constructor triggers resumeMonitoringOfActiveTranscriptions which calls
     // getEntriesAsStream once; clear that so per-test verify counts start from zero.

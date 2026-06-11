@@ -20,6 +20,7 @@ import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.container.ContainerRequestContext;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.StreamingOutput;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -39,6 +40,7 @@ import static org.assertj.core.api.Assertions.catchThrowableOfType;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -62,11 +64,21 @@ public class EndpointMediumTranscriptionsTest {
   private static final int USER_ID = 5;
   private static final String ENGINE = "whisper";
   private static final String MODEL = "large-v3";
+  private static final String TRANSCRIPTION_NAME = "transcription";
+  private static Transcription transcription;
 
   private TranscriptionService transcriptionService;
   private TranscriptionFileStorage transcriptionFileStorage;
   private ContainerRequestContext containerRequestContext;
   private EndpointMedium endpoint;
+
+  @BeforeAll
+  public static void setup() {
+    transcription = mock(Transcription.class);
+    doReturn(TRANSCRIPTION_ID).when(transcription).getId();
+    doReturn(TRANSCRIPTION_NAME).when(transcription).getName();
+    doReturn(Instant.now()).when(transcription).getCreatedAt();
+  }
 
   @BeforeEach
   void setUp() throws Exception {
@@ -271,14 +283,14 @@ public class EndpointMediumTranscriptionsTest {
     Path srtFile = tempDir.resolve(TRANSCRIPTION_ID + ".srt");
     String srtContent = "1\n00:00:01,000 --> 00:00:02,000\nHello World\n";
     Files.writeString(srtFile, srtContent, StandardCharsets.UTF_8);
-    when(transcriptionService.existsForMedium(MEDIUM_ID, TRANSCRIPTION_ID)).thenReturn(true);
+    when(transcriptionService.getTranscription(MEDIUM_ID, TRANSCRIPTION_ID)).thenReturn(transcription);
     when(transcriptionFileStorage.getPathToTranscription(TRANSCRIPTION_ID)).thenReturn(Optional.of(srtFile));
 
     Response response = endpoint.downloadTranscriptionFile(MEDIUM_ID, TRANSCRIPTION_ID);
 
     assertThat(response.getStatus()).isEqualTo(Response.Status.OK.getStatusCode());
-    assertThat(response.getHeaderString("Content-Disposition")).contains(TRANSCRIPTION_ID + ".srt");
-    assertThat(response.getMediaType().toString()).isEqualTo("text/plain");
+    assertThat(response.getHeaderString("Content-Disposition")).contains(transcription.getName());
+    assertThat(response.getMediaType().toString()).isEqualTo("text/vtt");
     assertThat(response.getEntity()).isInstanceOf(StreamingOutput.class);
 
     StreamingOutput stream = (StreamingOutput) response.getEntity();
@@ -288,8 +300,9 @@ public class EndpointMediumTranscriptionsTest {
   }
 
   @Test
-  void shouldReturnNotFoundWhenTranscriptionDoesNotExistForMediumOnDownload() {
-    when(transcriptionService.existsForMedium(MEDIUM_ID, TRANSCRIPTION_ID)).thenReturn(false);
+  void shouldReturnNotFoundWhenTranscriptionDoesNotExistForMediumOnDownload() throws TranscriptionNotFoundException {
+    doThrow(TranscriptionNotFoundException.class).when(transcriptionService)
+                                                 .getTranscription(MEDIUM_ID, TRANSCRIPTION_ID);
 
     Response response = endpoint.downloadTranscriptionFile(MEDIUM_ID, TRANSCRIPTION_ID);
 
@@ -310,8 +323,8 @@ public class EndpointMediumTranscriptionsTest {
   @Test
   void shouldReturnInternalServerErrorWhenStreamingFails(@TempDir Path tempDir) throws Exception {
     Path missingFile = tempDir.resolve("does-not-exist.srt");
-    when(transcriptionService.existsForMedium(MEDIUM_ID, TRANSCRIPTION_ID)).thenReturn(true);
     when(transcriptionFileStorage.getPathToTranscription(TRANSCRIPTION_ID)).thenReturn(Optional.of(missingFile));
+    when(transcriptionService.getTranscription(MEDIUM_ID, TRANSCRIPTION_ID)).thenReturn(transcription);
 
     Response response = endpoint.downloadTranscriptionFile(MEDIUM_ID, TRANSCRIPTION_ID);
 
