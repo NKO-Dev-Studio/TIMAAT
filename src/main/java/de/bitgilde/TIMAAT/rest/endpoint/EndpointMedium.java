@@ -33,6 +33,7 @@ import de.bitgilde.TIMAAT.model.FIPOP.Role;
 import de.bitgilde.TIMAAT.model.FIPOP.Source;
 import de.bitgilde.TIMAAT.model.FIPOP.Tag;
 import de.bitgilde.TIMAAT.model.FIPOP.Title;
+import de.bitgilde.TIMAAT.model.FIPOP.Transcription;
 import de.bitgilde.TIMAAT.model.FIPOP.UserAccount;
 import de.bitgilde.TIMAAT.model.TimeRange;
 import de.bitgilde.TIMAAT.model.fileInformation.AudioInformation;
@@ -61,6 +62,7 @@ import de.bitgilde.TIMAAT.service.task.api.TaskState;
 import de.bitgilde.TIMAAT.service.task.exception.TaskServiceException;
 import de.bitgilde.TIMAAT.service.transcription.TranscriptionService;
 import de.bitgilde.TIMAAT.service.transcription.api.GenerateTranscriptionConfiguration;
+import de.bitgilde.TIMAAT.service.transcription.api.TranscriptionContent;
 import de.bitgilde.TIMAAT.service.transcription.exception.TranscriptionFeatureDisabledException;
 import de.bitgilde.TIMAAT.service.transcription.exception.TranscriptionNotFoundException;
 import de.bitgilde.TIMAAT.service.transcription.exception.TranscriptionServiceException;
@@ -3336,9 +3338,19 @@ public class EndpointMedium {
     }
 
 
-    Optional<java.nio.file.Path> frequencyFilePath = videoFileStorage.getPathToFrequencyFile(id)
-                                                                     .or(() -> audioFileStorage.getPathToOriginalFile(
-                                                                             id));
+    Optional<java.nio.file.Path> frequencyFilePath = Optional.empty();
+    try (EntityManager entityManager = TIMAATApp.emf.createEntityManager()) {
+      Medium medium = entityManager.find(Medium.class, id);
+
+      if (medium != null) {
+        if (medium.getMediumAudio() != null) {
+          frequencyFilePath = audioFileStorage.getPathToFrequencyFile(id);
+        }
+        else if (medium.getMediumVideo() != null) {
+          frequencyFilePath = videoFileStorage.getPathToFrequencyFile(id);
+        }
+      }
+    }
 
     if (frequencyFilePath.isPresent()) {
       FrequencyFileReader frequencyFileReader = new FrequencyFileReader(frequencyFilePath.get());
@@ -4526,8 +4538,7 @@ public class EndpointMedium {
     try {
       Collection<de.bitgilde.TIMAAT.model.FIPOP.Transcription> transcriptions = transcriptionService.getTranscriptionsForMedium(
               mediumId);
-      List<TranscriptionDto> dtos = transcriptions.stream().map(EndpointMedium::toTranscriptionDto)
-                                                  .collect(Collectors.toList());
+      List<TranscriptionDto> dtos = transcriptions.stream().map(TranscriptionDto::new).collect(Collectors.toList());
       return Response.ok(dtos).build();
     } catch (MediumNotFoundException e) {
       return Response.status(Status.NOT_FOUND).entity("{\"reason\":\"" + e.getMessage() + "\"}").build();
@@ -4552,7 +4563,7 @@ public class EndpointMedium {
     try {
       de.bitgilde.TIMAAT.model.FIPOP.Transcription transcription = transcriptionService.getTranscription(mediumId,
               transcriptionId);
-      return Response.ok(toTranscriptionDto(transcription)).build();
+      return Response.ok(new TranscriptionDto(transcription)).build();
     } catch (TranscriptionNotFoundException e) {
       return Response.status(Status.NOT_FOUND).entity("{\"reason\":\"" + e.getMessage() + "\"}").build();
     }
@@ -4591,9 +4602,8 @@ public class EndpointMedium {
             request.engineIdentifier(), request.modelIdentifier());
 
     try {
-      de.bitgilde.TIMAAT.model.FIPOP.Transcription created = transcriptionService.createTranscription(configuration,
-              userId);
-      return Response.status(Status.CREATED).entity(toTranscriptionDto(created)).build();
+      TranscriptionDto created = transcriptionService.createTranscription(configuration, userId);
+      return Response.status(Status.CREATED).entity(created).build();
     } catch (TranscriptionFeatureDisabledException e) {
       return Response.status(Status.FORBIDDEN).entity("{\"reason\":\"" + e.getMessage() + "\"}").build();
     } catch (IllegalArgumentException e) {
@@ -4656,7 +4666,10 @@ public class EndpointMedium {
   @Secured
   @Path("{id}/transcriptions/{transcriptionId}/file")
   public Response downloadTranscriptionFile(@PathParam("id") int mediumId, @PathParam("transcriptionId") int transcriptionId) {
-    if (!transcriptionService.existsForMedium(mediumId, transcriptionId)) {
+    Transcription transcription;
+    try {
+      transcription = transcriptionService.getTranscription(mediumId, transcriptionId);
+    } catch (TranscriptionNotFoundException e) {
       return Response.status(Status.NOT_FOUND)
                      .entity("{\"reason\":\"Transcription " + transcriptionId + " does not exist for medium " + mediumId + "\"}")
                      .build();
@@ -4679,8 +4692,26 @@ public class EndpointMedium {
       }
     };
 
-    return Response.ok(stream, "text/plain")
-                   .header("Content-Disposition", "attachment; filename=\"" + transcriptionId + ".srt\"").build();
+    return Response.ok(stream, "text/vtt").header("Content-Disposition",
+                           "attachment; filename=\"" + transcription.getName() + "_" + transcription.getCreatedAt()
+                                                                                                    .getEpochSecond() + ".srt\"")
+                   .build();
+  }
+
+  @GET
+  @Produces(jakarta.ws.rs.core.MediaType.APPLICATION_JSON)
+  @Secured
+  @Path("{id}/transcriptions/{transcriptionId}/content")
+  public Response getTranscriptionContent(@PathParam("id") int mediumId, @PathParam("transcriptionId") int transcriptionId) {
+    try {
+      TranscriptionContent transcriptionContent = transcriptionService.getTranscriptionContent(mediumId,
+              transcriptionId);
+      return Response.ok(transcriptionContent).build();
+    } catch (TranscriptionNotFoundException e) {
+      return Response.status(Status.NOT_FOUND).entity("{\"reason\":\"" + e.getMessage() + "\"}").build();
+    } catch (TranscriptionServiceException e) {
+      return Response.status(Status.INTERNAL_SERVER_ERROR).entity("{\"reason\":\"" + e.getMessage() + "\"}").build();
+    }
   }
 
   @POST
@@ -4700,20 +4731,5 @@ public class EndpointMedium {
     return value == null || value.isBlank();
   }
 
-  private static TranscriptionDto toTranscriptionDto(de.bitgilde.TIMAAT.model.FIPOP.Transcription transcription) {
-    String engineIdentifier = null;
-    String modelIdentifier = null;
-    if (transcription.getTranscriptionModel() != null && transcription.getTranscriptionModel().getId() != null) {
-      engineIdentifier = transcription.getTranscriptionModel().getId().getEngineIdentifier();
-      modelIdentifier = transcription.getTranscriptionModel().getId().getModelIdentifier();
-    }
-
-    return new TranscriptionDto(transcription.getId(), transcription.getName(), transcription.getMedium().getId(),
-            engineIdentifier, modelIdentifier,
-            de.bitgilde.TIMAAT.storage.entity.transcription.api.TranscriptionState.fromDatabaseId(
-                    transcription.getTranscriptionState().getId()),
-            de.bitgilde.TIMAAT.storage.entity.transcription.api.TranscriptionType.fromDatabaseId(
-                    transcription.getTranscriptionType().getId()), transcription.getCreatedAt());
-  }
 
 }

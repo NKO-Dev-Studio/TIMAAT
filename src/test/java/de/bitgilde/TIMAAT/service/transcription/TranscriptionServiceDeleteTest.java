@@ -5,6 +5,8 @@ import de.bitgilde.TIMAAT.model.FIPOP.Transcription;
 import de.bitgilde.TIMAAT.service.task.TaskService;
 import de.bitgilde.TIMAAT.service.transcription.exception.TranscriptionNotFoundException;
 import de.bitgilde.TIMAAT.service.transcription.exception.TranscriptionServiceException;
+import de.bitgilde.TIMAAT.service.transcription.format.vtt.VttParser;
+import de.bitgilde.TIMAAT.sse.EntityUpdateEventService;
 import de.bitgilde.TIMAAT.storage.entity.SystemSettingStorage;
 import de.bitgilde.TIMAAT.storage.entity.medium.MediumStorage;
 import de.bitgilde.TIMAAT.storage.entity.transcription.TranscriptionStorage;
@@ -55,6 +57,8 @@ public class TranscriptionServiceDeleteTest {
   private TranscriptionFileStorage transcriptionFileStorage;
   private MediumStorage mediumStorage;
   private SpeechToTextServiceClient speechToTextServiceClient;
+  private EntityUpdateEventService entityUpdateEventService;
+  private VttParser vttParser;
 
   private TranscriptionService service;
 
@@ -72,23 +76,26 @@ public class TranscriptionServiceDeleteTest {
     transcriptionFileStorage = mock(TranscriptionFileStorage.class);
     mediumStorage = mock(MediumStorage.class);
     speechToTextServiceClient = mock(SpeechToTextServiceClient.class);
+    entityUpdateEventService = mock(EntityUpdateEventService.class);
+    vttParser = mock(VttParser.class);
+
 
     when(speechToTextServiceClient.getAvailableEngines()).thenReturn(Collections.emptyList());
     when(systemSettingStorage.getDefaultTranscriptionModel()).thenReturn(Optional.empty());
-    when(transcriptionStorage.getEntriesAsStream(any(), any(), any(), any())).thenReturn(java.util.stream.Stream.empty());
+    when(transcriptionStorage.getEntriesAsStream(any(), any(), any(), any())).thenReturn(
+            java.util.stream.Stream.empty());
 
     service = new TranscriptionService(transcriptionStorage, systemSettingStorage, audioFileStorage, videoFileStorage,
             taskServiceProvider, temporaryFileStorage, transcriptionFileStorage, mediumStorage,
-            speechToTextServiceClient);
+            speechToTextServiceClient, entityUpdateEventService, vttParser);
   }
 
   @Test
   void shouldThrowNotFoundExceptionWhenTranscriptionDoesNotExist() {
     when(transcriptionStorage.findById(TRANSCRIPTION_ID)).thenReturn(Optional.empty());
 
-    assertThatThrownBy(() -> service.deleteTranscription(TRANSCRIPTION_ID))
-            .isInstanceOf(TranscriptionNotFoundException.class)
-            .hasMessageContaining(String.valueOf(TRANSCRIPTION_ID));
+    assertThatThrownBy(() -> service.deleteTranscription(TRANSCRIPTION_ID)).isInstanceOf(
+            TranscriptionNotFoundException.class).hasMessageContaining(String.valueOf(TRANSCRIPTION_ID));
 
     verify(transcriptionStorage, never()).deleteTranscription(anyInt());
     verifyNoFileDeletion();
@@ -148,9 +155,8 @@ public class TranscriptionServiceDeleteTest {
             Optional.empty());
     when(transcriptionStorage.deleteTranscription(TRANSCRIPTION_ID)).thenThrow(new RuntimeException("DB down"));
 
-    assertThatThrownBy(() -> service.deleteTranscription(TRANSCRIPTION_ID))
-            .isInstanceOf(TranscriptionServiceException.class)
-            .hasCauseInstanceOf(RuntimeException.class);
+    assertThatThrownBy(() -> service.deleteTranscription(TRANSCRIPTION_ID)).isInstanceOf(
+            TranscriptionServiceException.class).hasCauseInstanceOf(RuntimeException.class);
 
     verifyNoFileDeletion();
   }
@@ -164,17 +170,16 @@ public class TranscriptionServiceDeleteTest {
     when(transcriptionStorage.deleteTranscription(TRANSCRIPTION_ID)).thenReturn(true);
     when(transcriptionFileStorage.deleteTranscription(TRANSCRIPTION_ID)).thenThrow(new IOException("disk failure"));
 
-    assertThatThrownBy(() -> service.deleteTranscription(TRANSCRIPTION_ID))
-            .isInstanceOf(TranscriptionServiceException.class)
-            .hasCauseInstanceOf(IOException.class);
+    assertThatThrownBy(() -> service.deleteTranscription(TRANSCRIPTION_ID)).isInstanceOf(
+            TranscriptionServiceException.class).hasCauseInstanceOf(IOException.class);
   }
 
   @Test
   void shouldPropagateNotFoundExceptionWithoutWrapping() {
     when(transcriptionStorage.findById(TRANSCRIPTION_ID)).thenReturn(Optional.empty());
 
-    assertThatThrownBy(() -> service.deleteTranscription(TRANSCRIPTION_ID))
-            .isExactlyInstanceOf(TranscriptionNotFoundException.class);
+    assertThatThrownBy(() -> service.deleteTranscription(TRANSCRIPTION_ID)).isExactlyInstanceOf(
+            TranscriptionNotFoundException.class);
   }
 
   private Transcription transcription(int id, int mediumId) {

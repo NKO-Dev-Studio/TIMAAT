@@ -5,6 +5,7 @@ import de.bitgilde.TIMAAT.PropertyManagement;
 import de.bitgilde.TIMAAT.model.FIPOP.Transcription;
 import de.bitgilde.TIMAAT.model.FIPOP.TranscriptionModel;
 import de.bitgilde.TIMAAT.model.FIPOP.UserAccount;
+import de.bitgilde.TIMAAT.rest.model.transcription.TranscriptionDto;
 import de.bitgilde.TIMAAT.service.task.TaskService;
 import de.bitgilde.TIMAAT.service.task.api.MediumAudioAnalysisTask.SupportedMediumType;
 import de.bitgilde.TIMAAT.service.task.api.Task;
@@ -13,11 +14,16 @@ import de.bitgilde.TIMAAT.service.task.api.TaskType;
 import de.bitgilde.TIMAAT.service.task.api.TranscriptionMediumPreparationTask;
 import de.bitgilde.TIMAAT.service.task.storage.TaskStateUpdater;
 import de.bitgilde.TIMAAT.service.transcription.api.GenerateTranscriptionConfiguration;
+import de.bitgilde.TIMAAT.service.transcription.api.TranscriptionContent;
 import de.bitgilde.TIMAAT.service.transcription.api.TranscriptionEngine;
 import de.bitgilde.TIMAAT.service.transcription.api.TranscriptionEngineModel;
+import de.bitgilde.TIMAAT.service.transcription.api.TranscriptionStateEntityUpdateMessage;
 import de.bitgilde.TIMAAT.service.transcription.exception.TranscriptionFeatureDisabledException;
 import de.bitgilde.TIMAAT.service.transcription.exception.TranscriptionNotFoundException;
 import de.bitgilde.TIMAAT.service.transcription.exception.TranscriptionServiceException;
+import de.bitgilde.TIMAAT.service.transcription.format.vtt.VttParser;
+import de.bitgilde.TIMAAT.sse.EntityUpdateEventService;
+import de.bitgilde.TIMAAT.sse.api.EntityType;
 import de.bitgilde.TIMAAT.storage.api.PagingParameter;
 import de.bitgilde.TIMAAT.storage.api.SortingParameter;
 import de.bitgilde.TIMAAT.storage.entity.SystemSettingStorage;
@@ -52,6 +58,8 @@ import studio.nkodev.stt.client.config.SpeechToTextTransferType;
 import studio.nkodev.stt.client.exception.SpeechToTextServiceClientErrorType;
 
 import java.io.Closeable;
+import java.io.InputStream;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Collection;
 import java.util.List;
@@ -70,7 +78,7 @@ public class TranscriptionService implements TaskStateUpdater, SpeechToTextTaskS
 
   private static final Logger logger = Logger.getLogger(TranscriptionService.class.getName());
 
-  private static final SpeechToTextEngineOutputFormat engineOutputFormat = SpeechToTextEngineOutputFormat.SRT;
+  private static final SpeechToTextEngineOutputFormat engineOutputFormat = SpeechToTextEngineOutputFormat.VTT;
 
   private final TranscriptionStorage transcriptionStorage;
   private final SystemSettingStorage systemSettingStorage;
@@ -82,15 +90,18 @@ public class TranscriptionService implements TaskStateUpdater, SpeechToTextTaskS
   private final TranscriptionFileStorage transcriptionFileStorage;
   private final MediumStorage mediumStorage;
   private final boolean featureEnabled;
+  private final EntityUpdateEventService entityUpdateEventService;
+  private final VttParser vttParser;
 
   @Inject
-  public TranscriptionService(TranscriptionStorage transcriptionStorage, SystemSettingStorage systemSettingStorage, AudioFileStorage audioFileStorage, VideoFileStorage videoFileStorage, Provider<TaskService> taskServiceProvider, TemporaryFileStorage temporaryFileStorage, TranscriptionFileStorage transcriptionFileStorage, MediumStorage mediumStorage, PropertyManagement propertyManagement) {
+  public TranscriptionService(TranscriptionStorage transcriptionStorage, SystemSettingStorage systemSettingStorage, AudioFileStorage audioFileStorage, VideoFileStorage videoFileStorage, Provider<TaskService> taskServiceProvider, TemporaryFileStorage temporaryFileStorage, TranscriptionFileStorage transcriptionFileStorage, MediumStorage mediumStorage, PropertyManagement propertyManagement, EntityUpdateEventService entityUpdateEventService, VttParser vttParser) {
     this(transcriptionStorage, systemSettingStorage, audioFileStorage, videoFileStorage, taskServiceProvider,
             temporaryFileStorage, transcriptionFileStorage, mediumStorage,
-            isFeatureEnabled(propertyManagement) ? initSpeechToTextServiceClient(propertyManagement) : null);
+            isFeatureEnabled(propertyManagement) ? initSpeechToTextServiceClient(propertyManagement) : null,
+            entityUpdateEventService, vttParser);
   }
 
-  TranscriptionService(TranscriptionStorage transcriptionStorage, SystemSettingStorage systemSettingStorage, AudioFileStorage audioFileStorage, VideoFileStorage videoFileStorage, Provider<TaskService> taskServiceProvider, TemporaryFileStorage temporaryFileStorage, TranscriptionFileStorage transcriptionFileStorage, MediumStorage mediumStorage, @jakarta.annotation.Nullable SpeechToTextServiceClient speechToTextServiceClient) {
+  TranscriptionService(TranscriptionStorage transcriptionStorage, SystemSettingStorage systemSettingStorage, AudioFileStorage audioFileStorage, VideoFileStorage videoFileStorage, Provider<TaskService> taskServiceProvider, TemporaryFileStorage temporaryFileStorage, TranscriptionFileStorage transcriptionFileStorage, MediumStorage mediumStorage, @jakarta.annotation.Nullable SpeechToTextServiceClient speechToTextServiceClient, EntityUpdateEventService entityUpdateEventService, VttParser vttParser) {
     this.transcriptionStorage = transcriptionStorage;
     this.systemSettingStorage = systemSettingStorage;
     this.audioFileStorage = audioFileStorage;
@@ -101,6 +112,8 @@ public class TranscriptionService implements TaskStateUpdater, SpeechToTextTaskS
     this.mediumStorage = mediumStorage;
     this.speechToTextServiceClient = speechToTextServiceClient;
     this.featureEnabled = speechToTextServiceClient != null;
+    this.entityUpdateEventService = entityUpdateEventService;
+    this.vttParser = vttParser;
 
     if (featureEnabled) {
       resumeMonitoringOfActiveTranscriptions();
@@ -280,7 +293,7 @@ public class TranscriptionService implements TaskStateUpdater, SpeechToTextTaskS
             defaultModelIdentifier, editingUser);
   }
 
-  public Transcription createTranscriptionWithDefaultModel(int mediumId, int createdByUserAccountIdUserAccountId) throws TranscriptionServiceException {
+  public TranscriptionDto createTranscriptionWithDefaultModel(int mediumId, int createdByUserAccountIdUserAccountId) throws TranscriptionServiceException {
     if (!featureEnabled) {
       throw new TranscriptionFeatureDisabledException("Speech-to-text feature is disabled for this deployment");
     }
@@ -311,7 +324,7 @@ public class TranscriptionService implements TaskStateUpdater, SpeechToTextTaskS
    * @throws TranscriptionServiceException if the transcription could not be created (e.g. underlying task scheduling
    *                                       or storage access failed)
    */
-  public Transcription createTranscription(GenerateTranscriptionConfiguration generateTranscriptionConfiguration, int createdByUserAccountId) throws TranscriptionServiceException {
+  public TranscriptionDto createTranscription(GenerateTranscriptionConfiguration generateTranscriptionConfiguration, int createdByUserAccountId) throws TranscriptionServiceException {
     if (!featureEnabled) {
       throw new TranscriptionFeatureDisabledException("Speech-to-text feature is disabled for this deployment");
     }
@@ -347,13 +360,18 @@ public class TranscriptionService implements TaskStateUpdater, SpeechToTextTaskS
       logger.log(Level.SEVERE, "Error while creating transcription for medium {0}. Reason: {1}",
               new Object[]{mediumId, e});
       if (createdTranscription != null) {
-        transcriptionStorage.updateTranscriptionState(createdTranscription.getId(), TranscriptionState.FAILED);
+        updateTranscriptionState(createdTranscription.getId(), TranscriptionState.FAILED);
       }
       verifyDefaultModelStillAvailable();
       throw new TranscriptionServiceException("Failed to create transcription for medium " + mediumId, e);
     }
     trySetTranscriptionAsDefaultOfMedium(mediumId, createdTranscription.getId());
-    return createdTranscription;
+    TranscriptionDto transcriptionDto = new TranscriptionDto(createdTranscription);
+
+    entityUpdateEventService.sendEntityCreateMessage(EntityType.TRANSCRIPTION, createdTranscription.getId(),
+            transcriptionDto);
+
+    return transcriptionDto;
   }
 
   /**
@@ -395,6 +413,20 @@ public class TranscriptionService implements TaskStateUpdater, SpeechToTextTaskS
       throw new TranscriptionNotFoundException(transcriptionId);
     }
     return transcription;
+  }
+
+  public TranscriptionContent getTranscriptionContent(int mediumId, int transcriptionId) throws TranscriptionServiceException {
+    boolean transcriptionOfMedium = transcriptionStorage.existsForMedium(mediumId, transcriptionId);
+    Optional<Path> transcriptionPath = transcriptionFileStorage.getPathToTranscription(transcriptionId);
+    if (transcriptionPath.isEmpty() || !transcriptionOfMedium) {
+      throw new TranscriptionNotFoundException(transcriptionId);
+    }
+
+    try (InputStream inputStream = Files.newInputStream(transcriptionPath.get())) {
+      return vttParser.parseVttStream(inputStream);
+    } catch (Exception e) {
+      throw new TranscriptionServiceException("Error during parsing VTT file", e);
+    }
   }
 
   /**
@@ -445,6 +477,8 @@ public class TranscriptionService implements TaskStateUpdater, SpeechToTextTaskS
       throw new TranscriptionServiceException(
               "Failed to delete transcription file for transcription " + transcriptionId, e);
     }
+
+    entityUpdateEventService.sendEntityDeleteMessage(EntityType.TRANSCRIPTION, transcriptionId);
   }
 
   private void reassignDefaultTranscriptionIfReferenced(int mediumId, int transcriptionId) {
@@ -517,6 +551,9 @@ public class TranscriptionService implements TaskStateUpdater, SpeechToTextTaskS
 
     Collection<Transcription> transcriptions = transcriptionStorage.updateTranscriptionsStateOfPreparationTask(
             transcriptionMediumPreparationTask.getMediumId(), transcriptionState);
+    TranscriptionStateEntityUpdateMessage updateMessage = new TranscriptionStateEntityUpdateMessage(transcriptionState);
+    transcriptions.forEach(transcription -> entityUpdateEventService.sendEntityChangeMessage(EntityType.TRANSCRIPTION,
+            transcription.getId(), updateMessage));
 
     if (TranscriptionState.PENDING.equals(transcriptionState)) {
       SupportedMediumType supportedMediumType = transcriptionStorage.determineSupportedMediumType(
@@ -540,8 +577,8 @@ public class TranscriptionService implements TaskStateUpdater, SpeechToTextTaskS
       else {
         logger.log(Level.SEVERE, "No mono audio file found for medium {0}. Cannot start transcription task",
                 transcriptionMediumPreparationTask.getMediumId());
-        transcriptions.forEach(transcription -> transcriptionStorage.updateTranscriptionState(transcription.getId(),
-                TranscriptionState.FAILED));
+        transcriptions.forEach(
+                transcription -> updateTranscriptionState(transcription.getId(), TranscriptionState.FAILED));
       }
     }
   }
@@ -617,7 +654,7 @@ public class TranscriptionService implements TaskStateUpdater, SpeechToTextTaskS
       else {
         logger.log(Level.WARNING, "Found pending transcription without task id. Transcription id: {0}",
                 transcription.getId());
-        transcriptionStorage.updateTranscriptionState(transcription.getId(), TranscriptionState.FAILED);
+        updateTranscriptionState(transcription.getId(), TranscriptionState.FAILED);
       }
     });
   }
@@ -649,10 +686,10 @@ public class TranscriptionService implements TaskStateUpdater, SpeechToTextTaskS
         speechToTextServiceClient.saveResultsOfTask(taskId, temporaryFile.getTemporaryFilePath());
         transcriptionFileStorage.persistTranscription(temporaryFile.getTemporaryFilePath(),
                 relatedTranscriptionId.get());
-        transcriptionStorage.updateTranscriptionState(relatedTranscriptionId.get(), TranscriptionState.COMPLETED);
+        updateTranscriptionState(relatedTranscriptionId.get(), TranscriptionState.COMPLETED);
       } catch (Exception e) {
         logger.log(Level.SEVERE, "Error while handling speech to text task completion", e);
-        transcriptionStorage.updateTranscriptionState(relatedTranscriptionId.get(), TranscriptionState.FAILED);
+        updateTranscriptionState(relatedTranscriptionId.get(), TranscriptionState.FAILED);
       }
     }
     else {
@@ -664,10 +701,25 @@ public class TranscriptionService implements TaskStateUpdater, SpeechToTextTaskS
     Optional<Integer> relatedTranscriptionId = transcriptionStorage.getTranscriptionIdRelatedToTranscriptionTask(
             taskId);
     if (relatedTranscriptionId.isPresent()) {
-      transcriptionStorage.updateTranscriptionState(relatedTranscriptionId.get(), TranscriptionState.FAILED);
+      updateTranscriptionState(relatedTranscriptionId.get(), TranscriptionState.FAILED);
     }
     else {
       logger.log(Level.WARNING, "No transcription id found for transcription task with id {0}", taskId);
+    }
+  }
+
+  private void updateTranscriptionState(int transcriptionId, TranscriptionState transcriptionState) {
+    transcriptionStorage.updateTranscriptionState(transcriptionId, transcriptionState);
+
+    try {
+      TranscriptionStateEntityUpdateMessage transcriptionStateEntityUpdateMessage = new TranscriptionStateEntityUpdateMessage(
+              transcriptionState);
+      entityUpdateEventService.sendEntityChangeMessage(EntityType.TRANSCRIPTION, transcriptionId,
+              transcriptionStateEntityUpdateMessage);
+    } catch (Exception e) {
+      logger.log(Level.WARNING,
+              "Error during sending entity update message for transcription state change of transcription {0}",
+              transcriptionId);
     }
   }
 }

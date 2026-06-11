@@ -2733,6 +2733,28 @@
               </div>
             </div>
           </div>
+          <div class="modal fade" id="mediumDatasetsTranscriptionDeleteModal" tabindex="-1" role="dialog"
+               aria-labelledby="mediumDeleteLabel" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered" role="document">
+              <div class="modal-content">
+                <div class="modal-header">
+                  <h5 class="modal-title">Delete transcription</h5>
+                  <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                  </button>
+                </div>
+                <div class="modal-body">
+                  Do you want to delete the selected transcription?
+                </div>
+                <div class="modal-footer">
+                  <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                  <button type="button" class="btn btn-danger" id="mediumDatasetsTranscriptionDeleteBtn">Delete
+                    transcription
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
           <div class="modal fade" id="mediumCollectionDatasetsMediumCollectionDeleteModal" tabindex="-1" role="dialog"
                aria-labelledby="mediumCollectionDeleteLabel" aria-hidden="true">
             <div class="modal-dialog modal-dialog-centered" role="document">
@@ -3317,7 +3339,7 @@
                       <li class="nav-item">
                         <a class="nav-link navBarLinkContent" id="mediumMusicTab">Music</a>
                       </li>
-                      <li class="nav-item">
+                      <li class="nav-item" id="mediumTranscriptionTabNavItem">
                         <a class="nav-link navBarLinkContent" id="mediumTranscriptionTab">Transcriptions</a>
                       </li>
                     </ul>
@@ -4315,6 +4337,11 @@
                                  aria-label="Transcription actions">
                               <div class="btn-group mr-2">
                                 <button type="button"
+                                        class="btn btn-outline btn-secondary btn-sm mediumDataSheetFormAnnotateButton formButtons"
+                                        title="Annotate medium" name="annotate">
+                                  <i class="fas fa-draw-polygon"></i>
+                                </button>
+                                <button type="button"
                                         class="btn btn-outline btn-success btn-sm"
                                         id="mediumFormTranscriptionsCreateButton"
                                         title="Create transcription">
@@ -4325,7 +4352,7 @@
                           </div>
                         </div>
                       </div>
-                      <div class="form-row">
+                      <div class="form-row" id="mediumFormTranscriptionsContentRow">
                         <!-- Linke Spalte: Transkriptionsliste -->
                         <div class="col-md-6">
                           <div class="card">
@@ -4346,36 +4373,80 @@
                           <div class="card" id="mediumTranscriptionViewer"
                                data-role="transcriptionViewer">
                             <div class="card-header">
-                              <span data-role="viewerTitle">Transcription viewer</span>
-                            </div>
-                            <div class="card-body p-1">
                               <div data-role="viewerEmptyState">
-                                <p class="text-muted">Select a transcription.</p>
+                                No transcription selected.
                               </div>
+                              <div data-role="viewerSelectedState">
+                                <div class="d-flex justify-content-between align-items-center">
+                                  <div>
+                                    <div class="d-flex flex-column flex-grow-1">
+                                      <span class="transcriptionViewerNameField"></span>
+                                      <small class="transcriptionViewerCreatedAtField"></small>
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <button class="btn btn-sm btn-primary m-1"><span
+                                            class="fas fa-sm fa-pen mr-1"></span>Edit
+                                    </button>
+                                    <button class="btn btn-sm btn-light m-1 dropdown-toggle dropdown-toggle-hide-caret"
+                                            data-toggle="dropdown"
+                                            role="button"><span
+                                            class="fas fa-sm fa-ellipsis-v"></span></button>
+                                    <div class="dropdown-menu">
+                                      <a class="dropdown-item ui-selectable" id="transcriptionViewerSetDefaultBtn"><span
+                                              class="fas fa-toggle-on mr-2"></span>Set
+                                        default</a>
+                                      <a class="dropdown-item ui-selectable"
+                                         id="transcriptionViewerDownloadVttBtn"><span
+                                              class="fas fa-download mr-2"></span>Download
+                                        VTT</a>
+                                      <div class="dropdown-divider"></div>
+                                      <a class="dropdown-item text-danger ui-selectable"
+                                         id="transcriptionViewerDeleteBtn"><span
+                                              class="fas fa-trash mr-2"></span>Delete</a>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                              <div data-role="viewerEditState">
+
+                              </div>
+                            </div>
+                            <div class="card-body p-2">
                               <div data-role="viewerInProgressState" class="d-none">
-                                <div class="d-flex align-items-center">
+                                <div class="d-flex align-items-center justify-content-center flex-column">
                                   <div class="spinner-border spinner-border-sm mr-2" role="status"></div>
-                                  <span data-role="inProgressMessage">Transcription is being processed…</span>
+                                  <span data-role="inProgressMessage">Transcription creation in progress…</span>
                                 </div>
                               </div>
                               <div data-role="viewerCompletedState" class="d-none">
-                                <div class="mb-2">
-                                  <button type="button"
-                                          class="btn btn-outline-secondary btn-sm"
-                                          data-role="downloadSrtButton">
-                                    <i class="fas fa-download"></i> Download SRT
-                                  </button>
-                                  <!-- Add SRT viewer here-->
+                                <div class="transcription-viewer-follow-row d-none"
+                                     data-role="transcriptionViewerFollowRow">
+                                  <div class="transcription-viewer-follow-toggle"
+                                       data-role="transcriptionViewerFollowToggle">
+                                    <i class="fas fa-crosshairs transcription-viewer-follow-icon"></i>
+                                    <span class="transcription-viewer-follow-label">Follow</span>
+                                    <div class="transcription-viewer-follow-switch">
+                                      <div class="transcription-viewer-follow-knob"></div>
+                                    </div>
+                                  </div>
                                 </div>
-                                <pre data-role="transcriptionContent" class="bg-light p-2"></pre>
+                                <div class="transcription-viewer-cue-scroll"
+                                     data-role="transcriptionViewerCueScroll"></div>
                               </div>
                               <div data-role="viewerFailedState" class="d-none">
-                                <div class="alert alert-danger mb-0">
-                                  <strong>Transcription failed.</strong>
-                                  <span data-role="failureMessage"></span>
+                                <div class="d-flex justify-content-center flex-column align-items-center">
+                                  <span class="fas fa-exclamation-triangle"></span>
+                                  <p>Error during creating transcription</p>
                                 </div>
                               </div>
                             </div>
+                          </div>
+                        </div>
+                      </div>
+                      <div class="w-100" id="mediumFormTranscriptionsLoadingRow">
+                        <div class="d-flex justify-content-center">
+                          <div class="spinner-border" role="status">
                           </div>
                         </div>
                       </div>
@@ -6804,7 +6875,7 @@
                     <div class="card-header">
                       Transcription settings
                     </div>
-                    <div class="card-body">
+                    <div class="card-body" data-role="transcriptionFeatureEnabled">
                       <form class="p-2" id="transcriptionSettingsForm" novalidate>
                         <div class="form-group">
                           <h6>General Settings</h6>
@@ -6841,6 +6912,11 @@
                           Save
                         </button>
                       </form>
+                    </div>
+                    <div class="card-body" data-role="transcriptionFeatureDisabled">
+                      <div class="alert alert-info">Transcription feature currently disabled. Please contact your
+                        administrator for further information.
+                      </div>
                     </div>
                   </div>
                 </div>

@@ -7,6 +7,8 @@ import de.bitgilde.TIMAAT.service.task.TaskService;
 import de.bitgilde.TIMAAT.service.transcription.api.TranscriptionEngine;
 import de.bitgilde.TIMAAT.service.transcription.api.TranscriptionEngineModel;
 import de.bitgilde.TIMAAT.service.transcription.exception.TranscriptionFeatureDisabledException;
+import de.bitgilde.TIMAAT.service.transcription.format.vtt.VttParser;
+import de.bitgilde.TIMAAT.sse.EntityUpdateEventService;
 import de.bitgilde.TIMAAT.storage.entity.SystemSettingStorage;
 import de.bitgilde.TIMAAT.storage.entity.api.TranscriptionSystemSettings;
 import de.bitgilde.TIMAAT.storage.entity.medium.MediumStorage;
@@ -63,6 +65,8 @@ public class TranscriptionServiceSettingsTest {
   private TranscriptionFileStorage transcriptionFileStorage;
   private MediumStorage mediumStorage;
   private SpeechToTextServiceClient speechToTextServiceClient;
+  private EntityUpdateEventService entityUpdateEventService;
+  private VttParser vttParser;
 
   @BeforeEach
   @SuppressWarnings("unchecked")
@@ -76,6 +80,8 @@ public class TranscriptionServiceSettingsTest {
     transcriptionFileStorage = mock(TranscriptionFileStorage.class);
     mediumStorage = mock(MediumStorage.class);
     speechToTextServiceClient = mock(SpeechToTextServiceClient.class);
+    entityUpdateEventService = mock(EntityUpdateEventService.class);
+    vttParser = mock(VttParser.class);
 
     when(systemSettingStorage.getDefaultTranscriptionModel()).thenReturn(Optional.empty());
     when(transcriptionStorage.getEntriesAsStream(any(), any(), any(), any())).thenReturn(Stream.empty());
@@ -87,7 +93,7 @@ public class TranscriptionServiceSettingsTest {
                     List.of(SpeechToTextEngineOutputFormat.SRT))));
     TranscriptionService service = new TranscriptionService(transcriptionStorage, systemSettingStorage,
             audioFileStorage, videoFileStorage, taskServiceProvider, temporaryFileStorage, transcriptionFileStorage,
-            mediumStorage, speechToTextServiceClient);
+            mediumStorage, speechToTextServiceClient, entityUpdateEventService, vttParser);
     clearInvocations(transcriptionStorage, systemSettingStorage);
     return service;
   }
@@ -95,7 +101,7 @@ public class TranscriptionServiceSettingsTest {
   private TranscriptionService featureDisabledService() {
     return new TranscriptionService(transcriptionStorage, systemSettingStorage, audioFileStorage, videoFileStorage,
             taskServiceProvider, temporaryFileStorage, transcriptionFileStorage, mediumStorage,
-            (SpeechToTextServiceClient) null);
+            (SpeechToTextServiceClient) null, entityUpdateEventService, vttParser);
   }
 
   @Nested
@@ -162,31 +168,28 @@ public class TranscriptionServiceSettingsTest {
 
     @Test
     void shouldMarkOnlyTheMatchingModelAsDefaultAcrossMultipleEnginesAndModels() {
-      when(speechToTextServiceClient.getAvailableEngines()).thenReturn(List.of(
-              new SpeechToTextEngine(ENGINE_ID, ENGINE_NAME, List.of(MODEL_ID, "small-v3"),
-                      List.of(SpeechToTextEngineOutputFormat.SRT)),
-              new SpeechToTextEngine("vosk", "Vosk", List.of("de", "en"),
-                      List.of(SpeechToTextEngineOutputFormat.SRT))));
+      when(speechToTextServiceClient.getAvailableEngines()).thenReturn(
+              List.of(new SpeechToTextEngine(ENGINE_ID, ENGINE_NAME, List.of(MODEL_ID, "small-v3"),
+                              List.of(SpeechToTextEngineOutputFormat.SRT)),
+                      new SpeechToTextEngine("vosk", "Vosk", List.of("de", "en"),
+                              List.of(SpeechToTextEngineOutputFormat.SRT))));
       when(systemSettingStorage.getDefaultTranscriptionModel()).thenReturn(
               Optional.of(buildTranscriptionModel("vosk", "de")));
       TranscriptionService service = new TranscriptionService(transcriptionStorage, systemSettingStorage,
               audioFileStorage, videoFileStorage, taskServiceProvider, temporaryFileStorage, transcriptionFileStorage,
-              mediumStorage, speechToTextServiceClient);
+              mediumStorage, speechToTextServiceClient, entityUpdateEventService, vttParser);
       clearInvocations(transcriptionStorage, systemSettingStorage);
 
       Collection<TranscriptionEngine> engines = service.getAvailableEngineCapabilities();
 
       assertThat(engines).hasSize(2);
-      assertThat(engines).filteredOn(capability -> capability.engineIdentifier().equals(ENGINE_ID))
-                        .singleElement()
-                        .satisfies(capability -> assertThat(capability.models()).containsExactly(
-                                new TranscriptionEngineModel(MODEL_ID, false),
-                                new TranscriptionEngineModel("small-v3", false)));
-      assertThat(engines).filteredOn(capability -> capability.engineIdentifier().equals("vosk"))
-                        .singleElement()
-                        .satisfies(capability -> assertThat(capability.models()).containsExactly(
-                                new TranscriptionEngineModel("de", true),
-                                new TranscriptionEngineModel("en", false)));
+      assertThat(engines).filteredOn(capability -> capability.engineIdentifier().equals(ENGINE_ID)).singleElement()
+                         .satisfies(capability -> assertThat(capability.models()).containsExactly(
+                                 new TranscriptionEngineModel(MODEL_ID, false),
+                                 new TranscriptionEngineModel("small-v3", false)));
+      assertThat(engines).filteredOn(capability -> capability.engineIdentifier().equals("vosk")).singleElement()
+                         .satisfies(capability -> assertThat(capability.models()).containsExactly(
+                                 new TranscriptionEngineModel("de", true), new TranscriptionEngineModel("en", false)));
     }
 
     @Test
@@ -197,9 +200,8 @@ public class TranscriptionServiceSettingsTest {
 
       Collection<TranscriptionEngine> engines = service.getAvailableEngineCapabilities();
 
-      assertThat(engines).singleElement()
-                        .satisfies(capability -> assertThat(capability.models()).containsExactly(
-                                new TranscriptionEngineModel(MODEL_ID, false)));
+      assertThat(engines).singleElement().satisfies(capability -> assertThat(capability.models()).containsExactly(
+              new TranscriptionEngineModel(MODEL_ID, false)));
     }
   }
 

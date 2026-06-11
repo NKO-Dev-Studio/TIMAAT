@@ -15,7 +15,10 @@ import de.bitgilde.TIMAAT.model.FIPOP.Title_;
 import de.bitgilde.TIMAAT.model.FIPOP.Transcription;
 import de.bitgilde.TIMAAT.model.FIPOP.UserAccount;
 import de.bitgilde.TIMAAT.model.TimeRange;
+import de.bitgilde.TIMAAT.sse.EntityUpdateEventService;
+import de.bitgilde.TIMAAT.sse.api.EntityType;
 import de.bitgilde.TIMAAT.storage.db.DbStorage;
+import de.bitgilde.TIMAAT.storage.entity.medium.api.MediumDefaultTranscriptionEntityUpdateMessage;
 import de.bitgilde.TIMAAT.storage.entity.medium.api.MediumFilterCriteria;
 import de.bitgilde.TIMAAT.storage.entity.medium.api.MediumSortingField;
 import jakarta.annotation.Nullable;
@@ -58,9 +61,12 @@ public class MediumStorage extends DbStorage<Medium, MediumFilterCriteria, Mediu
 
   private static final Logger logger = Logger.getLogger(MediumStorage.class.getName());
 
+  private final EntityUpdateEventService entityUpdateEventService;
+
   @Inject
-  public MediumStorage(EntityManagerFactory emf) {
+  public MediumStorage(EntityManagerFactory emf, EntityUpdateEventService entityUpdateEventService) {
     super(Medium.class, MediumSortingField.ID, emf);
+    this.entityUpdateEventService = entityUpdateEventService;
   }
 
   /**
@@ -92,6 +98,11 @@ public class MediumStorage extends DbStorage<Medium, MediumFilterCriteria, Mediu
                                          "UPDATE Medium m SET m.defaultTranscription = :transcription " + "WHERE m.id = :mediumId AND m.defaultTranscription IS NULL")
                                  .setParameter("transcription", transcription).setParameter("mediumId", mediumId)
                                  .executeUpdate();
+      if (updated == 1) {
+        sendDefaultTranscriptionChangedEntityUpdateMessage(mediumId, transcriptionId);
+      }
+
+
       return updated == 1;
     });
   }
@@ -105,6 +116,7 @@ public class MediumStorage extends DbStorage<Medium, MediumFilterCriteria, Mediu
 
       if (transcription.getMedium().getId() == mediumId) {
         medium.setDefaultTranscription(transcription);
+        sendDefaultTranscriptionChangedEntityUpdateMessage(mediumId, transcriptionId);
       }
       else {
         throw new IllegalArgumentException(
@@ -137,8 +149,23 @@ public class MediumStorage extends DbStorage<Medium, MediumFilterCriteria, Mediu
                                          "UPDATE Medium m SET m.defaultTranscription = :newDefault " + "WHERE m.id = :mediumId AND m.defaultTranscription.id = :currentDefaultId")
                                  .setParameter("newDefault", newDefault).setParameter("mediumId", mediumId)
                                  .setParameter("currentDefaultId", currentDefaultTranscriptionId).executeUpdate();
+
+      if (updated == 1) {
+        sendDefaultTranscriptionChangedEntityUpdateMessage(mediumId, newDefaultTranscriptionId);
+      }
+
       return updated == 1;
     });
+  }
+
+  private void sendDefaultTranscriptionChangedEntityUpdateMessage(int mediumId, Integer transcriptionId) {
+    try {
+      MediumDefaultTranscriptionEntityUpdateMessage message = new MediumDefaultTranscriptionEntityUpdateMessage(
+              transcriptionId);
+      entityUpdateEventService.sendEntityChangeMessage(EntityType.MEDIUM, mediumId, message);
+    } catch (Exception e) {
+      logger.log(Level.WARNING, "Could not send default transcription changed entity update message", e);
+    }
   }
 
   public List<MediumHasMusic> updateMediumHasMusicList(int mediumId, Map<Integer, Collection<TimeRange>> timeRangesByMusicId) {

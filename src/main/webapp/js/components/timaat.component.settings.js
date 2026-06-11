@@ -216,6 +216,10 @@
 
     showTranscriptionSettings: function () {
       const $transcriptionSettingsForm = $('#transcriptionSettingsForm');
+      const $cardBodies = $transcriptionSettingsForm.closest('.card').find('.card-body')
+
+      $cardBodies.addClass('d-none')
+
       $transcriptionSettingsForm.find('.alert').remove()
       $transcriptionSettingsForm.find('input, button, select').prop('disabled', true);
       $('#saveTranscriptionSettingsBtnLoadingIndicator').addClass('d-none');
@@ -223,78 +227,83 @@
       TIMAAT.UI.displayComponent('settings', 'settingsTranscriptionsTab', 'settingsTranscriptions');
       TIMAAT.URLHistory.setURL(null, 'Settings', '#settings/transcriptions');
 
-      const transcriptionsSettingsPromise = TIMAAT.SystemSettingsService.getTranscriptionSettings()
-      const availableEnginePromise = TIMAAT.TranscriptionService.listAvailableEngines()
+      if (TIMAAT.UI.enabledFeatures.has("TRANSCRIPTION")) {
+        $cardBodies.filter('[data-role="transcriptionFeatureEnabled"]').removeClass('d-none');
+        const transcriptionsSettingsPromise = TIMAAT.SystemSettingsService.getTranscriptionSettings()
+        const availableEnginePromise = TIMAAT.TranscriptionService.listAvailableEngines()
 
-      Promise.all([transcriptionsSettingsPromise, availableEnginePromise]).then((promiseResults) => {
-        const transcriptionSettings = promiseResults[0]
-        const availableEngines = promiseResults[1]
+        Promise.all([transcriptionsSettingsPromise, availableEnginePromise]).then((promiseResults) => {
+          const transcriptionSettings = promiseResults[0]
+          const availableEngines = promiseResults[1]
 
 
-        $('#automaticTranscriptionCheckBox').prop("checked", transcriptionSettings.autoTranscribeUploads)
-        let initialSelectedEngineIdentifier = transcriptionSettings.transcriptionDefaultModel.engineIdentifier
-        let initialSelectedModelIdentifier = transcriptionSettings.transcriptionDefaultModel.modelIdentifier
+          $('#automaticTranscriptionCheckBox').prop("checked", transcriptionSettings.autoTranscribeUploads)
+          let initialSelectedEngineIdentifier = transcriptionSettings.transcriptionDefaultModel.engineIdentifier
+          let initialSelectedModelIdentifier = transcriptionSettings.transcriptionDefaultModel.modelIdentifier
 
-        const engineSelectionData = []
-        const modelSelectionDataByEngine = new Map()
+          const engineSelectionData = []
+          const modelSelectionDataByEngine = new Map()
 
-        for (const currentEngine of availableEngines.sort((a, b) => a.engineName.localeCompare(b.engineName))) {
-          engineSelectionData.push({
-            id: currentEngine.engineIdentifier,
-            text: currentEngine.engineName
-          })
-
-          const modelSelectionData = []
-          for (const currentModel of currentEngine.models.sort((a, b) => a.modelIdentifier.localeCompare(b.modelIdentifier))) {
-            modelSelectionData.push({
-              id: currentModel.modelIdentifier,
-              text: currentModel.modelIdentifier
+          for (const currentEngine of availableEngines.sort((a, b) => a.engineName.localeCompare(b.engineName))) {
+            engineSelectionData.push({
+              id: currentEngine.engineIdentifier,
+              text: currentEngine.engineName
             })
+
+            const modelSelectionData = []
+            for (const currentModel of currentEngine.models.sort((a, b) => a.modelIdentifier.localeCompare(b.modelIdentifier))) {
+              modelSelectionData.push({
+                id: currentModel.modelIdentifier,
+                text: currentModel.modelIdentifier
+              })
+            }
+            modelSelectionDataByEngine.set(currentEngine.engineIdentifier, modelSelectionData)
           }
-          modelSelectionDataByEngine.set(currentEngine.engineIdentifier, modelSelectionData)
-        }
 
-        initialSelectedEngineIdentifier = initialSelectedEngineIdentifier ?? engines[0].engineIdentifier
-        initialSelectedModelIdentifier = initialSelectedModelIdentifier ?? modelSelectionDataByEngine.get(initialSelectedEngineIdentifier)[0]
+          initialSelectedEngineIdentifier = initialSelectedEngineIdentifier ?? engines[0].engineIdentifier
+          initialSelectedModelIdentifier = initialSelectedModelIdentifier ?? modelSelectionDataByEngine.get(initialSelectedEngineIdentifier)[0]
 
-        const $transcriptionSettingsEngineSelect = $('#transcriptionSettingsEngineSelect')
-        const $transcriptionSettingsModelSelect = $('#transcriptionSettingsModelSelect')
+          const $transcriptionSettingsEngineSelect = $('#transcriptionSettingsEngineSelect')
+          const $transcriptionSettingsModelSelect = $('#transcriptionSettingsModelSelect')
 
-        $transcriptionSettingsEngineSelect.select2({
-          closeOnSelect: true,
-          width: '100%',
-          data: engineSelectionData,
-          minimumInputLength: 0,
-          minimumResultsForSearch: Infinity
-        });
-        $transcriptionSettingsModelSelect.select2({
-          closeOnSelect: true,
-          width: '100%',
-          data: modelSelectionDataByEngine.get(initialSelectedEngineIdentifier),
-          minimumInputLength: 0,
-          minimumResultsForSearch: Infinity
-        });
-
-        $transcriptionSettingsEngineSelect.val(initialSelectedEngineIdentifier).trigger('change');
-        $transcriptionSettingsModelSelect.val(initialSelectedModelIdentifier).trigger('change');
-
-        $transcriptionSettingsEngineSelect.on('select2:select', e => {
-          $transcriptionSettingsModelSelect.select2('destroy');
-          $transcriptionSettingsModelSelect.empty();
+          $transcriptionSettingsEngineSelect.select2({
+            closeOnSelect: true,
+            width: '100%',
+            data: engineSelectionData,
+            minimumInputLength: 0,
+            minimumResultsForSearch: Infinity
+          });
           $transcriptionSettingsModelSelect.select2({
             closeOnSelect: true,
             width: '100%',
-            data: modelSelectionDataByEngine.get(e.params.data.id),
+            data: modelSelectionDataByEngine.get(initialSelectedEngineIdentifier),
             minimumInputLength: 0,
             minimumResultsForSearch: Infinity
+          });
+
+          $transcriptionSettingsEngineSelect.val(initialSelectedEngineIdentifier).trigger('change');
+          $transcriptionSettingsModelSelect.val(initialSelectedModelIdentifier).trigger('change');
+
+          $transcriptionSettingsEngineSelect.on('select2:select', e => {
+            $transcriptionSettingsModelSelect.select2('destroy');
+            $transcriptionSettingsModelSelect.empty();
+            $transcriptionSettingsModelSelect.select2({
+              closeOnSelect: true,
+              width: '100%',
+              data: modelSelectionDataByEngine.get(e.params.data.id),
+              minimumInputLength: 0,
+              minimumResultsForSearch: Infinity
+            })
           })
+          $transcriptionSettingsForm.find('input, button, select').prop('disabled', false);
+        }).catch(error => {
+          console.error("Error while loading required information of transcription settings")
+          const alert = $('<div class="alert alert-danger" role="alert">Error loading current transcription settings.</div>')
+          $transcriptionSettingsForm.prepend(alert)
         })
-        $transcriptionSettingsForm.find('input, button, select').prop('disabled', false);
-      }).catch(error => {
-        console.error("Error while loading required information of transcription settings")
-        const alert = $('<div class="alert alert-danger" role="alert">Error loading current transcription settings.</div>')
-        $transcriptionSettingsForm.prepend(alert)
-      })
+      } else {
+        $cardBodies.filter('[data-role="transcriptionFeatureDisabled"]').removeClass('d-none');
+      }
     },
 
     loadSettingsBugfixes: function () {

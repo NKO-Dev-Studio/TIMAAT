@@ -2,7 +2,6 @@ package de.bitgilde.TIMAAT.rest.model.medium;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import jakarta.ws.rs.PathParam;
 
 /**
  * This payload can be used to update the default transcription of a {@link de.bitgilde.TIMAAT.model.FIPOP.Medium}
@@ -18,7 +17,7 @@ public class UpdateMediumDefaultTranscriptionPayload {
   private final int transcriptionId;
 
   @JsonCreator
-  public UpdateMediumDefaultTranscriptionPayload(@PathParam(TRANSCRIPTION_ID_FIELD_NAME) int transcriptionId) {
+  public UpdateMediumDefaultTranscriptionPayload(@JsonProperty(TRANSCRIPTION_ID_FIELD_NAME) int transcriptionId) {
     this.transcriptionId = transcriptionId;
   }
 

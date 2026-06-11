@@ -196,7 +196,7 @@
                           break
                         case 'transcriptions': //* #medium/:type/:id/transcriptions
                           TIMAAT.UI.displayComponent('medium', 'mediumTab', 'mediumDataTable', 'mediumTranscriptionTab', 'mediumFormTranscriptions');
-                          TIMAAT.UI.displayDataSetContent('transcription', medium, 'medium')
+                          TIMAAT.UI.displayDataSetContent('transcriptions', medium, 'medium')
                           break
                         default:
                           this.redirectToDefaultView();
