@@ -122,6 +122,9 @@
       this.waveformContainer.one("mousedown", TIMAAT.VideoPlayer.handleTemporaryWaveformDragStart)
 
       TIMAAT.EntityUpdate.registerEntityUpdateListener("medium-audio-analysis", this.handleMediumAudioAnalysisEntityUpdateMessage.bind(this))
+      TIMAAT.EntityUpdate.registerEntityUpdateListener("medium", this.handleMediumUpdateMessage.bind(this))
+      TIMAAT.EntityUpdate.registerEntityUpdateListener("transcription", this.handleTranscriptionUpdateMessage.bind(this))
+
       $('#retryWaveformGenerationButton').attr('onclick', 'TIMAAT.VideoPlayer.triggerWaveformGeneration()');
 
       $('#audioWaveformTimelineCollapseWidgetIcon').on("click", () => {
@@ -1505,6 +1508,23 @@
       }
     },
 
+    handleTranscriptionUpdateMessage: function (transcriptionUpdateMessage) {
+      if (transcriptionUpdateMessage.type === "CHANGE" && transcriptionUpdateMessage.id === TIMAAT.VideoPlayer.model.medium?.defaultTranscriptionId && transcriptionUpdateMessage.entity.state === "COMPLETED") {
+        TIMAAT.VideoPlayer.updateVideoPlayerSubtitles()
+      }
+    },
+
+    handleMediumUpdateMessage: function (mediumUpdateMessage) {
+      if (mediumUpdateMessage.type === "CHANGE" && mediumUpdateMessage.id === TIMAAT.VideoPlayer.model.medium?.id) {
+        const previousDefaultTranscriptionId = TIMAAT.VideoPlayer.model.medium.defaultTranscriptionId
+        TIMAAT.VideoPlayer.model.medium = {...TIMAAT.VideoPlayer.model.medium, ...mediumUpdateMessage.entity}
+
+        if (TIMAAT.VideoPlayer.model.medium.defaultTranscriptionId !== previousDefaultTranscriptionId) {
+          TIMAAT.VideoPlayer.updateVideoPlayerSubtitles()
+        }
+      }
+    },
+
     setupMedium: async function (medium) {
       // console.log("TCL: setupMedium: -> medium", medium);
       this.mediaType = medium.mediaType.mediaTypeTranslations[0].type;
@@ -1636,23 +1656,7 @@
             loop: false
           }).addTo(TIMAAT.VideoPlayer.viewer);
           this.medium = this.overlay.getElement();
-          if (this.model.medium.defaultTranscriptionId) {
-            console.log("Found default transcription model for current selected medium in annotation perspective")
-            TIMAAT.MediumService.downloadTranscriptionFile(this.model.medium.id, this.model.medium.defaultTranscriptionId).then(blob => {
-              const $medium = $(this.medium)
-              const blobUrl = URL.createObjectURL(blob);
-              const isDefault = TIMAAT.VideoPlayer.subtitleEnabled
-
-              const track = $("<track/>")
-              track.attr('src', blobUrl);
-              if (isDefault) {
-                track.attr('default', true);
-              }
-
-              $medium.empty()
-              $medium.append(track);
-            })
-          }
+          TIMAAT.VideoPlayer.updateVideoPlayerSubtitles()
 
           TIMAAT.VideoPlayer.drawWaveform()
 
@@ -1837,6 +1841,27 @@
         }
       }
     },
+
+    updateVideoPlayerSubtitles: function () {
+      const $medium = $(TIMAAT.VideoPlayer.medium)
+      $medium.find("track").remove()
+
+      if (TIMAAT.VideoPlayer.model.medium.defaultTranscriptionId) {
+        TIMAAT.MediumService.downloadTranscriptionFile(TIMAAT.VideoPlayer.model.medium.id, TIMAAT.VideoPlayer.model.medium.defaultTranscriptionId).then(blob => {
+          const blobUrl = URL.createObjectURL(blob);
+          const isDefault = TIMAAT.VideoPlayer.subtitleEnabled
+
+          const track = $("<track/>")
+          track.attr('src', blobUrl);
+          if (isDefault) {
+            track.attr('default', true);
+          }
+          $medium.append(track);
+        })
+      }
+
+    },
+
     drawFrequencyInformation: function () {
       if (TIMAAT.VideoPlayer.mediumFrequencyInformation) {
         const minimumFrequency = Math.round(TIMAAT.VideoPlayer.mediumFrequencyInformation.minimumFrequency);
