@@ -1167,7 +1167,26 @@
         $.ajax({
           url: window.location.protocol + '//' + window.location.host + "/TIMAAT/api/medium/" + mediumId + "/transcriptions/" + transcriptionId + "/file",
           type: "GET",
-          xhrFields: { responseType: 'blob' },
+          xhrFields: {responseType: 'blob'},
+          beforeSend: function (xhr) {
+            xhr.setRequestHeader('Authorization', 'Bearer ' + TIMAAT.Service.token);
+          },
+        }).done(function (data) {
+          resolve(data);
+        }).fail(function (error) {
+          console.error("ERROR: ", error);
+          reject(error);
+        });
+      }).catch((error) => {
+        console.error("ERROR: ", error);
+      });
+    },
+
+    async getTranscriptionContent(mediumId, transcriptionId) {
+      return new Promise((resolve, reject) => {
+        $.ajax({
+          url: window.location.protocol + '//' + window.location.host + "/TIMAAT/api/medium/" + mediumId + "/transcriptions/" + transcriptionId + "/content",
+          type: "GET",
           beforeSend: function (xhr) {
             xhr.setRequestHeader('Authorization', 'Bearer ' + TIMAAT.Service.token);
           },

@@ -490,3 +490,158 @@
 .dropdown-toggle-hide-caret::after {
     display: none !important;
 }
+
+/* ── Transcription Viewer ───────────────────────────────────────── */
+
+#mediumTranscriptionViewer {
+    height: 500px;
+    display: flex;
+    flex-direction: column;
+}
+
+#mediumTranscriptionViewer .card-body {
+    flex: 1;
+    overflow: hidden;
+    padding: 0 !important;
+    display: flex;
+    flex-direction: column;
+}
+
+[data-role="viewerCompletedState"] {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    overflow: hidden;
+}
+
+[data-role="viewerInProgressState"],
+[data-role="viewerFailedState"] {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    padding: 20px;
+}
+
+.transcription-viewer-follow-row {
+    flex: none;
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    padding: 6px 12px;
+    background: #f5f6f8;
+    border-bottom: 1px solid #e2e5e9;
+}
+
+.transcription-viewer-follow-toggle {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    user-select: none;
+}
+
+.transcription-viewer-follow-label {
+    font-size: 12px;
+    color: #6b7280;
+    font-weight: 500;
+    transition: color .15s;
+}
+
+.transcription-viewer-follow-toggle.active .transcription-viewer-follow-label {
+    color: #0d6efd;
+}
+
+.transcription-viewer-follow-icon {
+    color: #6b7280;
+    font-size: 13px;
+    transition: color .15s;
+}
+
+.transcription-viewer-follow-toggle.active .transcription-viewer-follow-icon {
+    color: #0d6efd;
+}
+
+.transcription-viewer-follow-switch {
+    width: 32px;
+    height: 18px;
+    border-radius: 20px;
+    background: #cdd2d8;
+    position: relative;
+    transition: background .15s;
+    flex: none;
+}
+
+.transcription-viewer-follow-toggle.active .transcription-viewer-follow-switch {
+    background: #0d6efd;
+}
+
+.transcription-viewer-follow-knob {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: white;
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    transition: left .15s;
+    pointer-events: none;
+}
+
+.transcription-viewer-follow-toggle.active .transcription-viewer-follow-knob {
+    left: 16px;
+}
+
+.transcription-viewer-cue-scroll {
+    flex: 1;
+    overflow-y: auto;
+    scroll-behavior: smooth;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.transcription-viewer-cue {
+    border: 1px solid #e2e5e9;
+    border-radius: 7px;
+    padding: 9px 11px;
+    background: white;
+    cursor: pointer;
+    transition: border-color .1s, background .1s, box-shadow .1s;
+}
+
+.transcription-viewer-cue:hover {
+    border-color: #cdd2d8;
+}
+
+.transcription-viewer-cue.active {
+    border-color: #0d6efd;
+    background: #f3f8ff;
+    box-shadow: 0 0 0 3px rgba(13, 110, 253, .1);
+}
+
+.transcription-viewer-cue-range {
+    font-size: 11px;
+    color: #9aa1a9;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-variant-numeric: tabular-nums;
+    margin-bottom: 4px;
+}
+
+.transcription-viewer-cue.active .transcription-viewer-cue-range {
+    color: #0d6efd;
+    font-weight: 600;
+}
+
+.transcription-viewer-cue-arrow {
+    color: #c8ccd1;
+}
+
+.transcription-viewer-cue-text {
+    font-size: 13.5px;
+    line-height: 1.5;
+    color: #1c2024;
+    white-space: pre-wrap;
+}

@@ -4337,6 +4337,11 @@
                                  aria-label="Transcription actions">
                               <div class="btn-group mr-2">
                                 <button type="button"
+                                        class="btn btn-outline btn-secondary btn-sm mediumDataSheetFormAnnotateButton formButtons"
+                                        title="Annotate medium" name="annotate">
+                                  <i class="fas fa-draw-polygon"></i>
+                                </button>
+                                <button type="button"
                                         class="btn btn-outline btn-success btn-sm"
                                         id="mediumFormTranscriptionsCreateButton"
                                         title="Create transcription">
@@ -4415,10 +4420,19 @@
                                 </div>
                               </div>
                               <div data-role="viewerCompletedState" class="d-none">
-                                <div class="mb-2">
-                                  <!-- Add SRT viewer here-->
+                                <div class="transcription-viewer-follow-row d-none"
+                                     data-role="transcriptionViewerFollowRow">
+                                  <div class="transcription-viewer-follow-toggle"
+                                       data-role="transcriptionViewerFollowToggle">
+                                    <i class="fas fa-crosshairs transcription-viewer-follow-icon"></i>
+                                    <span class="transcription-viewer-follow-label">Follow</span>
+                                    <div class="transcription-viewer-follow-switch">
+                                      <div class="transcription-viewer-follow-knob"></div>
+                                    </div>
+                                  </div>
                                 </div>
-                                <pre data-role="transcriptionContent" class="bg-light p-2"></pre>
+                                <div class="transcription-viewer-cue-scroll"
+                                     data-role="transcriptionViewerCueScroll"></div>
                               </div>
                               <div data-role="viewerFailedState" class="d-none">
                                 <div class="d-flex justify-content-center flex-column align-items-center">

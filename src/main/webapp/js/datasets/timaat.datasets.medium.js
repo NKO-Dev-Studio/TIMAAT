@@ -39,6 +39,7 @@
 
   TIMAAT.MediumDatasets = {
     allMediaList: null,
+    _transcriptionViewerCleanup: null,
     audios: null,
     container: 'media',
     documents: null,
@@ -1516,6 +1517,8 @@
       const $mediumTranscriptionDownloadVttButton = $mediumTranscriptionViewerCardHeader.find("#transcriptionViewerDownloadVttBtn")
       $mediumTranscriptionDownloadVttButton.hide()
 
+      TIMAAT.MediumDatasets._cleanupTranscriptionViewer()
+
       $mediumTranscriptionViewerCardBody.children().addClass("d-none")
       $mediumTranscriptionViewerCardHeader.children().addClass("d-none")
 
@@ -1540,8 +1543,19 @@
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
           });
-          $mediumTranscriptionViewerCardBody.find('[data-role="viewerCompletedState"]').removeClass("d-none")
+
+          const $completedState = $mediumTranscriptionViewerCardBody.find('[data-role="viewerCompletedState"]')
+          $completedState.removeClass("d-none")
           $mediumTranscriptionDownloadVttButton.show()
+
+          const inAnnotationPerspective = TIMAAT.UI.component === 'videoPlayer'
+          $completedState.find('[data-role="transcriptionViewerFollowRow"]').toggleClass('d-none', !inAnnotationPerspective)
+          $completedState.find('[data-role="transcriptionViewerCueScroll"]').empty()
+
+          TIMAAT.MediumService.getTranscriptionContent(transcription.mediumId, transcription.id).then(transcriptionContent => {
+            if (!transcriptionContent || !transcriptionContent.cues) return
+            TIMAAT.MediumDatasets._renderTranscriptionViewer($completedState, transcriptionContent.cues, inAnnotationPerspective)
+          })
         } else if (transcription.state === "FAILED") {
           $mediumTranscriptionViewerCardBody.find('[data-role="viewerFailedState"]').removeClass("d-none")
         } else {
@@ -1550,6 +1564,77 @@
       } else {
         $mediumTranscriptionViewerCardBody.addClass("d-none")
         $mediumTranscriptionViewerCardHeader.find('[data-role="viewerEmptyState"]').removeClass("d-none")
+      }
+    },
+
+    _cleanupTranscriptionViewer: function () {
+      if (TIMAAT.MediumDatasets._transcriptionViewerCleanup) {
+        TIMAAT.MediumDatasets._transcriptionViewerCleanup()
+        TIMAAT.MediumDatasets._transcriptionViewerCleanup = null
+      }
+    },
+
+    _renderTranscriptionViewer: function ($completedState, cues, inAnnotationPerspective) {
+      const $cueScroll = $completedState.find('[data-role="transcriptionViewerCueScroll"]')
+      const $followToggle = $completedState.find('[data-role="transcriptionViewerFollowToggle"]')
+
+      let followActive = $followToggle.hasClass('active')
+      $cueScroll.empty()
+
+      const cueElements = cues.map(function (cue) {
+        const startFmt = TIMAAT.Util.formatTime(cue.startTime, true)
+        const endFmt = TIMAAT.Util.formatTime(cue.endTime, true)
+        const escapedText = $('<div>').text(cue.cue).html()
+        const $cueEl = $('<div class="transcription-viewer-cue">' +
+            '<div class="transcription-viewer-cue-range">' + startFmt +
+            ' <span class="transcription-viewer-cue-arrow">→</span> ' + endFmt + '</div>' +
+            '<div class="transcription-viewer-cue-text">' + escapedText + '</div>' +
+            '</div>')
+        $cueEl.on('click', function () {
+          if (TIMAAT.VideoPlayer && TIMAAT.VideoPlayer.jumpTo) {
+            TIMAAT.VideoPlayer.jumpTo(cue.startTime)
+          }
+        })
+        $cueScroll.append($cueEl)
+        return $cueEl
+      })
+
+      if (inAnnotationPerspective) {
+        $followToggle.off('click.transcriptionViewer').on('click.transcriptionViewer', function () {
+          followActive = !followActive
+          $followToggle.toggleClass('active', followActive)
+        })
+
+        const media = TIMAAT.VideoPlayer && TIMAAT.VideoPlayer.medium
+
+        const updateActiveCue = function () {
+          if (!media) return
+          const t = media.currentTime * 1000
+          let activeCueEl = null
+          for (let i = 0; i < cueElements.length; i++) {
+            const isActive = t >= cues[i].startTime && t < cues[i].endTime
+            cueElements[i].toggleClass('active', isActive)
+            if (isActive) activeCueEl = cueElements[i]
+          }
+          if (followActive && activeCueEl) {
+            const scroll = $cueScroll[0]
+            const el = activeCueEl[0]
+            const top = el.offsetTop - scroll.clientHeight / 2 + el.offsetHeight / 2
+            scroll.scrollTo({top: top, behavior: 'smooth'})
+          }
+        }
+
+        if (media) {
+          media.addEventListener('timeupdate', updateActiveCue)
+          updateActiveCue()
+        }
+
+        TIMAAT.MediumDatasets._transcriptionViewerCleanup = function () {
+          if (media) {
+            media.removeEventListener('timeupdate', updateActiveCue)
+          }
+          $followToggle.off('click.transcriptionViewer')
+        }
       }
     },
 

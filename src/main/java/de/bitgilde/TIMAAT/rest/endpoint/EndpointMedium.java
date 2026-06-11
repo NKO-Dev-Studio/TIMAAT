@@ -3338,9 +3338,19 @@ public class EndpointMedium {
     }
 
 
-    Optional<java.nio.file.Path> frequencyFilePath = videoFileStorage.getPathToFrequencyFile(id)
-                                                                     .or(() -> audioFileStorage.getPathToOriginalFile(
-                                                                             id));
+    Optional<java.nio.file.Path> frequencyFilePath = Optional.empty();
+    try (EntityManager entityManager = TIMAATApp.emf.createEntityManager()) {
+      Medium medium = entityManager.find(Medium.class, id);
+
+      if (medium != null) {
+        if (medium.getMediumAudio() != null) {
+          frequencyFilePath = audioFileStorage.getPathToFrequencyFile(id);
+        }
+        else if (medium.getMediumVideo() != null) {
+          frequencyFilePath = videoFileStorage.getPathToFrequencyFile(id);
+        }
+      }
+    }
 
     if (frequencyFilePath.isPresent()) {
       FrequencyFileReader frequencyFileReader = new FrequencyFileReader(frequencyFilePath.get());
