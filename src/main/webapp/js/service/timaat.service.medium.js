@@ -1199,6 +1199,50 @@
       }).catch((error) => {
         console.error("ERROR: ", error);
       });
+    },
+
+    async updateMediumTranscription(mediumId, transcriptionId, name) {
+      const payload = {
+        name
+      }
+
+      return new Promise((resolve, reject) => {
+        $.ajax({
+          url: window.location.protocol + '//' + window.location.host + "/TIMAAT/api/medium/" + mediumId + "/transcriptions/" + transcriptionId,
+          type: "PUT",
+          data: JSON.stringify(payload),
+          contentType: "application/json; charset=utf-8",
+          beforeSend: function (xhr) {
+            xhr.setRequestHeader('Authorization', 'Bearer ' + TIMAAT.Service.token);
+          },
+        }).done(function (data) {
+          resolve(data);
+        }).fail(function (error) {
+          console.error("ERROR: ", error);
+          console.error("ERROR responseText:", error.responseText);
+          reject(error.responseText);
+        });
+      });
+    },
+
+    async updateMediumTranscriptionContent(mediumId, transcriptionId, content) {
+      return new Promise((resolve, reject) => {
+        $.ajax({
+          url: window.location.protocol + '//' + window.location.host + "/TIMAAT/api/medium/" + mediumId + "/transcriptions/" + transcriptionId + "/content",
+          type: "PUT",
+          data: JSON.stringify(content),
+          contentType: "application/json; charset=utf-8",
+          beforeSend: function (xhr) {
+            xhr.setRequestHeader('Authorization', 'Bearer ' + TIMAAT.Service.token);
+          },
+        }).done(function (data) {
+          resolve(data);
+        }).fail(function (error) {
+          console.error("ERROR: ", error);
+          console.error("ERROR responseText:", error.responseText);
+          reject(error.responseText);
+        });
+      });
     }
   }
 }, window));

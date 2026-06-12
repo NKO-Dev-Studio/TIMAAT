@@ -1,5 +1,6 @@
 package de.bitgilde.TIMAAT.rest.jersey;
 
+import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.MapperFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
@@ -24,7 +25,7 @@ public class ObjectMapperContextResolver implements ContextResolver<ObjectMapper
     this.objectMapper = JsonMapper.builder().enable(MapperFeature.ACCEPT_CASE_INSENSITIVE_ENUMS)
                                   .addModule(new JavaTimeModule())
                                   .disable(SerializationFeature.WRITE_DATE_TIMESTAMPS_AS_NANOSECONDS)
-                                  .build();
+                                  .disable(DeserializationFeature.READ_DATE_TIMESTAMPS_AS_NANOSECONDS).build();
   }
 
   @Override

@@ -4392,7 +4392,7 @@
                                     </div>
                                   </div>
                                   <div>
-                                    <button class="btn btn-sm btn-primary m-1"><span
+                                    <button id="transcriptionViewerEditBtn" class="btn btn-sm btn-primary m-1"><span
                                             class="fas fa-sm fa-pen mr-1"></span>Edit
                                     </button>
                                     <button class="btn btn-sm btn-light m-1 dropdown-toggle dropdown-toggle-hide-caret"
@@ -4416,7 +4416,25 @@
                                 </div>
                               </div>
                               <div data-role="viewerEditState">
-
+                                <div class="d-flex justify-content-between align-items-center">
+                                  <div class="d-flex align-items-center flex-grow-1 mr-2">
+                                    <input type="text" class="form-control form-control-sm transcriptionEditNameInput"
+                                           data-role="transcriptionEditNameInput" maxlength="150"
+                                           placeholder="Transcription name">
+                                    <span class="transcription-editor-dirty ml-2 d-none"
+                                          data-role="transcriptionEditDirtyIndicator">
+                                      <span class="transcription-editor-dirty-dot"></span>Unsaved
+                                    </span>
+                                  </div>
+                                  <div class="text-nowrap">
+                                    <button class="btn btn-sm btn-primary m-1" data-role="transcriptionEditSaveBtn"><span
+                                            class="fas fa-sm fa-check mr-1"></span>Save</button>
+                                    <button class="btn btn-sm btn-light m-1" data-role="transcriptionEditCancelBtn"><span
+                                            class="fas fa-sm fa-times mr-1"></span>Cancel</button>
+                                  </div>
+                                </div>
+                                <div class="alert alert-danger mt-2 mb-0 py-1 px-2 d-none"
+                                     data-role="transcriptionEditError"></div>
                               </div>
                             </div>
                             <div class="card-body p-2">
@@ -4427,7 +4445,8 @@
                                 </div>
                               </div>
                               <div data-role="viewerEditState" class="d-none">
-
+                                <div class="transcription-editor-scroll"
+                                     data-role="transcriptionEditorScroll"></div>
                               </div>
                               <div data-role="viewerCompletedState" class="d-none">
                                 <div class="transcription-viewer-follow-row d-none"
