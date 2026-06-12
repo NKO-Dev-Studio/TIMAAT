@@ -8,7 +8,7 @@ package de.bitgilde.TIMAAT.service.transcription.exception;
  * @author Nico Kotlenga (nico@nko-dev.studio)
  * @since 2026-05-24
  */
-public class TranscriptionFeatureDisabledException extends TranscriptionServiceException {
+public class TranscriptionFeatureDisabledException extends TranscriptionException {
   private static final long serialVersionUID = 1L;
 
   public TranscriptionFeatureDisabledException(String message) {

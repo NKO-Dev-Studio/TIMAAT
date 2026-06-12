@@ -2,6 +2,7 @@ package de.bitgilde.TIMAAT.service.transcription.format.vtt;
 
 import de.bitgilde.TIMAAT.service.transcription.api.TranscriptionContent;
 import de.bitgilde.TIMAAT.service.transcription.api.TranscriptionCue;
+import de.bitgilde.TIMAAT.service.transcription.exception.TranscriptionContentFormatException;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -22,16 +23,17 @@ import java.util.regex.Pattern;
  * @since 10.06.26
  */
 public class VttParser {
-
+  private static final String VTT_HEADER = "WEBVTT";
   private static final Pattern CUE_START_PATTERN = Pattern.compile(
           "(\\d{2}:)?\\d{2}:\\d{2}\\.\\d{3} --> (\\d{2}:)?\\d{2}:\\d{2}\\.\\d{3}");
   private static final Pattern CUE_TIMESTAMP_PATTERN = Pattern.compile("(\\d{2}:)?\\d{2}:\\d{2}\\.\\d{3}");
 
-  public TranscriptionContent parseVttStream(InputStream inputStream) throws IOException {
+  public TranscriptionContent parseVttStream(InputStream inputStream) throws IOException, TranscriptionContentFormatException {
     List<TranscriptionCue> cues = new ArrayList<>();
 
     try (BufferedReader bufferedReader = new BufferedReader(
             new InputStreamReader(inputStream, StandardCharsets.UTF_8))) {
+      verifyHeaderLine(bufferedReader);
       while (bufferedReader.ready()) {
         String currentLine = bufferedReader.readLine();
         if (CUE_START_PATTERN.matcher(currentLine).find()) {
@@ -45,6 +47,17 @@ public class VttParser {
     }
 
     return new TranscriptionContent(cues);
+  }
+
+  private static void verifyHeaderLine(BufferedReader bufferedReader) throws IOException, TranscriptionContentFormatException {
+    if (bufferedReader.ready()) {
+      String headerLine = bufferedReader.readLine();
+      if (headerLine.startsWith(VTT_HEADER)) {
+        return;
+      }
+    }
+
+    throw new TranscriptionContentFormatException("VTT file has invalid header");
   }
 
   private static String parseCue(BufferedReader bufferedReader) throws IOException {

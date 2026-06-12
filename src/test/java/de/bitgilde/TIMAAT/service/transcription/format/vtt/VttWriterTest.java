@@ -2,6 +2,7 @@ package de.bitgilde.TIMAAT.service.transcription.format.vtt;
 
 import de.bitgilde.TIMAAT.service.transcription.api.TranscriptionContent;
 import de.bitgilde.TIMAAT.service.transcription.api.TranscriptionCue;
+import de.bitgilde.TIMAAT.service.transcription.exception.TranscriptionContentFormatException;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
@@ -34,8 +35,8 @@ public class VttWriterTest {
 
   @Test
   public void shouldWriteVttHeader() throws IOException {
-    TranscriptionContent content = new TranscriptionContent(List.of(
-            new TranscriptionCue(Duration.ofSeconds(1), Duration.ofSeconds(2), "Hello")));
+    TranscriptionContent content = new TranscriptionContent(
+            List.of(new TranscriptionCue(Duration.ofSeconds(1), Duration.ofSeconds(2), "Hello")));
 
     ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
     vttWriter.writeVttStream(content, outputStream);
@@ -45,22 +46,22 @@ public class VttWriterTest {
   }
 
   @Test
-  public void shouldRoundTripContentThroughParser() throws IOException {
-    TranscriptionContent content = new TranscriptionContent(List.of(
-            new TranscriptionCue(Duration.ofHours(0).plusMinutes(59).plusSeconds(42).plusMillis(880),
-                    Duration.ofHours(0).plusMinutes(59).plusSeconds(46).plusMillis(360),
-                    "Ah, da wollen u das Backstage-Catering."),
-            new TranscriptionCue(Duration.ofHours(0).plusMinutes(59).plusSeconds(46).plusMillis(360),
-                    Duration.ofHours(0).plusMinutes(59).plusSeconds(52).plusMillis(200), "Hahaha, schnitziert, na toll."),
-            new TranscriptionCue(Duration.ofHours(1).plusMinutes(0).plusSeconds(0).plusMillis(600),
-                    Duration.ofHours(1).plusMinutes(0).plusSeconds(3).plusMillis(600),
-                    "den Ziel für einen Bereich spielt für einen Bereich Spenden.")));
+  public void shouldRoundTripContentThroughParser() throws IOException, TranscriptionContentFormatException {
+    TranscriptionContent content = new TranscriptionContent(
+            List.of(new TranscriptionCue(Duration.ofHours(0).plusMinutes(59).plusSeconds(42).plusMillis(880),
+                            Duration.ofHours(0).plusMinutes(59).plusSeconds(46).plusMillis(360),
+                            "Ah, da wollen u das Backstage-Catering."),
+                    new TranscriptionCue(Duration.ofHours(0).plusMinutes(59).plusSeconds(46).plusMillis(360),
+                            Duration.ofHours(0).plusMinutes(59).plusSeconds(52).plusMillis(200),
+                            "Hahaha, schnitziert, na toll."),
+                    new TranscriptionCue(Duration.ofHours(1).plusMinutes(0).plusSeconds(0).plusMillis(600),
+                            Duration.ofHours(1).plusMinutes(0).plusSeconds(3).plusMillis(600),
+                            "den Ziel für einen Bereich spielt für einen Bereich Spenden.")));
 
     ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
     vttWriter.writeVttStream(content, outputStream);
 
-    TranscriptionContent parsed = vttParser.parseVttStream(
-            new ByteArrayInputStream(outputStream.toByteArray()));
+    TranscriptionContent parsed = vttParser.parseVttStream(new ByteArrayInputStream(outputStream.toByteArray()));
 
     assertEquals(content.cues(), parsed.cues());
   }

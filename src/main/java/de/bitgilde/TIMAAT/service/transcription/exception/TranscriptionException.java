@@ -8,13 +8,13 @@ import de.bitgilde.TIMAAT.service.transcription.TranscriptionService;
  * @author Nico Kotlenga (nico@nko-dev.studio)
  * @since 21.05.26
  */
-public class TranscriptionServiceException extends Exception {
+public class TranscriptionException extends Exception {
 
-  public TranscriptionServiceException(String message) {
+  public TranscriptionException(String message) {
     super(message);
   }
 
-  public TranscriptionServiceException(String message, Throwable cause) {
+  public TranscriptionException(String message, Throwable cause) {
     super(message, cause);
   }
 }

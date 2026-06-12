@@ -34,4 +34,15 @@ public record TranscriptionDto(int id, String name, int mediumId, @Nullable Stri
             de.bitgilde.TIMAAT.storage.entity.transcription.api.TranscriptionType.fromDatabaseId(
                     transcription.getTranscriptionType().getId()), transcription.getCreatedAt());
   }
+
+  public TranscriptionDto(int id, String name, int mediumId, @Nullable String engineIdentifier, @Nullable String modelIdentifier, TranscriptionState state, TranscriptionType type, Instant createdAt) {
+    this.id = id;
+    this.name = name;
+    this.mediumId = mediumId;
+    this.engineIdentifier = engineIdentifier;
+    this.modelIdentifier = modelIdentifier;
+    this.state = state;
+    this.type = type;
+    this.createdAt = createdAt;
+  }
 }
