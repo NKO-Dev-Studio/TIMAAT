@@ -1243,6 +1243,31 @@
           reject(error.responseText);
         });
       });
+    },
+
+    async importTranscription(mediumId, vttFile, transcriptionName) {
+      const formData = new FormData();
+      formData.append("vttFile", vttFile);
+      formData.append("transcriptionName", transcriptionName);
+
+      return new Promise((resolve, reject) => {
+        $.ajax({
+          url: window.location.protocol + '//' + window.location.host + "/TIMAAT/api/medium/" + mediumId + "/transcriptions/import",
+          type: "POST",
+          data: formData,
+          contentType: false,
+          processData: false,
+          beforeSend: function (xhr) {
+            xhr.setRequestHeader('Authorization', 'Bearer ' + TIMAAT.Service.token);
+          },
+        }).done(function (data) {
+          resolve(data);
+        }).fail(function (error) {
+          console.error("ERROR: ", error);
+          console.error("ERROR responseText:", error.responseText);
+          reject(error.responseText);
+        });
+      });
     }
   }
 }, window));

@@ -1213,6 +1213,46 @@
         }
       });
 
+      $('#mediumFormTranscriptionsImportButton').on('click', function () {
+        const $mediumTranscriptionImportModal = $('#mediumTranscriptionImportModal');
+        const $mediumTranscriptionImportForm = $mediumTranscriptionImportModal.find('#mediumTranscriptionImportForm')
+
+        $mediumTranscriptionImportModal.find(".alert").remove();
+        $mediumTranscriptionImportForm.validate().resetForm()
+        $mediumTranscriptionImportForm.find("#mediumTranscriptionImportName").val('')
+        $mediumTranscriptionImportForm.find("#mediumTranscriptionImportFileSelect").val('')
+        $mediumTranscriptionImportForm.find("#mediumTranscriptionImportFileSelect").removeClass("error")
+
+        $mediumTranscriptionImportModal.modal('show')
+      })
+
+      $('#mediumTranscriptionImportSubmitButton').on('click', function () {
+        const $mediumTranscriptionImportModal = $('#mediumTranscriptionImportModal')
+        const $mediumTranscriptionImportForm = $mediumTranscriptionImportModal.find('#mediumTranscriptionImportForm')
+
+
+        if ($mediumTranscriptionImportForm.valid()) {
+          const $mediumFormMetadata = $('#mediumFormMetadata').data('medium')
+          const mediumId = $mediumFormMetadata.model.id
+          const transcriptionName = $mediumTranscriptionImportForm.find("#mediumTranscriptionImportName").val()
+          const vttFile = $mediumTranscriptionImportForm.find("#mediumTranscriptionImportFileSelect").prop("files")[0]
+
+          $mediumTranscriptionImportModal.find('input, button').prop("disabled", true)
+          $mediumTranscriptionImportModal.find("#mediumTranscriptionImportSubmitButtonLoadingIndicator").removeClass("d-none")
+
+          TIMAAT.MediumService.importTranscription(mediumId, vttFile, transcriptionName).then(() => {
+            $mediumTranscriptionImportModal.modal('hide')
+          }).catch(error => {
+            console.error("Error during importing transcription", error)
+            $mediumTranscriptionImportModal.find(".alert").remove();
+            $mediumTranscriptionImportForm.prepend('<div class="alert alert-danger">Error during importing transcription</div>')
+          }).finally(() => {
+            $mediumTranscriptionImportModal.find('input, button').prop("disabled", false)
+            $mediumTranscriptionImportModal.find("#mediumTranscriptionImportSubmitButtonLoadingIndicator").addClass("d-none")
+          })
+        }
+      })
+
       $('#mediumFormTranscriptionsCreateButton').on('click', () => {
         const $mediumTranscriptionCreateSubmitButtonLoadingIndicator = $('#mediumTranscriptionCreateSubmitButtonLoadingIndicator')
         const $mediumTranscriptionCreateModal = $('#mediumTranscriptionCreateModal');
@@ -1494,13 +1534,14 @@
 
     createTranscriptionListGroupItem: function (transcription, active, defaultTranscription) {
       const createdAt = TIMAAT.Util.formatDate(transcription.createdAt)
+      const typeDescription = transcription.type === "GENERATED" ? "Generated" : "Imported"
 
       const $listGroupItem = $(`<li class="list-group-item medium-transcription-list-group-item d-flex justify-content-between align-items-center"></li>`)
       $listGroupItem.data("transcription", transcription)
       $listGroupItem.attr("data-id", transcription.id)
 
 
-      const $currentListGroupItemTranscriptionInfo = $(`<div class="d-flex flex-column flex-grow-1">${transcription.name}<small>${createdAt}</small></div>`)
+      const $currentListGroupItemTranscriptionInfo = $(`<div class="d-flex flex-column flex-grow-1">${transcription.name}<small>${typeDescription}</small><small>${createdAt}</small></div>`)
       let $currentListGroupItemTranscriptionState = $('<div class="transcription-state-container"></div>')
       if (transcription.state === "COMPLETED") {
         $currentListGroupItemTranscriptionState.append(`<div class="transcription-state-pill completed" title="Transcription creation completed"></div>`)

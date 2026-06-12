@@ -403,6 +403,8 @@ public class TranscriptionService implements TaskStateUpdater, SpeechToTextTaskS
     try (TemporaryFile temporaryFile = temporaryFileStorage.createTemporaryFile(); OutputStream out = Files.newOutputStream(
             temporaryFile.getTemporaryFilePath())) {
       vttWriter.writeVttStream(transcriptionContent, out);
+      transcriptionFileStorage.persistTranscription(temporaryFile.getTemporaryFilePath(),
+              importedTranscription.getId());
       finalTranscriptionState = TranscriptionState.COMPLETED;
     } catch (Exception e) {
       finalTranscriptionState = TranscriptionState.FAILED;

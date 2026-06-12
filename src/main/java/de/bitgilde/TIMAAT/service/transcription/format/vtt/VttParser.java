@@ -34,8 +34,8 @@ public class VttParser {
     try (BufferedReader bufferedReader = new BufferedReader(
             new InputStreamReader(inputStream, StandardCharsets.UTF_8))) {
       verifyHeaderLine(bufferedReader);
-      while (bufferedReader.ready()) {
-        String currentLine = bufferedReader.readLine();
+      String currentLine;
+      while ((currentLine = bufferedReader.readLine()) != null) {
         if (CUE_START_PATTERN.matcher(currentLine).find()) {
           Duration startTime = parseStartTime(currentLine);
           Duration endTime = parseEndTime(currentLine);
@@ -50,11 +50,9 @@ public class VttParser {
   }
 
   private static void verifyHeaderLine(BufferedReader bufferedReader) throws IOException, TranscriptionContentFormatException {
-    if (bufferedReader.ready()) {
-      String headerLine = bufferedReader.readLine();
-      if (headerLine.startsWith(VTT_HEADER)) {
-        return;
-      }
+    String headerLine = bufferedReader.readLine();
+    if (headerLine != null && headerLine.startsWith(VTT_HEADER)) {
+      return;
     }
 
     throw new TranscriptionContentFormatException("VTT file has invalid header");
@@ -62,8 +60,8 @@ public class VttParser {
 
   private static String parseCue(BufferedReader bufferedReader) throws IOException {
     StringBuilder cueBuilder = new StringBuilder();
-    while (bufferedReader.ready()) {
-      String line = bufferedReader.readLine();
+    String line;
+    while ((line = bufferedReader.readLine()) != null) {
       if (line.isBlank()) {
         break;
       }

@@ -4627,7 +4627,7 @@ public class EndpointMedium {
    * {@code 500 Internal Server Error} when the transcription could not be created
    */
   @POST
-  @Consumes(jakarta.ws.rs.core.MediaType.APPLICATION_JSON)
+  @Consumes(jakarta.ws.rs.core.MediaType.MULTIPART_FORM_DATA)
   @Produces(jakarta.ws.rs.core.MediaType.APPLICATION_JSON)
   @Secured
   @Path("{id}/transcriptions/import")
@@ -4637,13 +4637,13 @@ public class EndpointMedium {
     if (request == null) {
       return Response.status(Status.BAD_REQUEST).entity("{\"reason\":\"request body is required\"}").build();
     }
-    if (request.transcriptionName() == null || request.transcriptionName().isBlank()) {
+    if (request.getTranscriptionName() == null || request.getTranscriptionName().isBlank()) {
       return Response.status(Status.BAD_REQUEST).entity("No name provided.").build();
     }
 
     try {
-      TranscriptionDto created = transcriptionService.importTranscription(request.vttFile(),
-              request.transcriptionName(), mediumId, userId);
+      TranscriptionDto created = transcriptionService.importTranscription(request.getVttFile(),
+              request.getTranscriptionName(), mediumId, userId);
       return Response.status(Status.CREATED).entity(created).build();
     } catch (TranscriptionFeatureDisabledException e) {
       return Response.status(Status.FORBIDDEN).entity("{\"reason\":\"" + e.getMessage() + "\"}").build();

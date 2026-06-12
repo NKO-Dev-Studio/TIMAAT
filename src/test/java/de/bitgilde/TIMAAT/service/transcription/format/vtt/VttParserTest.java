@@ -71,4 +71,29 @@ public class VttParserTest {
       assertEquals(firstCue, transcriptionContent.cues().get(0));
     }
   }
+
+  @Test
+  public void shouldParseVttFileFromStreamWithoutAvailableBytes() throws IOException {
+    try (InputStream inputStream = new ZeroAvailableInputStream(
+            VttParserTest.class.getResourceAsStream(VTT_VALID_FILE))) {
+      TranscriptionContent transcriptionContent = assertDoesNotThrow(() -> vttParser.parseVttStream(inputStream));
+      assertEquals(4, transcriptionContent.cues().size());
+    }
+  }
+
+  @Test
+  public void shouldParseValidPartsOfInvalidVttFileFromStreamWithoutAvailableBytes() throws IOException {
+    try (InputStream inputStream = new ZeroAvailableInputStream(
+            VttParserTest.class.getResourceAsStream(VTT_INVALID_FILE))) {
+      TranscriptionContent transcriptionContent = assertDoesNotThrow(() -> vttParser.parseVttStream(inputStream));
+      assertEquals(1, transcriptionContent.cues().size());
+
+      TranscriptionCue firstCue = new TranscriptionCue(
+              Duration.ofHours(1).plusMinutes(0).plusSeconds(0).plusMillis(600),
+              Duration.ofHours(1).plusMinutes(0).plusSeconds(3).plusMillis(600),
+              "den Ziel für einen Bereich spielt für einen Bereich Spenden.");
+
+      assertEquals(firstCue, transcriptionContent.cues().get(0));
+    }
+  }
 }

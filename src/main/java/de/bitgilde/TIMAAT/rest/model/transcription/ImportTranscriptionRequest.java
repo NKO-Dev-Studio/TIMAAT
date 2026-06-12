@@ -11,6 +11,27 @@ import java.io.InputStream;
  * @author Nico Kotlenga (nico@nko-dev.studio) 
  * @since 12.06.26
  */
-public record ImportTranscriptionRequest(@FormDataParam("vttFile") InputStream vttFile,
-                                         @FormDataParam("transcriptionName") String transcriptionName) {
+public class ImportTranscriptionRequest {
+
+  @FormDataParam("vttFile")
+  private InputStream vttFile;
+
+  @FormDataParam("transcriptionName")
+  private String transcriptionName;
+
+  public InputStream getVttFile() {
+    return vttFile;
+  }
+
+  public void setVttFile(InputStream vttFile) {
+    this.vttFile = vttFile;
+  }
+
+  public String getTranscriptionName() {
+    return transcriptionName;
+  }
+
+  public void setTranscriptionName(String transcriptionName) {
+    this.transcriptionName = transcriptionName;
+  }
 }
