@@ -164,9 +164,10 @@ public class TranscriptionStorage extends DbStorage<Transcription, Transcription
       transcriptionModelId.setModelIdentifier(modelIdentifier);
       TranscriptionModel transcriptionModel = entityManager.getReference(TranscriptionModel.class,
               transcriptionModelId);
+      TranscriptionEngine engine = entityManager.find(TranscriptionEngine.class, engineIdentifier);
 
       Transcription transcription = new Transcription();
-      transcription.setName(engineIdentifier + " / " + modelIdentifier);
+      transcription.setName(engine.getEngineName() + " / " + modelIdentifier);
       transcription.setMedium(medium);
       transcription.setTranscriptionState(transcriptionStateEntity);
       transcription.setTranscriptionType(transcriptionTypeEntity);
