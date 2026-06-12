@@ -12,9 +12,9 @@ import de.bitgilde.TIMAAT.service.transcription.TranscriptionService;
 import de.bitgilde.TIMAAT.service.transcription.api.GenerateTranscriptionConfiguration;
 import de.bitgilde.TIMAAT.service.transcription.api.TranscriptionContent;
 import de.bitgilde.TIMAAT.service.transcription.api.TranscriptionCue;
+import de.bitgilde.TIMAAT.service.transcription.exception.TranscriptionException;
 import de.bitgilde.TIMAAT.service.transcription.exception.TranscriptionFeatureDisabledException;
 import de.bitgilde.TIMAAT.service.transcription.exception.TranscriptionNotFoundException;
-import de.bitgilde.TIMAAT.service.transcription.exception.TranscriptionServiceException;
 import de.bitgilde.TIMAAT.storage.entity.medium.exception.MediumNotFoundException;
 import de.bitgilde.TIMAAT.storage.entity.transcription.api.TranscriptionState;
 import de.bitgilde.TIMAAT.storage.entity.transcription.api.TranscriptionType;
@@ -242,7 +242,7 @@ public class EndpointMediumTranscriptionsTest {
 
   @Test
   void shouldReturnInternalServerErrorWhenServiceFails() throws Exception {
-    doThrow(new TranscriptionServiceException("backend exploded")).when(transcriptionService).createTranscription(
+    doThrow(new TranscriptionException("backend exploded")).when(transcriptionService).createTranscription(
             any(GenerateTranscriptionConfiguration.class), anyInt());
     CreateTranscriptionRequest request = new CreateTranscriptionRequest(ENGINE, MODEL);
 
@@ -274,8 +274,8 @@ public class EndpointMediumTranscriptionsTest {
   @Test
   void shouldReturnInternalServerErrorWhenDeleteFails() throws Exception {
     when(transcriptionService.existsForMedium(MEDIUM_ID, TRANSCRIPTION_ID)).thenReturn(true);
-    doThrow(new TranscriptionServiceException("backend exploded")).when(transcriptionService)
-                                                                  .deleteTranscription(TRANSCRIPTION_ID);
+    doThrow(new TranscriptionException("backend exploded")).when(transcriptionService)
+                                                           .deleteTranscription(TRANSCRIPTION_ID);
 
     Response response = endpoint.deleteMediumTranscription(MEDIUM_ID, TRANSCRIPTION_ID);
 
@@ -375,8 +375,8 @@ public class EndpointMediumTranscriptionsTest {
   @Test
   void shouldReturnNotFoundWhenUpdatingNameOfMissingTranscription() throws Exception {
     doThrow(new TranscriptionNotFoundException(TRANSCRIPTION_ID)).when(transcriptionService)
-                                                                .updateTranscriptionName(MEDIUM_ID, TRANSCRIPTION_ID,
-                                                                        "Neuer Name", USER_ID);
+                                                                 .updateTranscriptionName(MEDIUM_ID, TRANSCRIPTION_ID,
+                                                                         "Neuer Name", USER_ID);
 
     Response response = endpoint.updateMediumTranscription(MEDIUM_ID, TRANSCRIPTION_ID,
             new UpdateTranscriptionRequest("Neuer Name"));
@@ -405,8 +405,8 @@ public class EndpointMediumTranscriptionsTest {
   @Test
   void shouldReturnNotFoundWhenUpdatingContentOfMissingTranscription() throws Exception {
     doThrow(new TranscriptionNotFoundException(TRANSCRIPTION_ID)).when(transcriptionService)
-                                                                .updateTranscriptionContent(eq(MEDIUM_ID),
-                                                                        eq(TRANSCRIPTION_ID), any(), eq(USER_ID));
+                                                                 .updateTranscriptionContent(eq(MEDIUM_ID),
+                                                                         eq(TRANSCRIPTION_ID), any(), eq(USER_ID));
 
     Response response = endpoint.updateMediumTranscriptionContent(MEDIUM_ID, TRANSCRIPTION_ID, content());
 
@@ -415,9 +415,9 @@ public class EndpointMediumTranscriptionsTest {
 
   @Test
   void shouldReturnInternalServerErrorWhenUpdatingContentFails() throws Exception {
-    doThrow(new TranscriptionServiceException("write failure")).when(transcriptionService)
-                                                               .updateTranscriptionContent(eq(MEDIUM_ID),
-                                                                       eq(TRANSCRIPTION_ID), any(), eq(USER_ID));
+    doThrow(new TranscriptionException("write failure")).when(transcriptionService)
+                                                        .updateTranscriptionContent(eq(MEDIUM_ID), eq(TRANSCRIPTION_ID),
+                                                                any(), eq(USER_ID));
 
     Response response = endpoint.updateMediumTranscriptionContent(MEDIUM_ID, TRANSCRIPTION_ID, content());
 

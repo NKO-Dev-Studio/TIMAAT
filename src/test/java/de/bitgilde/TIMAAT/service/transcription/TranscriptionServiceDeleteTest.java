@@ -3,8 +3,8 @@ package de.bitgilde.TIMAAT.service.transcription;
 import de.bitgilde.TIMAAT.model.FIPOP.Medium;
 import de.bitgilde.TIMAAT.model.FIPOP.Transcription;
 import de.bitgilde.TIMAAT.service.task.TaskService;
+import de.bitgilde.TIMAAT.service.transcription.exception.TranscriptionException;
 import de.bitgilde.TIMAAT.service.transcription.exception.TranscriptionNotFoundException;
-import de.bitgilde.TIMAAT.service.transcription.exception.TranscriptionServiceException;
 import de.bitgilde.TIMAAT.service.transcription.format.vtt.VttParser;
 import de.bitgilde.TIMAAT.service.transcription.format.vtt.VttWriter;
 import de.bitgilde.TIMAAT.sse.EntityUpdateEventService;
@@ -158,8 +158,8 @@ public class TranscriptionServiceDeleteTest {
             Optional.empty());
     when(transcriptionStorage.deleteTranscription(TRANSCRIPTION_ID)).thenThrow(new RuntimeException("DB down"));
 
-    assertThatThrownBy(() -> service.deleteTranscription(TRANSCRIPTION_ID)).isInstanceOf(
-            TranscriptionServiceException.class).hasCauseInstanceOf(RuntimeException.class);
+    assertThatThrownBy(() -> service.deleteTranscription(TRANSCRIPTION_ID)).isInstanceOf(TranscriptionException.class)
+                                                                           .hasCauseInstanceOf(RuntimeException.class);
 
     verifyNoFileDeletion();
   }
@@ -173,8 +173,8 @@ public class TranscriptionServiceDeleteTest {
     when(transcriptionStorage.deleteTranscription(TRANSCRIPTION_ID)).thenReturn(true);
     when(transcriptionFileStorage.deleteTranscription(TRANSCRIPTION_ID)).thenThrow(new IOException("disk failure"));
 
-    assertThatThrownBy(() -> service.deleteTranscription(TRANSCRIPTION_ID)).isInstanceOf(
-            TranscriptionServiceException.class).hasCauseInstanceOf(IOException.class);
+    assertThatThrownBy(() -> service.deleteTranscription(TRANSCRIPTION_ID)).isInstanceOf(TranscriptionException.class)
+                                                                           .hasCauseInstanceOf(IOException.class);
   }
 
   @Test

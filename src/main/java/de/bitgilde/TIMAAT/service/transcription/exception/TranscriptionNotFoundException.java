@@ -9,7 +9,7 @@ import de.bitgilde.TIMAAT.service.transcription.TranscriptionService;
  * @author Nico Kotlenga (nico@nko-dev.studio)
  * @since 2026-05-21
  */
-public class TranscriptionNotFoundException extends TranscriptionServiceException {
+public class TranscriptionNotFoundException extends TranscriptionException {
 
   private final int transcriptionId;
 

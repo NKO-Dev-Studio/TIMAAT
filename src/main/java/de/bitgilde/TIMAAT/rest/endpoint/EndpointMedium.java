@@ -53,8 +53,9 @@ import de.bitgilde.TIMAAT.rest.model.medium.UpdateMediumHasMusicListPayload;
 import de.bitgilde.TIMAAT.rest.model.medium.UpdateMediumHasMusicListPayload.MediumHasMusicListEntry;
 import de.bitgilde.TIMAAT.rest.model.medium.UpdateMediumVideoThumbnailPayload;
 import de.bitgilde.TIMAAT.rest.model.transcription.CreateTranscriptionRequest;
-import de.bitgilde.TIMAAT.rest.model.transcription.UpdateTranscriptionRequest;
+import de.bitgilde.TIMAAT.rest.model.transcription.ImportTranscriptionRequest;
 import de.bitgilde.TIMAAT.rest.model.transcription.TranscriptionDto;
+import de.bitgilde.TIMAAT.rest.model.transcription.UpdateTranscriptionRequest;
 import de.bitgilde.TIMAAT.security.TIMAATKeyGenerator;
 import de.bitgilde.TIMAAT.security.UserLogManager;
 import de.bitgilde.TIMAAT.service.task.TaskService;
@@ -64,9 +65,10 @@ import de.bitgilde.TIMAAT.service.task.exception.TaskServiceException;
 import de.bitgilde.TIMAAT.service.transcription.TranscriptionService;
 import de.bitgilde.TIMAAT.service.transcription.api.GenerateTranscriptionConfiguration;
 import de.bitgilde.TIMAAT.service.transcription.api.TranscriptionContent;
+import de.bitgilde.TIMAAT.service.transcription.exception.TranscriptionContentFormatException;
+import de.bitgilde.TIMAAT.service.transcription.exception.TranscriptionException;
 import de.bitgilde.TIMAAT.service.transcription.exception.TranscriptionFeatureDisabledException;
 import de.bitgilde.TIMAAT.service.transcription.exception.TranscriptionNotFoundException;
-import de.bitgilde.TIMAAT.service.transcription.exception.TranscriptionServiceException;
 import de.bitgilde.TIMAAT.storage.api.PagingParameter;
 import de.bitgilde.TIMAAT.storage.api.SortingParameter;
 import de.bitgilde.TIMAAT.storage.entity.MediumVideoStorage;
@@ -4609,7 +4611,45 @@ public class EndpointMedium {
       return Response.status(Status.FORBIDDEN).entity("{\"reason\":\"" + e.getMessage() + "\"}").build();
     } catch (IllegalArgumentException e) {
       return Response.status(Status.BAD_REQUEST).entity("{\"reason\":\"" + e.getMessage() + "\"}").build();
-    } catch (TranscriptionServiceException e) {
+    } catch (TranscriptionException e) {
+      return Response.status(Status.INTERNAL_SERVER_ERROR).entity("{\"reason\":\"" + e.getMessage() + "\"}").build();
+    }
+  }
+
+  /**
+   * Creates a new transcription by using a provided vtt file as transcription content.
+   * The request is expecting a form data payload having a structure defined by {@link de.bitgilde.TIMAAT.rest.model.transcription.ImportTranscriptionRequest}
+   *
+   * @param mediumId identifies the {@link Medium} the transcription should be created for
+   * @param request  payload carrying the import vtt file as well as the name of the new generated transcription
+   * @return {@code 201 Created} with the new transcription DTO; {@code 400 Bad Request} when
+   * the payload is missing or invalid; {@code 403 Forbidden} when the feature is disabled;
+   * {@code 500 Internal Server Error} when the transcription could not be created
+   */
+  @POST
+  @Consumes(jakarta.ws.rs.core.MediaType.MULTIPART_FORM_DATA)
+  @Produces(jakarta.ws.rs.core.MediaType.APPLICATION_JSON)
+  @Secured
+  @Path("{id}/transcriptions/import")
+  public Response importMediumTranscriptions(@PathParam("id") int mediumId, @BeanParam ImportTranscriptionRequest request) {
+    int userId = (int) containerRequestContext.getProperty("TIMAAT.userID");
+
+    if (request == null) {
+      return Response.status(Status.BAD_REQUEST).entity("{\"reason\":\"request body is required\"}").build();
+    }
+    if (request.getTranscriptionName() == null || request.getTranscriptionName().isBlank()) {
+      return Response.status(Status.BAD_REQUEST).entity("No name provided.").build();
+    }
+
+    try {
+      TranscriptionDto created = transcriptionService.importTranscription(request.getVttFile(),
+              request.getTranscriptionName(), mediumId, userId);
+      return Response.status(Status.CREATED).entity(created).build();
+    } catch (TranscriptionFeatureDisabledException e) {
+      return Response.status(Status.FORBIDDEN).entity("{\"reason\":\"" + e.getMessage() + "\"}").build();
+    } catch (IllegalArgumentException | TranscriptionContentFormatException e) {
+      return Response.status(Status.BAD_REQUEST).entity("{\"reason\":\"" + e.getMessage() + "\"}").build();
+    } catch (Exception e) {
       return Response.status(Status.INTERNAL_SERVER_ERROR).entity("{\"reason\":\"" + e.getMessage() + "\"}").build();
     }
   }
@@ -4644,7 +4684,7 @@ public class EndpointMedium {
       return Response.noContent().build();
     } catch (TranscriptionNotFoundException e) {
       return Response.status(Status.NOT_FOUND).entity("{\"reason\":\"" + e.getMessage() + "\"}").build();
-    } catch (TranscriptionServiceException e) {
+    } catch (TranscriptionException e) {
       return Response.status(Status.INTERNAL_SERVER_ERROR).entity("{\"reason\":\"" + e.getMessage() + "\"}").build();
     }
   }
@@ -4710,7 +4750,7 @@ public class EndpointMedium {
       return Response.ok(transcriptionContent).build();
     } catch (TranscriptionNotFoundException e) {
       return Response.status(Status.NOT_FOUND).entity("{\"reason\":\"" + e.getMessage() + "\"}").build();
-    } catch (TranscriptionServiceException e) {
+    } catch (TranscriptionException e) {
       return Response.status(Status.INTERNAL_SERVER_ERROR).entity("{\"reason\":\"" + e.getMessage() + "\"}").build();
     }
   }
@@ -4742,8 +4782,8 @@ public class EndpointMedium {
     }
 
     try {
-      TranscriptionDto updated = transcriptionService.updateTranscriptionName(mediumId, transcriptionId,
-              request.name(), userId);
+      TranscriptionDto updated = transcriptionService.updateTranscriptionName(mediumId, transcriptionId, request.name(),
+              userId);
       return Response.ok(updated).build();
     } catch (TranscriptionNotFoundException e) {
       return Response.status(Status.NOT_FOUND).entity("{\"reason\":\"" + e.getMessage() + "\"}").build();
@@ -4782,7 +4822,7 @@ public class EndpointMedium {
       return Response.noContent().build();
     } catch (TranscriptionNotFoundException e) {
       return Response.status(Status.NOT_FOUND).entity("{\"reason\":\"" + e.getMessage() + "\"}").build();
-    } catch (TranscriptionServiceException e) {
+    } catch (TranscriptionException e) {
       return Response.status(Status.INTERNAL_SERVER_ERROR).entity("{\"reason\":\"" + e.getMessage() + "\"}").build();
     }
   }

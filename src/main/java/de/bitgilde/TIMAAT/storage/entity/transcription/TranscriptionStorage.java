@@ -128,7 +128,30 @@ public class TranscriptionStorage extends DbStorage<Transcription, Transcription
     });
   }
 
-  public Transcription createTranscription(int mediumId, String engineIdentifier, String modelIdentifier, TranscriptionState transcriptionState, int createdByUserAccountId) {
+  public Transcription createImportedTranscription(int mediumId, TranscriptionState transcriptionState, String transcriptionName, int createdByUserAccountId) {
+    return executeDbTransaction(entityManager -> {
+      de.bitgilde.TIMAAT.model.FIPOP.TranscriptionState transcriptionStateEntity = entityManager.getReference(
+              de.bitgilde.TIMAAT.model.FIPOP.TranscriptionState.class, transcriptionState.getDatabaseId());
+      de.bitgilde.TIMAAT.model.FIPOP.TranscriptionType transcriptionTypeEntity = entityManager.getReference(
+              de.bitgilde.TIMAAT.model.FIPOP.TranscriptionType.class, TranscriptionType.IMPORTED.getDatabaseId());
+      Medium medium = entityManager.getReference(Medium.class, mediumId);
+      UserAccount createdBy = entityManager.getReference(UserAccount.class, createdByUserAccountId);
+
+      Transcription transcription = new Transcription();
+      transcription.setMedium(medium);
+      transcription.setCreatedByUserAccount(createdBy);
+      transcription.setTranscriptionState(transcriptionStateEntity);
+      transcription.setTranscriptionType(transcriptionTypeEntity);
+      transcription.setCreatedAt(Instant.now());
+      transcription.setName(transcriptionName);
+
+      entityManager.persist(transcription);
+
+      return transcription;
+    });
+  }
+
+  public Transcription createGeneratedTranscription(int mediumId, String engineIdentifier, String modelIdentifier, TranscriptionState transcriptionState, int createdByUserAccountId) {
     return executeDbTransaction(entityManager -> {
       de.bitgilde.TIMAAT.model.FIPOP.TranscriptionState transcriptionStateEntity = entityManager.getReference(
               de.bitgilde.TIMAAT.model.FIPOP.TranscriptionState.class, transcriptionState.getDatabaseId());
@@ -141,9 +164,10 @@ public class TranscriptionStorage extends DbStorage<Transcription, Transcription
       transcriptionModelId.setModelIdentifier(modelIdentifier);
       TranscriptionModel transcriptionModel = entityManager.getReference(TranscriptionModel.class,
               transcriptionModelId);
+      TranscriptionEngine engine = entityManager.find(TranscriptionEngine.class, engineIdentifier);
 
       Transcription transcription = new Transcription();
-      transcription.setName(engineIdentifier + " / " + modelIdentifier);
+      transcription.setName(engine.getEngineName() + " / " + modelIdentifier);
       transcription.setMedium(medium);
       transcription.setTranscriptionState(transcriptionStateEntity);
       transcription.setTranscriptionType(transcriptionTypeEntity);

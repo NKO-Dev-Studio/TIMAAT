@@ -9,8 +9,8 @@ import de.bitgilde.TIMAAT.service.task.TaskService;
 import de.bitgilde.TIMAAT.service.transcription.api.TranscriptionContent;
 import de.bitgilde.TIMAAT.service.transcription.api.TranscriptionContentEntityUpdateMessage;
 import de.bitgilde.TIMAAT.service.transcription.api.TranscriptionCue;
+import de.bitgilde.TIMAAT.service.transcription.exception.TranscriptionException;
 import de.bitgilde.TIMAAT.service.transcription.exception.TranscriptionNotFoundException;
-import de.bitgilde.TIMAAT.service.transcription.exception.TranscriptionServiceException;
 import de.bitgilde.TIMAAT.service.transcription.format.vtt.VttParser;
 import de.bitgilde.TIMAAT.service.transcription.format.vtt.VttWriter;
 import de.bitgilde.TIMAAT.sse.EntityUpdateEventService;
@@ -178,7 +178,7 @@ public class TranscriptionServiceUpdateTest {
 
     assertThatThrownBy(
             () -> service.updateTranscriptionContent(MEDIUM_ID, TRANSCRIPTION_ID, content(), USER_ID)).isInstanceOf(
-            TranscriptionServiceException.class).hasCauseInstanceOf(IOException.class);
+            TranscriptionException.class).hasCauseInstanceOf(IOException.class);
 
     verify(transcriptionFileStorage, never()).persistTranscription(any(), anyInt());
     verify(transcriptionStorage, never()).touchTranscription(anyInt(), anyInt());
