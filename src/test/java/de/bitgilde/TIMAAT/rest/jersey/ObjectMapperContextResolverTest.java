@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.time.Duration;
 import java.time.Instant;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -43,5 +44,28 @@ class ObjectMapperContextResolverTest {
     Instant instant = objectMapper.readValue("\"2026-05-29T10:15:30Z\"", Instant.class);
 
     assertThat(instant).isEqualTo(Instant.parse("2026-05-29T10:15:30Z"));
+  }
+
+  @Test
+  void serializesDurationAsNumericMilliseconds() throws Exception {
+    String json = objectMapper.writeValueAsString(Duration.ofMillis(5000));
+
+    assertThat(json).isEqualTo("5000");
+  }
+
+  @Test
+  void deserializesDurationFromNumericMilliseconds() throws Exception {
+    Duration duration = objectMapper.readValue("5000", Duration.class);
+
+    assertThat(duration).isEqualTo(Duration.ofMillis(5000));
+  }
+
+  @Test
+  void roundTripsDurationPreservingMilliseconds() throws Exception {
+    Duration original = Duration.ofMillis(1500);
+
+    Duration roundTripped = objectMapper.readValue(objectMapper.writeValueAsString(original), Duration.class);
+
+    assertThat(roundTripped).isEqualTo(original);
   }
 }

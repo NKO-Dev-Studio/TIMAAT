@@ -53,6 +53,7 @@ import de.bitgilde.TIMAAT.rest.model.medium.UpdateMediumHasMusicListPayload;
 import de.bitgilde.TIMAAT.rest.model.medium.UpdateMediumHasMusicListPayload.MediumHasMusicListEntry;
 import de.bitgilde.TIMAAT.rest.model.medium.UpdateMediumVideoThumbnailPayload;
 import de.bitgilde.TIMAAT.rest.model.transcription.CreateTranscriptionRequest;
+import de.bitgilde.TIMAAT.rest.model.transcription.UpdateTranscriptionRequest;
 import de.bitgilde.TIMAAT.rest.model.transcription.TranscriptionDto;
 import de.bitgilde.TIMAAT.security.TIMAATKeyGenerator;
 import de.bitgilde.TIMAAT.security.UserLogManager;
@@ -4707,6 +4708,78 @@ public class EndpointMedium {
       TranscriptionContent transcriptionContent = transcriptionService.getTranscriptionContent(mediumId,
               transcriptionId);
       return Response.ok(transcriptionContent).build();
+    } catch (TranscriptionNotFoundException e) {
+      return Response.status(Status.NOT_FOUND).entity("{\"reason\":\"" + e.getMessage() + "\"}").build();
+    } catch (TranscriptionServiceException e) {
+      return Response.status(Status.INTERNAL_SERVER_ERROR).entity("{\"reason\":\"" + e.getMessage() + "\"}").build();
+    }
+  }
+
+  /**
+   * Updates the editable base information of the transcription identified by
+   * {@code transcriptionId}, scoped to the given medium. Currently only the name can be changed.
+   * A request without a body or with a {@code null}/blank name is rejected with
+   * {@code 400 Bad Request}; a transcription that does not exist or belongs to a different medium
+   * is reported as {@code 404 Not Found}.
+   *
+   * @param mediumId        identifies the {@link Medium} the transcription is expected to belong to
+   * @param transcriptionId identifies the transcription to update
+   * @param request         payload carrying the new name
+   * @return {@code 200 OK} with the updated transcription DTO; {@code 400 Bad Request} when the
+   * payload is missing or the name is blank; {@code 404 Not Found} when the transcription does not
+   * exist or belongs to a different medium
+   */
+  @PUT
+  @Consumes(jakarta.ws.rs.core.MediaType.APPLICATION_JSON)
+  @Produces(jakarta.ws.rs.core.MediaType.APPLICATION_JSON)
+  @Secured
+  @Path("{id}/transcriptions/{transcriptionId}")
+  public Response updateMediumTranscription(@PathParam("id") int mediumId, @PathParam("transcriptionId") int transcriptionId, UpdateTranscriptionRequest request) {
+    int userId = (int) containerRequestContext.getProperty("TIMAAT.userID");
+
+    if (request == null || isBlank(request.name())) {
+      return Response.status(Status.BAD_REQUEST).entity("{\"reason\":\"name is required\"}").build();
+    }
+
+    try {
+      TranscriptionDto updated = transcriptionService.updateTranscriptionName(mediumId, transcriptionId,
+              request.name(), userId);
+      return Response.ok(updated).build();
+    } catch (TranscriptionNotFoundException e) {
+      return Response.status(Status.NOT_FOUND).entity("{\"reason\":\"" + e.getMessage() + "\"}").build();
+    }
+  }
+
+  /**
+   * Overwrites the content (the underlying VTT file) of the transcription identified by
+   * {@code transcriptionId}, scoped to the given medium. The new content is written to a temporary
+   * file first and only persisted once written successfully, so a failed write never corrupts the
+   * existing file. A request without a body is rejected with {@code 400 Bad Request}; a
+   * transcription that does not exist or belongs to a different medium is reported as
+   * {@code 404 Not Found}.
+   *
+   * @param mediumId        identifies the {@link Medium} the transcription is expected to belong to
+   * @param transcriptionId identifies the transcription whose content is overwritten
+   * @param content         the new transcription content
+   * @return {@code 204 No Content} on success; {@code 400 Bad Request} when the payload is missing;
+   * {@code 404 Not Found} when the transcription does not exist or belongs to a different medium;
+   * {@code 500 Internal Server Error} when the content could not be written or persisted
+   */
+  @PUT
+  @Consumes(jakarta.ws.rs.core.MediaType.APPLICATION_JSON)
+  @Produces(jakarta.ws.rs.core.MediaType.APPLICATION_JSON)
+  @Secured
+  @Path("{id}/transcriptions/{transcriptionId}/content")
+  public Response updateMediumTranscriptionContent(@PathParam("id") int mediumId, @PathParam("transcriptionId") int transcriptionId, TranscriptionContent content) {
+    int userId = (int) containerRequestContext.getProperty("TIMAAT.userID");
+
+    if (content == null) {
+      return Response.status(Status.BAD_REQUEST).entity("{\"reason\":\"request body is required\"}").build();
+    }
+
+    try {
+      transcriptionService.updateTranscriptionContent(mediumId, transcriptionId, content, userId);
+      return Response.noContent().build();
     } catch (TranscriptionNotFoundException e) {
       return Response.status(Status.NOT_FOUND).entity("{\"reason\":\"" + e.getMessage() + "\"}").build();
     } catch (TranscriptionServiceException e) {

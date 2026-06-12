@@ -15,6 +15,7 @@ import de.bitgilde.TIMAAT.service.task.api.TranscriptionMediumPreparationTask;
 import de.bitgilde.TIMAAT.service.task.storage.TaskStateUpdater;
 import de.bitgilde.TIMAAT.service.transcription.api.GenerateTranscriptionConfiguration;
 import de.bitgilde.TIMAAT.service.transcription.api.TranscriptionContent;
+import de.bitgilde.TIMAAT.service.transcription.api.TranscriptionContentEntityUpdateMessage;
 import de.bitgilde.TIMAAT.service.transcription.api.TranscriptionEngine;
 import de.bitgilde.TIMAAT.service.transcription.api.TranscriptionEngineModel;
 import de.bitgilde.TIMAAT.service.transcription.api.TranscriptionStateEntityUpdateMessage;
@@ -22,6 +23,7 @@ import de.bitgilde.TIMAAT.service.transcription.exception.TranscriptionFeatureDi
 import de.bitgilde.TIMAAT.service.transcription.exception.TranscriptionNotFoundException;
 import de.bitgilde.TIMAAT.service.transcription.exception.TranscriptionServiceException;
 import de.bitgilde.TIMAAT.service.transcription.format.vtt.VttParser;
+import de.bitgilde.TIMAAT.service.transcription.format.vtt.VttWriter;
 import de.bitgilde.TIMAAT.sse.EntityUpdateEventService;
 import de.bitgilde.TIMAAT.sse.api.EntityType;
 import de.bitgilde.TIMAAT.storage.api.PagingParameter;
@@ -59,6 +61,7 @@ import studio.nkodev.stt.client.exception.SpeechToTextServiceClientErrorType;
 
 import java.io.Closeable;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Collection;
@@ -92,16 +95,17 @@ public class TranscriptionService implements TaskStateUpdater, SpeechToTextTaskS
   private final boolean featureEnabled;
   private final EntityUpdateEventService entityUpdateEventService;
   private final VttParser vttParser;
+  private final VttWriter vttWriter;
 
   @Inject
-  public TranscriptionService(TranscriptionStorage transcriptionStorage, SystemSettingStorage systemSettingStorage, AudioFileStorage audioFileStorage, VideoFileStorage videoFileStorage, Provider<TaskService> taskServiceProvider, TemporaryFileStorage temporaryFileStorage, TranscriptionFileStorage transcriptionFileStorage, MediumStorage mediumStorage, PropertyManagement propertyManagement, EntityUpdateEventService entityUpdateEventService, VttParser vttParser) {
+  public TranscriptionService(TranscriptionStorage transcriptionStorage, SystemSettingStorage systemSettingStorage, AudioFileStorage audioFileStorage, VideoFileStorage videoFileStorage, Provider<TaskService> taskServiceProvider, TemporaryFileStorage temporaryFileStorage, TranscriptionFileStorage transcriptionFileStorage, MediumStorage mediumStorage, PropertyManagement propertyManagement, EntityUpdateEventService entityUpdateEventService, VttParser vttParser, VttWriter vttWriter) {
     this(transcriptionStorage, systemSettingStorage, audioFileStorage, videoFileStorage, taskServiceProvider,
             temporaryFileStorage, transcriptionFileStorage, mediumStorage,
             isFeatureEnabled(propertyManagement) ? initSpeechToTextServiceClient(propertyManagement) : null,
-            entityUpdateEventService, vttParser);
+            entityUpdateEventService, vttParser, vttWriter);
   }
 
-  TranscriptionService(TranscriptionStorage transcriptionStorage, SystemSettingStorage systemSettingStorage, AudioFileStorage audioFileStorage, VideoFileStorage videoFileStorage, Provider<TaskService> taskServiceProvider, TemporaryFileStorage temporaryFileStorage, TranscriptionFileStorage transcriptionFileStorage, MediumStorage mediumStorage, @jakarta.annotation.Nullable SpeechToTextServiceClient speechToTextServiceClient, EntityUpdateEventService entityUpdateEventService, VttParser vttParser) {
+  TranscriptionService(TranscriptionStorage transcriptionStorage, SystemSettingStorage systemSettingStorage, AudioFileStorage audioFileStorage, VideoFileStorage videoFileStorage, Provider<TaskService> taskServiceProvider, TemporaryFileStorage temporaryFileStorage, TranscriptionFileStorage transcriptionFileStorage, MediumStorage mediumStorage, @jakarta.annotation.Nullable SpeechToTextServiceClient speechToTextServiceClient, EntityUpdateEventService entityUpdateEventService, VttParser vttParser, VttWriter vttWriter) {
     this.transcriptionStorage = transcriptionStorage;
     this.systemSettingStorage = systemSettingStorage;
     this.audioFileStorage = audioFileStorage;
@@ -114,6 +118,7 @@ public class TranscriptionService implements TaskStateUpdater, SpeechToTextTaskS
     this.featureEnabled = speechToTextServiceClient != null;
     this.entityUpdateEventService = entityUpdateEventService;
     this.vttParser = vttParser;
+    this.vttWriter = vttWriter;
 
     if (featureEnabled) {
       resumeMonitoringOfActiveTranscriptions();
@@ -427,6 +432,79 @@ public class TranscriptionService implements TaskStateUpdater, SpeechToTextTaskS
     } catch (Exception e) {
       throw new TranscriptionServiceException("Error during parsing VTT file", e);
     }
+  }
+
+  /**
+   * Updates the editable base information of a transcription. Currently only the name is
+   * changeable. The transcription is scoped to the given medium so that a transcription belonging
+   * to a different medium is reported as not found rather than changed out of context. After the
+   * update an {@link de.bitgilde.TIMAAT.sse.api.EntityChangeMessage} carrying the updated
+   * {@link TranscriptionDto} is broadcast.
+   *
+   * @param mediumId              identifies the {@link de.bitgilde.TIMAAT.model.FIPOP.Medium} the
+   *                              transcription is expected to belong to
+   * @param transcriptionId       identifies the {@link Transcription} to update
+   * @param name                  the new name of the transcription
+   * @param editedByUserAccountId id of the {@link UserAccount} performing the change
+   * @return the updated transcription as {@link TranscriptionDto}
+   * @throws TranscriptionNotFoundException if no transcription with the given id exists or it
+   *                                        belongs to a different medium
+   */
+  public TranscriptionDto updateTranscriptionName(int mediumId, int transcriptionId, String name, int editedByUserAccountId) throws TranscriptionNotFoundException {
+    if (!transcriptionStorage.existsForMedium(mediumId, transcriptionId)) {
+      throw new TranscriptionNotFoundException(transcriptionId);
+    }
+
+    Transcription updatedTranscription = transcriptionStorage.updateTranscriptionMetadata(transcriptionId, name,
+            editedByUserAccountId);
+    TranscriptionDto transcriptionDto = new TranscriptionDto(updatedTranscription);
+
+    entityUpdateEventService.sendEntityChangeMessage(EntityType.TRANSCRIPTION, transcriptionId, transcriptionDto);
+
+    return transcriptionDto;
+  }
+
+  /**
+   * Overwrites the content (the underlying VTT file) of a transcription. The transcription is
+   * scoped to the given medium so that a transcription belonging to a different medium is reported
+   * as not found rather than changed out of context. The new content is first written to a
+   * temporary file via the {@link VttWriter}; only after the file has been written successfully is
+   * the transcription file in storage overwritten, so a failed write never corrupts the existing
+   * file. On success the edit is stamped on the transcription and an
+   * {@link de.bitgilde.TIMAAT.sse.api.EntityChangeMessage} carrying a
+   * {@link TranscriptionContentEntityUpdateMessage} is broadcast so clients can reload the content.
+   *
+   * @param mediumId              identifies the {@link de.bitgilde.TIMAAT.model.FIPOP.Medium} the
+   *                              transcription is expected to belong to
+   * @param transcriptionId       identifies the {@link Transcription} whose content is overwritten
+   * @param content               the new transcription content
+   * @param editedByUserAccountId id of the {@link UserAccount} performing the change
+   * @throws TranscriptionNotFoundException if no transcription with the given id exists or it
+   *                                        belongs to a different medium
+   * @throws TranscriptionServiceException  if the content could not be written or persisted
+   */
+  public void updateTranscriptionContent(int mediumId, int transcriptionId, TranscriptionContent content, int editedByUserAccountId) throws TranscriptionServiceException {
+    logger.log(Level.FINE, "Start updating of content of transcription {0} of medium {1}",
+            new Object[]{transcriptionId, mediumId});
+
+    if (!transcriptionStorage.existsForMedium(mediumId, transcriptionId)) {
+      throw new TranscriptionNotFoundException(transcriptionId);
+    }
+
+    try (TemporaryFile temporaryFile = temporaryFileStorage.createTemporaryFile()) {
+      try (OutputStream outputStream = Files.newOutputStream(temporaryFile.getTemporaryFilePath())) {
+        vttWriter.writeVttStream(content, outputStream);
+      }
+      transcriptionFileStorage.persistTranscription(temporaryFile.getTemporaryFilePath(), transcriptionId);
+    } catch (Exception e) {
+      logger.log(Level.SEVERE, "Error during updating transcription content", e);
+      throw new TranscriptionServiceException("Failed to update content of transcription " + transcriptionId, e);
+    }
+
+    transcriptionStorage.touchTranscription(transcriptionId, editedByUserAccountId);
+
+    entityUpdateEventService.sendEntityChangeMessage(EntityType.TRANSCRIPTION, transcriptionId,
+            new TranscriptionContentEntityUpdateMessage(true));
   }
 
   /**

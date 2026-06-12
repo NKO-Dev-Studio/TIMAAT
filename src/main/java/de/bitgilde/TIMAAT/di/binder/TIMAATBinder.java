@@ -18,6 +18,7 @@ import de.bitgilde.TIMAAT.service.task.storage.TaskStorage;
 import de.bitgilde.TIMAAT.service.task.storage.TaskStorageRegistry;
 import de.bitgilde.TIMAAT.service.transcription.TranscriptionService;
 import de.bitgilde.TIMAAT.service.transcription.format.vtt.VttParser;
+import de.bitgilde.TIMAAT.service.transcription.format.vtt.VttWriter;
 import de.bitgilde.TIMAAT.sse.EntityUpdateEventService;
 import de.bitgilde.TIMAAT.storage.entity.AudioAnalysisResultStorage;
 import de.bitgilde.TIMAAT.storage.entity.CategorySetStorage;
@@ -79,6 +80,7 @@ public class TIMAATBinder extends AbstractBinder {
       bindAsContract(FfmpegAudioEngine.class).in(Singleton.class);
       bindAsContract(FfmpegVideoEngine.class).in(Singleton.class);
       bindAsContract(VttParser.class).in(Singleton.class);
+      bindAsContract(VttWriter.class).in(Singleton.class);
 
       bind(DbTaskStorage.class).to(DbTaskStorage.class).to(TaskStorage.class).to(TaskStateUpdater.class)
                                .in(Singleton.class);

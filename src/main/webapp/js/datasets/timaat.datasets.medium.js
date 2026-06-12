@@ -1361,6 +1361,28 @@
         }
       })
 
+      $("#transcriptionViewerEditBtn").on('click', e => {
+        e.preventDefault()
+        const transcription = $mediumTranscriptionViewer.data("transcription")
+        if (transcription && transcription.state === "COMPLETED") {
+          TIMAAT.MediumDatasets.enterTranscriptionEditMode(transcription)
+        }
+      })
+
+      $mediumTranscriptionViewer.find('[data-role="transcriptionEditCancelBtn"]').on('click', e => {
+        e.preventDefault()
+        TIMAAT.MediumDatasets.cancelTranscriptionEditMode()
+      })
+
+      $mediumTranscriptionViewer.find('[data-role="transcriptionEditSaveBtn"]').on('click', e => {
+        e.preventDefault()
+        TIMAAT.MediumDatasets.saveTranscriptionEditMode()
+      })
+
+      $mediumTranscriptionViewer.find('[data-role="transcriptionEditNameInput"]').on('input', () => {
+        TIMAAT.MediumDatasets.recomputeTranscriptionEditState()
+      })
+
       $('#mediumTranscriptionList').on('click', '.medium-transcription-list-group-item', function (e) {
         const transcription = $(e.currentTarget).data("transcription")
         const $mediumTranscriptionListGroupItems = $('.medium-transcription-list-group-item')
@@ -1390,24 +1412,54 @@
 
             const $createdTranscriptionListItem = TIMAAT.MediumDatasets.createTranscriptionListGroupItem(transcriptionUpdateMessage.entity, isActive, isDefault)
             $mediumTranscriptionList.append($createdTranscriptionListItem)
-
-            if (isActive) {
-              TIMAAT.MediumDatasets.openTranscription(transcriptionUpdateMessage.entity)
-            }
           }
         } else if (transcriptionUpdateMessage.type === "CHANGE") {
           const $matchingTranscriptionListGroupItem = $(`.medium-transcription-list-group-item[data-id="${transcriptionUpdateMessage.id}"`)
           if ($matchingTranscriptionListGroupItem.length > 0) {
-            const transcription = $matchingTranscriptionListGroupItem.data("transcription")
-            const updatedTranscription = {...transcription, ...transcriptionUpdateMessage.entity}
-            const isDefault = updatedTranscription.id === medium.model.defaultTranscriptionId
             const isActive = $matchingTranscriptionListGroupItem.hasClass("active")
+            const transcription = $matchingTranscriptionListGroupItem.data("transcription")
+            const editModeActive = TIMAAT.MediumDatasets._transcriptionEdit !== null
 
-            const $updatedTranscriptionListGroupItem = TIMAAT.MediumDatasets.createTranscriptionListGroupItem(updatedTranscription, isActive, isDefault)
-            $matchingTranscriptionListGroupItem.replaceWith($updatedTranscriptionListGroupItem)
+            if (transcriptionUpdateMessage.entity.contentChanged) {
+              if (isActive) {
+                if (!editModeActive) {
+                  TIMAAT.MediumDatasets.openTranscription(transcription)
+                } else {
+                  TIMAAT.MediumService.getTranscriptionContent(transcription.mediumId, transcription.id).then(transcriptionContent => {
+                    // Verify current transcription still active
+                    if (TIMAAT.MediumDatasets._transcriptionEdit.transcription?.id === transcription.id) {
+                      let idCounter = 0;
 
-            if (isActive) {
-              TIMAAT.MediumDatasets.openTranscription(updatedTranscription)
+                      const cues = (transcriptionContent && transcriptionContent.cues ? transcriptionContent.cues : []).map(cue => ({
+                        id: idCounter++,
+                        start: cue.startTime,
+                        end: cue.endTime,
+                        text: cue.cue
+                      }))
+
+                      TIMAAT.MediumDatasets._transcriptionEdit.initialCue = cues
+                      TIMAAT.MediumDatasets._transcriptionEdit.snapshot = TIMAAT.MediumDatasets._transcriptionEditSnapshot(TIMAAT.MediumDatasets._transcriptionEdit.transcription.name, cues)
+                      TIMAAT.MediumDatasets.recomputeTranscriptionEditState()
+                    }
+                  })
+                }
+              }
+            } else {
+              const updatedTranscription = {...transcription, ...transcriptionUpdateMessage.entity}
+              const isDefault = updatedTranscription.id === medium.model.defaultTranscriptionId
+
+              const $updatedTranscriptionListGroupItem = TIMAAT.MediumDatasets.createTranscriptionListGroupItem(updatedTranscription, isActive, isDefault)
+              $matchingTranscriptionListGroupItem.replaceWith($updatedTranscriptionListGroupItem)
+
+              if (isActive) {
+                if (!editModeActive) {
+                  TIMAAT.MediumDatasets.openTranscription(updatedTranscription)
+                } else {
+                  TIMAAT.MediumDatasets._transcriptionEdit.transcription = updatedTranscription
+                  TIMAAT.MediumDatasets._transcriptionEdit.snapshot = TIMAAT.MediumDatasets._transcriptionEditSnapshot(updatedTranscription.name, TIMAAT.MediumDatasets._transcriptionEdit.initialCues)
+                  TIMAAT.MediumDatasets.recomputeTranscriptionEditState()
+                }
+              }
             }
           }
         } else {
@@ -1423,7 +1475,7 @@
       } else if ($mediumPreviewTab.hasClass("active")) {
         const mediumFormMetadataMedium = $('#mediumFormMetadata').data('medium')
 
-        if (transcriptionUpdateMessage.type === "CHANGE" && mediumFormMetadataMedium.model.defaultTranscriptionId === transcriptionUpdateMessage.id && transcriptionUpdateMessage.entity.state === "COMPLETED") {
+        if (transcriptionUpdateMessage.type === "CHANGE" && mediumFormMetadataMedium.model.defaultTranscriptionId === transcriptionUpdateMessage.id && (transcriptionUpdateMessage.entity.state === "COMPLETED" || transcriptionUpdateMessage.entity.contentChanged)) {
           TIMAAT.MediumDatasets.updateFormPreviewSubtitle(mediumFormMetadataMedium)
         }
       }
@@ -1522,7 +1574,10 @@
       const $mediumTranscriptionViewerCardBody = $mediumTranscriptionViewer.find(".card-body")
       const $mediumTranscriptionViewerCardHeader = $mediumTranscriptionViewer.find(".card-header")
       const $mediumTranscriptionDownloadVttButton = $mediumTranscriptionViewerCardHeader.find("#transcriptionViewerDownloadVttBtn")
+      const $transcriptionViewerEditBtn = $mediumTranscriptionViewerCardHeader.find("#transcriptionViewerEditBtn")
+
       $mediumTranscriptionDownloadVttButton.hide()
+      $transcriptionViewerEditBtn.prop("disabled", true)
 
       TIMAAT.MediumDatasets._cleanupTranscriptionViewer()
 
@@ -1537,6 +1592,7 @@
         $mediumTranscriptionViewerCardHeader.find('.transcriptionViewerCreatedAtField').text(TIMAAT.Util.formatDate(transcription.createdAt))
 
         if (transcription.state === "COMPLETED") {
+          $transcriptionViewerEditBtn.prop("disabled", false)
           $mediumTranscriptionDownloadVttButton.off('click.transcriptionDownload').on('click.transcriptionDownload', async function (event) {
             event.preventDefault();
             const blob = await TIMAAT.MediumService.downloadTranscriptionFile(transcription.mediumId, transcription.id);
@@ -1579,6 +1635,7 @@
         TIMAAT.MediumDatasets._transcriptionViewerCleanup()
         TIMAAT.MediumDatasets._transcriptionViewerCleanup = null
       }
+      TIMAAT.MediumDatasets._transcriptionEdit = null
     },
 
     _renderTranscriptionViewer: function ($completedState, cues, inAnnotationPerspective) {
@@ -1643,6 +1700,384 @@
           $followToggle.off('click.transcriptionViewer')
         }
       }
+    },
+
+    /**
+     * Enters the edit mode of the transcription viewer for the given (COMPLETED) transcription.
+     * The header switches to a name text box plus Save/Cancel and the body shows an editable cue
+     * list. The cue content is loaded via the same service method used by the completed view.
+     * @param transcription the transcription to edit (must be in state COMPLETED)
+     */
+    enterTranscriptionEditMode: function (transcription) {
+      const $viewer = $("#mediumTranscriptionViewer")
+      const $header = $viewer.find(".card-header")
+      const $body = $viewer.find(".card-body")
+
+      TIMAAT.MediumDatasets._cleanupTranscriptionViewer()
+
+      $header.children().addClass("d-none")
+      $body.children().addClass("d-none")
+      $header.find('[data-role="viewerEditState"]').removeClass("d-none")
+      $body.find('[data-role="viewerEditState"]').removeClass("d-none")
+
+      $header.find('[data-role="transcriptionEditNameInput"]').val(transcription.name)
+      $header.find('[data-role="transcriptionEditDirtyIndicator"]').addClass("d-none")
+      $header.find('[data-role="transcriptionEditError"]').addClass("d-none").text("")
+
+      const $editorScroll = $body.find('[data-role="transcriptionEditorScroll"]')
+      $editorScroll.empty().append('<div class="text-center text-muted p-2"><div class="spinner-border spinner-border-sm" role="status"></div></div>')
+
+      const state = {
+        transcription: transcription,
+        cues: [],
+        nextId: 0,
+        total: 1000,
+        snapshot: null
+      }
+      TIMAAT.MediumDatasets._transcriptionEdit = state
+
+      TIMAAT.MediumService.getTranscriptionContent(transcription.mediumId, transcription.id).then(content => {
+        // Guard against a meanwhile-left edit mode (e.g. another transcription selected).
+        if (TIMAAT.MediumDatasets._transcriptionEdit !== state) return
+
+        const cues = (content && content.cues ? content.cues : []).map(cue => ({
+          id: state.nextId++,
+          start: cue.startTime,
+          end: cue.endTime,
+          text: cue.cue
+        }))
+        state.cues = cues
+        state.initialCues = cues
+        state.total = cues.length ? Math.max(1000, ...cues.map(c => c.end)) : 1000
+        state.snapshot = TIMAAT.MediumDatasets._transcriptionEditSnapshot(transcription.name, cues)
+
+        TIMAAT.MediumDatasets._renderTranscriptionEditor()
+        TIMAAT.MediumDatasets.recomputeTranscriptionEditState()
+      }).catch(() => {
+        if (TIMAAT.MediumDatasets._transcriptionEdit !== state) return
+        $editorScroll.empty().append('<div class="alert alert-danger m-2">Error during loading transcription content.</div>')
+      })
+    },
+
+    /**
+     * Leaves the edit mode without persisting and re-opens the unchanged transcription, restoring
+     * the normal viewer state.
+     */
+    cancelTranscriptionEditMode: function () {
+      const state = TIMAAT.MediumDatasets._transcriptionEdit
+      TIMAAT.MediumDatasets._exitTranscriptionEditMode()
+      if (state && state.transcription) {
+        TIMAAT.MediumDatasets.openTranscription(state.transcription)
+      }
+    },
+
+    /**
+     * Persists the edited transcription. Writes the name (if changed) and always the content via
+     * the dedicated REST endpoints, then leaves edit mode and re-opens the updated transcription.
+     * Aborts when a cue is invalid (end <= start) or the name is blank.
+     */
+    saveTranscriptionEditMode: function () {
+      const state = TIMAAT.MediumDatasets._transcriptionEdit
+      if (!state) return
+
+      const $viewer = $("#mediumTranscriptionViewer")
+      const $header = $viewer.find(".card-header")
+      const $nameInput = $header.find('[data-role="transcriptionEditNameInput"]')
+      const $saveBtn = $header.find('[data-role="transcriptionEditSaveBtn"]')
+      const $cancelBtn = $header.find('[data-role="transcriptionEditCancelBtn"]')
+      const $error = $header.find('[data-role="transcriptionEditError"]')
+
+      const name = $nameInput.val().trim()
+      const hasError = state.cues.some(cue => cue.end <= cue.start)
+      if (hasError || name.length === 0) return
+
+      $saveBtn.prop("disabled", true)
+      $cancelBtn.prop("disabled", true)
+      $nameInput.prop("disabled", true)
+      $error.addClass("d-none").text("")
+
+      const transcription = state.transcription
+      const cues = state.cues.slice().sort((a, b) => a.start - b.start).map(cue => ({
+        startTime: cue.start,
+        endTime: cue.end,
+        cue: cue.text
+      }))
+
+      const requests = []
+      if (name !== transcription.name) {
+        requests.push(TIMAAT.MediumService.updateMediumTranscription(transcription.mediumId, transcription.id, name))
+      }
+      requests.push(TIMAAT.MediumService.updateMediumTranscriptionContent(transcription.mediumId, transcription.id, {cues: cues}))
+
+      Promise.all(requests).then(() => {
+        const updatedTranscription = {...transcription, name: name}
+        TIMAAT.MediumDatasets._exitTranscriptionEditMode()
+        TIMAAT.MediumDatasets.openTranscription(updatedTranscription)
+      }).catch(() => {
+        $cancelBtn.prop("disabled", false)
+        $nameInput.prop("disabled", false)
+        $error.removeClass("d-none").text("Error while saving the transcription.")
+        TIMAAT.MediumDatasets.recomputeTranscriptionEditState()
+      })
+    },
+
+    _exitTranscriptionEditMode: function () {
+      const $viewer = $("#mediumTranscriptionViewer")
+      const $header = $viewer.find(".card-header")
+      const $body = $viewer.find(".card-body")
+
+      $header.find('[data-role="viewerEditState"]').addClass("d-none")
+      $body.find('[data-role="viewerEditState"]').addClass("d-none")
+      $body.find('[data-role="transcriptionEditorScroll"]').empty()
+      $header.find('[data-role="transcriptionEditNameInput"]').prop("disabled", false)
+      $header.find('[data-role="transcriptionEditSaveBtn"]').prop("disabled", false)
+      $header.find('[data-role="transcriptionEditCancelBtn"]').prop("disabled", false)
+
+      TIMAAT.MediumDatasets._transcriptionEdit = null
+    },
+
+    _transcriptionEditSnapshot: function (name, cues) {
+      return JSON.stringify({
+        name: name,
+        cues: cues.map(cue => ({start: cue.start, end: cue.end, text: cue.text}))
+      })
+    },
+
+    /**
+     * Recomputes the dirty/validity state of the edit mode and reflects it in the UI: shows the
+     * "Unsaved" indicator when the current state differs from the loaded snapshot and
+     * enables/disables the Save button (disabled when nothing changed, a cue is invalid, or the
+     * name is blank).
+     */
+    recomputeTranscriptionEditState: function () {
+      const state = TIMAAT.MediumDatasets._transcriptionEdit
+      if (!state) return
+
+      const $viewer = $("#mediumTranscriptionViewer")
+      const $header = $viewer.find(".card-header")
+      const name = $header.find('[data-role="transcriptionEditNameInput"]').val().trim()
+
+
+      const dirty = state.snapshot !== null &&
+          TIMAAT.MediumDatasets._transcriptionEditSnapshot(name, state.cues) !== state.snapshot
+      const hasError = state.cues.some(cue => cue.end < cue.start)
+      const nameValid = name.length > 0
+
+      $header.find('[data-role="transcriptionEditDirtyIndicator"]').toggleClass("d-none", !dirty)
+      $header.find('[data-role="transcriptionEditSaveBtn"]').prop("disabled", !dirty || hasError || !nameValid)
+    },
+
+    /**
+     * Renders the editable cue list into the body edit state. Each cue offers editable start/end
+     * timecode fields (with steppers), a draggable mini timeline, a text area, a delete button and
+     * live validation. Centered plus buttons above, below and between the cues insert new cues.
+     */
+    _renderTranscriptionEditor: function () {
+      const state = TIMAAT.MediumDatasets._transcriptionEdit
+      if (!state) return
+
+      const $scroll = $("#mediumTranscriptionViewer").find('[data-role="transcriptionEditorScroll"]')
+      $scroll.empty()
+
+      const clampPercent = function (value) {
+        return Math.max(0, Math.min(100, value))
+      }
+
+      // Updates every cue card's DOM in place (positions, durations, validation) without rebuilding.
+      const updateAllCues = function () {
+        state.cues.forEach((cue, index) => {
+          const dom = cue.dom
+          if (!dom) return
+          const bad = cue.end <= cue.start
+          const overlap = index > 0 && cue.start < state.cues[index - 1].end - 1
+
+          dom.$card.toggleClass("error", bad)
+          dom.$startField.toggleClass("bad", bad)
+          dom.$endField.toggleClass("bad", bad)
+          if (!dom.$startInput.is(":focus")) dom.$startInput.val(TIMAAT.Util.formatTime(cue.start, true))
+          if (!dom.$endInput.is(":focus")) dom.$endInput.val(TIMAAT.Util.formatTime(cue.end, true))
+          dom.$duration.text(bad ? "—" : ((cue.end - cue.start) / 1000).toFixed(1) + " s")
+
+          const left = clampPercent((cue.start / state.total) * 100)
+          const right = clampPercent((cue.end / state.total) * 100)
+          dom.$span.css({left: left + "%", width: Math.max(0, right - left) + "%"})
+          dom.$handleStart.css("left", left + "%")
+          dom.$handleEnd.css("left", right + "%")
+
+          if (bad) {
+            dom.$errmsg.removeClass("d-none warning").text("")
+            dom.$errmsg.append('<span class="fas fa-exclamation-triangle"></span> End must be before start.')
+          } else if (overlap) {
+            dom.$errmsg.removeClass("d-none").addClass("warning").text("")
+            dom.$errmsg.append('<span class="fas fa-exclamation-triangle"></span> Overlapping previous cue.')
+          } else {
+            dom.$errmsg.addClass("d-none").removeClass("warning").text("")
+          }
+        })
+      }
+
+      const setCueTime = function (cue, start, end) {
+        cue.start = Math.max(0, Math.round(start))
+        cue.end = Math.max(0, Math.round(end))
+        updateAllCues()
+        TIMAAT.MediumDatasets.recomputeTranscriptionEditState()
+      }
+
+      const insertCueAt = function (index) {
+        const prevEnd = index > 0 ? state.cues[index - 1].end : 0
+        const nextStart = index < state.cues.length ? state.cues[index].start : prevEnd + 3000
+        const start = prevEnd
+        const end = nextStart > prevEnd ? nextStart : prevEnd + 2000
+        state.cues.splice(index, 0, {id: state.nextId++, start: start, end: end, text: ""})
+        if (end > state.total) state.total = end
+        TIMAAT.MediumDatasets._renderTranscriptionEditor()
+        TIMAAT.MediumDatasets.recomputeTranscriptionEditState()
+      }
+
+      const removeCue = function (cue) {
+        state.cues = state.cues.filter(c => c.id !== cue.id)
+        TIMAAT.MediumDatasets._renderTranscriptionEditor()
+        TIMAAT.MediumDatasets.recomputeTranscriptionEditState()
+      }
+
+      const buildInserter = function (index, edge) {
+        const $inserter = $('<div class="transcription-editor-inserter"></div>')
+        if (edge) $inserter.addClass("edge")
+        $inserter.attr("title", "Add cue here")
+        $inserter.append('<button type="button" class="transcription-editor-inserter-button"><span class="fas fa-plus"></span></button>')
+        $inserter.on("click", () => insertCueAt(index))
+        return $inserter
+      }
+
+      const buildTimecodeField = function (label, cue, isStart) {
+        const $field = $('<div class="transcription-editor-timecode"></div>')
+        $field.append('<span class="transcription-editor-timecode-label">' + label + '</span>')
+        const $input = $('<input type="text" class="transcription-editor-timecode-input">')
+        $input.val(TIMAAT.Util.formatTime(isStart ? cue.start : cue.end, true))
+
+        const apply = function (valueMs) {
+          if (isStart) setCueTime(cue, valueMs, cue.end)
+          else setCueTime(cue, cue.start, valueMs)
+        }
+        const commit = function () {
+          const parsed = TIMAAT.Util.parseTime($input.val())
+          if (parsed !== null && !isNaN(parsed)) apply(parsed)
+          else $input.val(TIMAAT.Util.formatTime(isStart ? cue.start : cue.end, true))
+        }
+        const nudge = function (deltaMs) {
+          apply(Math.max(0, (isStart ? cue.start : cue.end) + deltaMs))
+        }
+
+        $input.on("blur", commit)
+        $input.on("keydown", e => {
+          if (e.key === "Enter") {
+            e.preventDefault()
+            e.target.blur()
+          } else if (e.key === "ArrowUp") {
+            e.preventDefault()
+            nudge(e.shiftKey ? 1000 : 100)
+          } else if (e.key === "ArrowDown") {
+            e.preventDefault()
+            nudge(e.shiftKey ? -1000 : -100)
+          }
+        })
+
+        const $steppers = $('<div class="transcription-editor-steppers"></div>')
+        const $up = $('<button type="button" class="transcription-editor-stepper" title="+0,1 s (Shift: +1 s)"><span class="fas fa-chevron-up"></span></button>')
+        const $down = $('<button type="button" class="transcription-editor-stepper" title="−0,1 s (Shift: −1 s)"><span class="fas fa-chevron-down"></span></button>')
+        $up.on("click", e => nudge(e.shiftKey ? 1000 : 100))
+        $down.on("click", e => nudge(e.shiftKey ? -1000 : -100))
+        $steppers.append($up).append($down)
+
+        $field.append($input).append($steppers)
+        return {$field: $field, $input: $input}
+      }
+
+      const buildTimeline = function (cue) {
+        const $timeline = $('<div class="transcription-editor-timeline"></div>')
+        const $span = $('<div class="transcription-editor-timeline-span"></div>')
+        const $handleStart = $('<div class="transcription-editor-timeline-handle start"></div>')
+        const $handleEnd = $('<div class="transcription-editor-timeline-handle end"></div>')
+        $timeline.append($span).append($handleStart).append($handleEnd)
+
+        const startDrag = function (which) {
+          return function (downEvent) {
+            downEvent.preventDefault()
+            downEvent.stopPropagation()
+            const rect = $timeline[0].getBoundingClientRect()
+            const move = function (moveEvent) {
+              let t = ((moveEvent.clientX - rect.left) / rect.width) * state.total
+              t = Math.max(0, Math.min(state.total, t))
+              if (which === "start") setCueTime(cue, Math.min(t, cue.end - 100), cue.end)
+              else setCueTime(cue, cue.start, Math.max(t, cue.start + 100))
+            }
+            const up = function () {
+              window.removeEventListener("pointermove", move)
+              window.removeEventListener("pointerup", up)
+              TIMAAT.MediumDatasets.recomputeTranscriptionEditState()
+            }
+            window.addEventListener("pointermove", move)
+            window.addEventListener("pointerup", up)
+          }
+        }
+        $handleStart.on("pointerdown", startDrag("start"))
+        $handleEnd.on("pointerdown", startDrag("end"))
+
+        return {$timeline: $timeline, $span: $span, $handleStart: $handleStart, $handleEnd: $handleEnd}
+      }
+
+      $scroll.append(buildInserter(0, true))
+      if (state.cues.length === 0) {
+        $scroll.append('<div class="text-center text-muted py-1" style="font-size:12.5px">No Cues defined. You can add one by pressing +</div>')
+      }
+
+      state.cues.forEach((cue, index) => {
+        const $card = $('<div class="transcription-editor-cue"></div>')
+
+        const $topbar = $('<div class="transcription-editor-topbar"></div>')
+        const startField = buildTimecodeField("Start", cue, true)
+        const endField = buildTimecodeField("End", cue, false)
+        const $duration = $('<span class="transcription-editor-duration"></span>')
+        const $delete = $('<button type="button" class="transcription-editor-delete" title="Delete cue"><span class="fas fa-trash"></span></button>')
+        $delete.on("click", () => removeCue(cue))
+
+        $topbar.append(startField.$field)
+        $topbar.append('<span class="transcription-editor-arrow">→</span>')
+        $topbar.append(endField.$field)
+        $topbar.append($duration)
+        $topbar.append('<span class="transcription-editor-spacer"></span>')
+        $topbar.append($delete)
+
+        const timeline = buildTimeline(cue)
+
+        const $textarea = $('<textarea class="transcription-editor-textarea" placeholder="Transkript dieses Cues…"></textarea>')
+        $textarea.val(cue.text)
+        $textarea.on("input", () => {
+          cue.text = $textarea.val()
+          TIMAAT.MediumDatasets.recomputeTranscriptionEditState()
+        })
+
+        const $errmsg = $('<div class="transcription-editor-errmsg d-none"></div>')
+
+        $card.append($topbar).append(timeline.$timeline).append($textarea).append($errmsg)
+        $scroll.append($card)
+        $scroll.append(buildInserter(index + 1, index === state.cues.length - 1))
+
+        cue.dom = {
+          $card: $card,
+          $startField: startField.$field,
+          $startInput: startField.$input,
+          $endField: endField.$field,
+          $endInput: endField.$input,
+          $duration: $duration,
+          $span: timeline.$span,
+          $handleStart: timeline.$handleStart,
+          $handleEnd: timeline.$handleEnd,
+          $errmsg: $errmsg
+        }
+      })
+
+      updateAllCues()
     },
 
     initTitles: function () {
