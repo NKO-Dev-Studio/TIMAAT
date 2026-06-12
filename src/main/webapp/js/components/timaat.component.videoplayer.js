@@ -1509,7 +1509,7 @@
     },
 
     handleTranscriptionUpdateMessage: function (transcriptionUpdateMessage) {
-      if (transcriptionUpdateMessage.type === "CHANGE" && transcriptionUpdateMessage.id === TIMAAT.VideoPlayer.model.medium?.defaultTranscriptionId && transcriptionUpdateMessage.entity.state === "COMPLETED") {
+      if (transcriptionUpdateMessage.type === "CHANGE" && transcriptionUpdateMessage.id === TIMAAT.VideoPlayer.model.medium?.defaultTranscriptionId && (transcriptionUpdateMessage.entity.state === "COMPLETED" || transcriptionUpdateMessage.entity.contentChanged)) {
         TIMAAT.VideoPlayer.updateVideoPlayerSubtitles()
       }
     },

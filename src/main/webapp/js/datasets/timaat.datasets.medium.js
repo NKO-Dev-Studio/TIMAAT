@@ -1414,22 +1414,60 @@
             $mediumTranscriptionList.append($createdTranscriptionListItem)
 
             if (isActive) {
-              TIMAAT.MediumDatasets.openTranscription(transcriptionUpdateMessage.entity)
+              if (!editModeActive) {
+                TIMAAT.MediumDatasets.openTranscription(transcriptionUpdateMessage.entity)
+              } else {
+
+              }
             }
           }
         } else if (transcriptionUpdateMessage.type === "CHANGE") {
           const $matchingTranscriptionListGroupItem = $(`.medium-transcription-list-group-item[data-id="${transcriptionUpdateMessage.id}"`)
           if ($matchingTranscriptionListGroupItem.length > 0) {
-            const transcription = $matchingTranscriptionListGroupItem.data("transcription")
-            const updatedTranscription = {...transcription, ...transcriptionUpdateMessage.entity}
-            const isDefault = updatedTranscription.id === medium.model.defaultTranscriptionId
             const isActive = $matchingTranscriptionListGroupItem.hasClass("active")
+            const transcription = $matchingTranscriptionListGroupItem.data("transcription")
+            const editModeActive = TIMAAT.MediumDatasets._transcriptionEdit !== null
 
-            const $updatedTranscriptionListGroupItem = TIMAAT.MediumDatasets.createTranscriptionListGroupItem(updatedTranscription, isActive, isDefault)
-            $matchingTranscriptionListGroupItem.replaceWith($updatedTranscriptionListGroupItem)
+            if (transcriptionUpdateMessage.entity.contentChanged) {
+              if (isActive) {
+                if (!editModeActive) {
+                  TIMAAT.MediumDatasets.openTranscription(transcription)
+                } else {
+                  TIMAAT.MediumService.getTranscriptionContent(transcription.mediumId, transcription.id).then(transcriptionContent => {
+                    // Verify current transcription still active
+                    if (TIMAAT.MediumDatasets._transcriptionEdit.transcription?.id === transcription.id) {
+                      let idCounter = 0;
 
-            if (isActive) {
-              TIMAAT.MediumDatasets.openTranscription(updatedTranscription)
+                      const cues = (transcriptionContent && transcriptionContent.cues ? transcriptionContent.cues : []).map(cue => ({
+                        id: idCounter++,
+                        start: cue.startTime,
+                        end: cue.endTime,
+                        text: cue.cue
+                      }))
+
+                      TIMAAT.MediumDatasets._transcriptionEdit.initialCue = cues
+                      TIMAAT.MediumDatasets._transcriptionEdit.snapshot = TIMAAT.MediumDatasets._transcriptionEditSnapshot(TIMAAT.MediumDatasets._transcriptionEdit.transcription.name, cues)
+                      TIMAAT.MediumDatasets.recomputeTranscriptionEditState()
+                    }
+                  })
+                }
+              }
+            } else {
+              const updatedTranscription = {...transcription, ...transcriptionUpdateMessage.entity}
+              const isDefault = updatedTranscription.id === medium.model.defaultTranscriptionId
+
+              const $updatedTranscriptionListGroupItem = TIMAAT.MediumDatasets.createTranscriptionListGroupItem(updatedTranscription, isActive, isDefault)
+              $matchingTranscriptionListGroupItem.replaceWith($updatedTranscriptionListGroupItem)
+
+              if (isActive) {
+                if (!editModeActive) {
+                  TIMAAT.MediumDatasets.openTranscription(updatedTranscription)
+                } else {
+                  TIMAAT.MediumDatasets._transcriptionEdit.transcription = updatedTranscription
+                  TIMAAT.MediumDatasets._transcriptionEdit.snapshot = TIMAAT.MediumDatasets._transcriptionEditSnapshot(updatedTranscription.name, TIMAAT.MediumDatasets._transcriptionEdit.initialCues)
+                  TIMAAT.MediumDatasets.recomputeTranscriptionEditState()
+                }
+              }
             }
           }
         } else {
@@ -1445,7 +1483,7 @@
       } else if ($mediumPreviewTab.hasClass("active")) {
         const mediumFormMetadataMedium = $('#mediumFormMetadata').data('medium')
 
-        if (transcriptionUpdateMessage.type === "CHANGE" && mediumFormMetadataMedium.model.defaultTranscriptionId === transcriptionUpdateMessage.id && transcriptionUpdateMessage.entity.state === "COMPLETED") {
+        if (transcriptionUpdateMessage.type === "CHANGE" && mediumFormMetadataMedium.model.defaultTranscriptionId === transcriptionUpdateMessage.id && (transcriptionUpdateMessage.entity.state === "COMPLETED" || transcriptionUpdateMessage.entity.contentChanged)) {
           TIMAAT.MediumDatasets.updateFormPreviewSubtitle(mediumFormMetadataMedium)
         }
       }
@@ -1544,7 +1582,10 @@
       const $mediumTranscriptionViewerCardBody = $mediumTranscriptionViewer.find(".card-body")
       const $mediumTranscriptionViewerCardHeader = $mediumTranscriptionViewer.find(".card-header")
       const $mediumTranscriptionDownloadVttButton = $mediumTranscriptionViewerCardHeader.find("#transcriptionViewerDownloadVttBtn")
+      const $transcriptionViewerEditBtn = $mediumTranscriptionViewerCardHeader.find("#transcriptionViewerEditBtn")
+
       $mediumTranscriptionDownloadVttButton.hide()
+      $transcriptionViewerEditBtn.prop("disabled", true)
 
       TIMAAT.MediumDatasets._cleanupTranscriptionViewer()
 
@@ -1559,6 +1600,7 @@
         $mediumTranscriptionViewerCardHeader.find('.transcriptionViewerCreatedAtField').text(TIMAAT.Util.formatDate(transcription.createdAt))
 
         if (transcription.state === "COMPLETED") {
+          $transcriptionViewerEditBtn.prop("disabled", false)
           $mediumTranscriptionDownloadVttButton.off('click.transcriptionDownload').on('click.transcriptionDownload', async function (event) {
             event.preventDefault();
             const blob = await TIMAAT.MediumService.downloadTranscriptionFile(transcription.mediumId, transcription.id);
@@ -1713,6 +1755,7 @@
           text: cue.cue
         }))
         state.cues = cues
+        state.initialCues = cues
         state.total = cues.length ? Math.max(1000, ...cues.map(c => c.end)) : 1000
         state.snapshot = TIMAAT.MediumDatasets._transcriptionEditSnapshot(transcription.name, cues)
 
@@ -1821,6 +1864,7 @@
       const $viewer = $("#mediumTranscriptionViewer")
       const $header = $viewer.find(".card-header")
       const name = $header.find('[data-role="transcriptionEditNameInput"]').val().trim()
+
 
       const dirty = state.snapshot !== null &&
           TIMAAT.MediumDatasets._transcriptionEditSnapshot(name, state.cues) !== state.snapshot
