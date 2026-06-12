@@ -1412,14 +1412,6 @@
 
             const $createdTranscriptionListItem = TIMAAT.MediumDatasets.createTranscriptionListGroupItem(transcriptionUpdateMessage.entity, isActive, isDefault)
             $mediumTranscriptionList.append($createdTranscriptionListItem)
-
-            if (isActive) {
-              if (!editModeActive) {
-                TIMAAT.MediumDatasets.openTranscription(transcriptionUpdateMessage.entity)
-              } else {
-
-              }
-            }
           }
         } else if (transcriptionUpdateMessage.type === "CHANGE") {
           const $matchingTranscriptionListGroupItem = $(`.medium-transcription-list-group-item[data-id="${transcriptionUpdateMessage.id}"`)
