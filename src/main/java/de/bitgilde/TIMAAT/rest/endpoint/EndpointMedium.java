@@ -70,6 +70,7 @@ import de.bitgilde.TIMAAT.service.transcription.exception.TranscriptionException
 import de.bitgilde.TIMAAT.service.transcription.exception.TranscriptionFeatureDisabledException;
 import de.bitgilde.TIMAAT.service.transcription.exception.TranscriptionNotFoundException;
 import de.bitgilde.TIMAAT.storage.api.PagingParameter;
+import de.bitgilde.TIMAAT.storage.api.ReducedEntity;
 import de.bitgilde.TIMAAT.storage.api.SortingParameter;
 import de.bitgilde.TIMAAT.storage.entity.MediumVideoStorage;
 import de.bitgilde.TIMAAT.storage.entity.SystemSettingStorage;
@@ -144,6 +145,7 @@ import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /*
  Licensed under the Apache License, Version 2.0 (the "License");
@@ -1098,51 +1100,18 @@ public class EndpointMedium {
   @Produces(jakarta.ws.rs.core.MediaType.APPLICATION_JSON)
   @Secured
   @Path("{id}/category/selectList")
-  public Response getCategorySelectList(@PathParam("id") Integer id, @QueryParam("start") Integer start, @QueryParam("length") Integer length, @QueryParam("orderby") String orderby, @QueryParam("dir") String direction, @QueryParam("search") String search) {
-    // System.out.println("EndpointMedium: getCategorySelectList - Id: "+ id);
+  public List<SelectElement<Integer>> getCategorySelectList(@PathParam("id") Integer id, @QueryParam("start") Integer start, @QueryParam("length") Integer length, @QueryParam("search") String search) {
+    Stream<ReducedEntity<Integer>> assignableCategoryStream = mediumStorage.getAssignableCategoriesOfMedium(id, search);
 
-    EntityManager entityManager = TIMAATApp.emf.createEntityManager();
-    Medium medium = entityManager.find(Medium.class, id);
-    List<CategorySet> categorySetList = medium.getCategorySets();
-    List<Category> categoryList = new ArrayList<>();
-    List<SelectElement> categorySelectList = new ArrayList<>();
-
-    for (CategorySet categorySet : categorySetList) {
-      Set<CategorySetHasCategory> cshc = categorySet.getCategorySetHasCategories();
-      Iterator<CategorySetHasCategory> itr = cshc.iterator();
-      while (itr.hasNext()) {
-        categoryList.add(itr.next().getCategory());
-      }
+    if (start != null) {
+      assignableCategoryStream = assignableCategoryStream.skip(start);
+    }
+    if (length != null) {
+      assignableCategoryStream = assignableCategoryStream.limit(length);
     }
 
-    // search
-    Query query;
-    String sql;
-    if (search != null && search.length() > 0) {
-      // find all matching names
-      sql = "SELECT c FROM Category c WHERE lower(c.name) LIKE lower(concat('%', :name,'%')) ORDER BY c.name ASC";
-      query = entityManager.createQuery(sql).setParameter("name", search);
-      // find all categories belonging to those names
-      if (start != null && start > 0) {
-        query.setFirstResult(start);
-      }
-      if (length != null && length > 0) {
-        query.setMaxResults(length);
-      }
-      List<Category> searchCategoryList = castList(Category.class, query.getResultList());
-      for (Category category : searchCategoryList) {
-        if (categoryList.contains(category)) {
-          categorySelectList.add(new SelectElement<Integer>(category.getId(), category.getName()));
-        }
-      }
-    }
-    else {
-      for (Category category : categoryList) {
-        categorySelectList.add(new SelectElement<Integer>(category.getId(), category.getName()));
-      }
-    }
-
-    return Response.ok().entity(categorySelectList).build();
+    return assignableCategoryStream.map(
+            reducedEntity -> new SelectElement<>(reducedEntity.id(), reducedEntity.description())).toList();
   }
 
   @GET

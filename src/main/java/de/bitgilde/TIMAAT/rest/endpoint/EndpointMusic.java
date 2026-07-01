@@ -97,6 +97,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /*
  Licensed under the Apache License, Version 2.0 (the "License");
@@ -206,7 +207,8 @@ public class EndpointMusic {
     List<Music> matchingMusic = musicStorage.getEntriesAsStream(queryParameter, queryParameter, queryParameter,
             userAccount).collect(Collectors.toList());
     long totalMusicEntries = musicStorage.getNumberOfTotalEntriesRespectingAuthorization(userAccount);
-    long filteredMusicEntries = musicStorage.getNumberOfMatchingEntriesRespectingAuthorization(queryParameter, userAccount);
+    long filteredMusicEntries = musicStorage.getNumberOfMatchingEntriesRespectingAuthorization(queryParameter,
+            userAccount);
 
     /**
      * TODO: This one can be removed when directly filter on storage layer
@@ -482,51 +484,40 @@ public class EndpointMusic {
   @Produces(MediaType.APPLICATION_JSON)
   @Secured
   @Path("{id}/category/selectList")
-  public Response getCategorySelectList(@PathParam("id") Integer id, @QueryParam("start") Integer start, @QueryParam("length") Integer length, @QueryParam("orderby") String orderby, @QueryParam("dir") String direction, @QueryParam("search") String search) {
-    // System.out.println("EndpointMusic: getCategorySelectList - Id: "+ id);
-
+  public List<SelectElement<Integer>> getCategorySelectList(@PathParam("id") Integer id, @QueryParam("start") Integer start, @QueryParam("length") Integer length, @QueryParam("search") String search) {
     EntityManager entityManager = TIMAATApp.emf.createEntityManager();
-    Music music = entityManager.find(Music.class, id);
-    List<CategorySet> categorySetList = music.getCategorySets();
-    List<Category> categoryList = new ArrayList<>();
-    List<SelectElement> categorySelectList = new ArrayList<>();
+    boolean hasCategorySets = (long) entityManager.createNativeQuery(
+                                                          "select count(1) from music_has_category_set mc where mc.music_id = ?").setParameter(1, id)
+                                                  .getSingleResult() > 0;
+    String likeName = search == null ? "" : search;
 
-    for (CategorySet categorySet : categorySetList) {
-      Set<CategorySetHasCategory> cshc = categorySet.getCategorySetHasCategories();
-      Iterator<CategorySetHasCategory> itr = cshc.iterator();
-      while (itr.hasNext()) {
-        categoryList.add(itr.next().getCategory());
-      }
-    }
-
-    // search
     Query query;
-    String sql;
-    if (search != null && search.length() > 0) {
-      // find all matching names
-      sql = "SELECT c FROM Category c WHERE lower(c.name) LIKE lower(concat('%', :name,'%')) ORDER BY c.name ASC";
-      query = entityManager.createQuery(sql).setParameter("name", search);
-      // find all categories belonging to those names
-      if (start != null && start > 0) {
-        query.setFirstResult(start);
-      }
-      if (length != null && length > 0) {
-        query.setMaxResults(length);
-      }
-      List<Category> searchCategoryList = castList(Category.class, query.getResultList());
-      for (Category category : searchCategoryList) {
-        if (categoryList.contains(category)) {
-          categorySelectList.add(new SelectElement<Integer>(category.getId(), category.getName()));
-        }
-      }
+    if (hasCategorySets) {
+      String sql = """
+              select distinct c.id, c.name from category c
+              join category_set_has_category cs on c.id = cs.category_id
+              where lower(c.name) like lower(concat('%', ?,'%'))
+              and cs.category_set_id in (
+                  select mhcs.category_set_id from music_has_category_set mhcs
+                  where mhcs.music_id = ?)
+              order by c.name asc
+              """;
+      query = entityManager.createNativeQuery(sql).setParameter(1, likeName).setParameter(2, id);
     }
     else {
-      for (Category category : categoryList) {
-        categorySelectList.add(new SelectElement<Integer>(category.getId(), category.getName()));
-      }
+      String sql = "select c.id, c.name from category c where lower(c.name) like lower(concat('%', ?,'%')) order by c.name asc";
+      query = entityManager.createNativeQuery(sql).setParameter(1, likeName);
     }
 
-    return Response.ok().entity(categorySelectList).build();
+    if (start != null && start > 0) {
+      query.setFirstResult(start);
+    }
+    if (length != null && length > 0) {
+      query.setMaxResults(length);
+    }
+
+    @SuppressWarnings("unchecked") Stream<Object[]> stream = (Stream<Object[]>) (Stream<?>) query.getResultStream();
+    return stream.map(fields -> new SelectElement<>(((Number) fields[0]).intValue(), (String) fields[1])).toList();
   }
 
   @GET

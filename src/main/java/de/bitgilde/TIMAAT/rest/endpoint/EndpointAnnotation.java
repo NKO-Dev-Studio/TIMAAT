@@ -10,8 +10,6 @@ import de.bitgilde.TIMAAT.model.FIPOP.Annotation;
 import de.bitgilde.TIMAAT.model.FIPOP.AnnotationHasMusic;
 import de.bitgilde.TIMAAT.model.FIPOP.AnnotationHasMusicTranslationArea;
 import de.bitgilde.TIMAAT.model.FIPOP.Category;
-import de.bitgilde.TIMAAT.model.FIPOP.CategorySet;
-import de.bitgilde.TIMAAT.model.FIPOP.CategorySetHasCategory;
 import de.bitgilde.TIMAAT.model.FIPOP.Event;
 import de.bitgilde.TIMAAT.model.FIPOP.MediumAnalysisList;
 import de.bitgilde.TIMAAT.model.FIPOP.Tag;
@@ -33,6 +31,7 @@ import de.bitgilde.TIMAAT.rest.security.authorization.AnalysisListAuthorizationV
 import de.bitgilde.TIMAAT.rest.security.authorization.AnnotationAuthorizationVerifier;
 import de.bitgilde.TIMAAT.rest.security.authorization.PermissionType;
 import de.bitgilde.TIMAAT.security.UserLogManager;
+import de.bitgilde.TIMAAT.storage.api.ReducedEntity;
 import de.bitgilde.TIMAAT.storage.entity.annotation.AnnotationStorage;
 import de.bitgilde.TIMAAT.storage.entity.annotation.AnnotationStorage.CreateAnnotation;
 import de.bitgilde.TIMAAT.storage.entity.annotation.AnnotationStorage.UpdateAnnotation;
@@ -44,7 +43,6 @@ import de.bitgilde.TIMAAT.storage.file.VideoFileStorage;
 import jakarta.inject.Inject;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityTransaction;
-import jakarta.persistence.Query;
 import jakarta.validation.Valid;
 import jakarta.ws.rs.BeanParam;
 import jakarta.ws.rs.Consumes;
@@ -69,13 +67,12 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /*
  Licensed under the Apache License, Version 2.0 (the "License");
@@ -129,7 +126,8 @@ public class EndpointAnnotation {
     List<Annotation> matchingAnnotations = annotationStorage.getEntriesAsStream(annotationListingQueryParameter,
             annotationListingQueryParameter, annotationListingQueryParameter, userAccount).collect(Collectors.toList());
     long totalAnnotationsCount = annotationStorage.getNumberOfTotalEntriesRespectingAuthorization(userAccount);
-    long filteredAnnotationsCount = annotationStorage.getNumberOfMatchingEntriesRespectingAuthorization(annotationListingQueryParameter, userAccount);
+    long filteredAnnotationsCount = annotationStorage.getNumberOfMatchingEntriesRespectingAuthorization(
+            annotationListingQueryParameter, userAccount);
 
     return new DataTableInfo<>(draw, totalAnnotationsCount, filteredAnnotationsCount, matchingAnnotations);
   }
@@ -140,7 +138,8 @@ public class EndpointAnnotation {
   public CountResult getCountOfAnnotations(@BeanParam @Valid AnnotationListingQueryParameter annotationListingQueryParameter) {
     UserAccount userAccount = (UserAccount) containerRequestContext.getProperty(
             AuthenticationFilter.USER_ACCOUNT_PROPERTY_NAME);
-    long filteredAnnotationsCount = annotationStorage.getNumberOfMatchingEntriesRespectingAuthorization(annotationListingQueryParameter, userAccount);
+    long filteredAnnotationsCount = annotationStorage.getNumberOfMatchingEntriesRespectingAuthorization(
+            annotationListingQueryParameter, userAccount);
 
     return new CountResult(filteredAnnotationsCount);
   }
@@ -649,60 +648,19 @@ public class EndpointAnnotation {
   @Produces(MediaType.APPLICATION_JSON)
   @Secured
   @Path("{id}/category/selectList")
-  public Response getCategorySelectList(@PathParam("id") Integer id, @QueryParam("start") Integer start, @QueryParam("length") Integer length, @QueryParam("orderby") String orderby, @QueryParam("dir") String direction, @QueryParam("search") String search) {
-    // System.out.println("EndpointAnnotation: getCategorySelectList - Id: "+ id);
+  public List<SelectElement<Integer>> getCategorySelectList(@PathParam("id") Integer id, @QueryParam("start") Integer start, @QueryParam("length") Integer length, @QueryParam("search") String search) {
+    Stream<ReducedEntity<Integer>> assignableCategoryStream = annotationStorage.getAssignableCategoriesOfAnnotation(id,
+            search);
 
-    EntityManager entityManager = TIMAATApp.emf.createEntityManager();
-    Annotation annotation = entityManager.find(Annotation.class, id);
-    MediumAnalysisList mediumAnalysisList = annotation.getMediumAnalysisList();
-    List<CategorySet> categorySetList = mediumAnalysisList.getCategorySets();
-    List<Category> categoryList = new ArrayList<>();
-    // List<Category> annotationCategories = annotation.getCategories();
-    List<SelectElement> categorySelectList = new ArrayList<>();
-
-    for (CategorySet categorySet : categorySetList) {
-      Set<CategorySetHasCategory> cshc = categorySet.getCategorySetHasCategories();
-      Iterator<CategorySetHasCategory> itr = cshc.iterator();
-      while (itr.hasNext()) {
-        // categorySelectList.add(new SelectElement<Integer>(itr.next().getCategory().getId(), itr.next().getCategory().getName()));
-        categoryList.add(itr.next().getCategory());
-      }
+    if (start != null) {
+      assignableCategoryStream = assignableCategoryStream.skip(start);
     }
-    // for (Category category : categoryList) {
-    // 	categorySelectList.add(new SelectElement<Integer>(category.getId(), category.getName()))
-    // }
-
-    // search
-    Query query;
-    String sql;
-    if (search != null && search.length() > 0) {
-      // find all matching names
-      sql = "SELECT c FROM Category c WHERE lower(c.name) LIKE lower(concat('%', :name,'%')) ORDER BY c.name ASC";
-      query = entityManager.createQuery(sql).setParameter("name", search);
-      // find all categories belonging to those names
-      if (start != null && start > 0) {
-        query.setFirstResult(start);
-      }
-      if (length != null && length > 0) {
-        query.setMaxResults(length);
-      }
-      List<Category> searchCategoryList = castList(Category.class, query.getResultList());
-      for (Category category : searchCategoryList) {
-        if (categoryList.contains(category)) {
-          categorySelectList.add(new SelectElement<Integer>(category.getId(), category.getName()));
-        }
-      }
-    }
-    else {
-      Collections.sort(categoryList, (Comparator<Category>) (Category c1, Category c2) -> c1.getName().toLowerCase()
-                                                                                            .compareTo(c2.getName()
-                                                                                                         .toLowerCase()));
-      for (Category category : categoryList) {
-        categorySelectList.add(new SelectElement<Integer>(category.getId(), category.getName()));
-      }
+    if (length != null) {
+      assignableCategoryStream = assignableCategoryStream.limit(length);
     }
 
-    return Response.ok().entity(categorySelectList).build();
+    return assignableCategoryStream.map(
+            reducedEntity -> new SelectElement<>(reducedEntity.id(), reducedEntity.description())).toList();
   }
 
   @GET

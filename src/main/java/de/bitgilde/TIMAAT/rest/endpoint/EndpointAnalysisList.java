@@ -35,6 +35,7 @@ import de.bitgilde.TIMAAT.rest.model.analysislist.UpdateAnalysisListCategorySets
 import de.bitgilde.TIMAAT.rest.model.category.UpdateAssignedCategoriesPayload;
 import de.bitgilde.TIMAAT.rest.security.authorization.AnalysisListAuthorizationVerifier;
 import de.bitgilde.TIMAAT.security.UserLogManager;
+import de.bitgilde.TIMAAT.storage.api.ReducedEntity;
 import de.bitgilde.TIMAAT.storage.entity.analysislist.AnalysisListStorage;
 import de.bitgilde.TIMAAT.storage.entity.segment.SegmentStructureElementsStorage;
 import de.bitgilde.TIMAAT.storage.entity.segment.api.SegmentStructureElementType;
@@ -72,6 +73,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /*
  Licensed under the Apache License, Version 2.0 (the "License");
@@ -197,9 +199,19 @@ public class EndpointAnalysisList {
   @Produces(MediaType.APPLICATION_JSON)
   @Secured
   @Path("{segmentType}/{id}/category/selectList")
-  public List<SelectElement<Integer>> getSegmentStructureElementCategoriesSelectList(@PathParam("id") int id, @PathParam("segmentType") SegmentStructureElementType segmentStructureElementType) {
-    return segmentStructureElementsStorage.getAssignableCategories(id, segmentStructureElementType).stream().map(currentCategory -> new SelectElement<>(currentCategory.getId(), currentCategory.getName())).collect(
-            Collectors.toList());
+  public List<SelectElement<Integer>> getSegmentStructureElementCategoriesSelectList(@PathParam("id") int id, @PathParam("segmentType") SegmentStructureElementType segmentStructureElementType, @QueryParam("start") Integer start, @QueryParam("length") Integer length, @QueryParam("search") String search) {
+    Stream<ReducedEntity<Integer>> assignableCategoryStream = segmentStructureElementsStorage.getAssignableCategories(
+            id, segmentStructureElementType, search);
+
+    if (start != null) {
+      assignableCategoryStream = assignableCategoryStream.skip(start);
+    }
+    if (length != null) {
+      assignableCategoryStream = assignableCategoryStream.limit(length);
+    }
+
+    return assignableCategoryStream.map(
+            reducedEntity -> new SelectElement<>(reducedEntity.id(), reducedEntity.description())).toList();
   }
 
   @PUT

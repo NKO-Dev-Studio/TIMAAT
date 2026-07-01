@@ -10,7 +10,6 @@ import de.bitgilde.TIMAAT.model.FIPOP.AnalysisSequence;
 import de.bitgilde.TIMAAT.model.FIPOP.AnalysisTake;
 import de.bitgilde.TIMAAT.model.FIPOP.Category;
 import de.bitgilde.TIMAAT.model.FIPOP.CategorySet;
-import de.bitgilde.TIMAAT.model.FIPOP.CategorySetHasCategory;
 import de.bitgilde.TIMAAT.model.FIPOP.CategorySet_;
 import de.bitgilde.TIMAAT.model.FIPOP.Category_;
 import de.bitgilde.TIMAAT.model.FIPOP.MediumAnalysisList;
@@ -20,10 +19,13 @@ import de.bitgilde.TIMAAT.model.FIPOP.UserAccount;
 import de.bitgilde.TIMAAT.model.FIPOP.UserAccountHasMediumAnalysisList;
 import de.bitgilde.TIMAAT.model.FIPOP.UserAccountHasMediumAnalysisList_;
 import de.bitgilde.TIMAAT.model.FIPOP.UserAccount_;
+import de.bitgilde.TIMAAT.storage.api.ReducedEntity;
 import de.bitgilde.TIMAAT.storage.db.DbStorage;
+import de.bitgilde.TIMAAT.storage.entity.analysislist.AnalysisListStorage;
 import de.bitgilde.TIMAAT.storage.entity.segment.api.SegmentStructureElementFilterCriteria;
 import de.bitgilde.TIMAAT.storage.entity.segment.api.SegmentStructureElementType;
 import de.bitgilde.TIMAAT.storage.entity.segment.api.SegmentStructureSortingField;
+import jakarta.annotation.Nullable;
 import jakarta.inject.Inject;
 import jakarta.persistence.EntityManagerFactory;
 import jakarta.persistence.criteria.CriteriaBuilder;
@@ -37,7 +39,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * Storage responsible to access and modify {@link AnalysisSegment}s
@@ -54,9 +56,12 @@ public class SegmentStructureElementsStorage extends DbStorage<AnalysisSegmentSt
           AnalysisAction.class);
 
 
+  private final AnalysisListStorage analysisListStorage;
+
   @Inject
-  public SegmentStructureElementsStorage(EntityManagerFactory emf) {
+  public SegmentStructureElementsStorage(EntityManagerFactory emf, AnalysisListStorage analysisListStorage) {
     super(AnalysisSegmentStructureElement.class, SegmentStructureSortingField.ID, emf);
+    this.analysisListStorage = analysisListStorage;
   }
 
   public List<Category> updateCategories(int segmentStructureId, SegmentStructureElementType segmentStructureElementType, Collection<Integer> categoryIds) {
@@ -77,6 +82,13 @@ public class SegmentStructureElementsStorage extends DbStorage<AnalysisSegmentSt
     });
   }
 
+  private int getMediumAnalysisListIdOfSegmentStructureElement(SegmentStructureElementType segmentStructureElementType, int segmentStructureId) {
+    return executeDbTransaction(entityManager -> entityManager.createQuery(
+            "select mediumAnalysisList.id from AnalysisSegmentStructureElement segmentStructureElement join segmentStructureElement.mediumAnalysisList mediumAnalysisList where segmentStructureElement.id.id = :id and segmentStructureElement.id.structureElementType = :type",
+            Integer.class).setParameter("id", segmentStructureId).setParameter("type",
+            segmentStructureElementType.toString()).getSingleResult());
+  }
+
   public MediumAnalysisList getMediumAnalysisListOfSegmentStructureElement(SegmentStructureElementType segmentStructureElementType, int segmentStructureId) {
     return executeDbTransaction(entityManager -> entityManager.createQuery(
             "select mediumAnalysisList from AnalysisSegmentStructureElement segmentStructureElement join segmentStructureElement.mediumAnalysisList mediumAnalysisList where segmentStructureElement.id.id = :id and segmentStructureElement.id.structureElementType = :type",
@@ -93,15 +105,10 @@ public class SegmentStructureElementsStorage extends DbStorage<AnalysisSegmentSt
     });
   }
 
-  public List<Category> getAssignableCategories(int segmentStructureId, SegmentStructureElementType segmentStructureElementType) {
-    return executeDbTransaction(entityManager -> {
-      Class<? extends SegmentStructureEntity> segmentTypeEntityClass = SEGMENT_STRUCTURE_ENTITY_CLASS_BY_SEGMENT_STRUCTURE_TYPE.get(
-              segmentStructureElementType);
-      SegmentStructureEntity segmentStructureEntity = entityManager.find(segmentTypeEntityClass, segmentStructureId);
-      return segmentStructureEntity.getMediumAnalysisList().getCategorySets().stream()
-                                   .flatMap(categorySet -> categorySet.getCategorySetHasCategories().stream())
-                                   .map(CategorySetHasCategory::getCategory).collect(Collectors.toList());
-    });
+  public Stream<ReducedEntity<Integer>> getAssignableCategories(int segmentStructureId, SegmentStructureElementType segmentStructureElementType, @Nullable String searchText) {
+    int mediumAnalysisListId = getMediumAnalysisListIdOfSegmentStructureElement(segmentStructureElementType,
+            segmentStructureId);
+    return analysisListStorage.getAssignableCategoriesOfAnalysisList(mediumAnalysisListId, searchText);
   }
 
   @Override

@@ -27,11 +27,14 @@ import de.bitgilde.TIMAAT.model.FIPOP.UserAccountHasMediumAnalysisList;
 import de.bitgilde.TIMAAT.model.FIPOP.UserAccountHasMediumAnalysisList_;
 import de.bitgilde.TIMAAT.model.FIPOP.UserAccount_;
 import de.bitgilde.TIMAAT.model.IndexBasedRange;
+import de.bitgilde.TIMAAT.storage.api.ReducedEntity;
 import de.bitgilde.TIMAAT.storage.db.DbStorage;
 import de.bitgilde.TIMAAT.storage.entity.TagStorage;
+import de.bitgilde.TIMAAT.storage.entity.analysislist.AnalysisListStorage;
 import de.bitgilde.TIMAAT.storage.entity.annotation.api.AnnotationFilterCriteria;
 import de.bitgilde.TIMAAT.storage.entity.annotation.api.AnnotationSortingField;
 import de.bitgilde.TIMAAT.storage.entity.annotation.api.AnnotationType;
+import jakarta.annotation.Nullable;
 import jakarta.inject.Inject;
 import jakarta.persistence.EntityManagerFactory;
 import jakarta.persistence.criteria.CriteriaBuilder;
@@ -50,6 +53,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.stream.Stream;
 /*
  Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -75,11 +79,13 @@ public class AnnotationStorage extends DbStorage<Annotation, AnnotationFilterCri
   private static final Logger logger = Logger.getLogger(AnnotationStorage.class.getName());
 
   private final TagStorage tagStorage;
+  private final AnalysisListStorage analysisListStorage;
 
   @Inject
-  public AnnotationStorage(EntityManagerFactory emf, TagStorage tagStorage) {
+  public AnnotationStorage(EntityManagerFactory emf, TagStorage tagStorage, AnalysisListStorage analysisListStorage) {
     super(Annotation.class, AnnotationSortingField.ID, emf);
     this.tagStorage = tagStorage;
+    this.analysisListStorage = analysisListStorage;
   }
 
   public boolean removeTranscriptionAreaFromAnnotationHasMusicForLanguage(int annotationId, int musicId, int languageId) throws DbTransactionExecutionException {
@@ -106,6 +112,11 @@ public class AnnotationStorage extends DbStorage<Annotation, AnnotationFilterCri
       annotation.setTags(updatedTagList);
       return updatedTagList;
     });
+  }
+
+  public Stream<ReducedEntity<Integer>> getAssignableCategoriesOfAnnotation(int annotationId, @Nullable String searchText) {
+    int mediumAnalysisListId = getMediumAnalysisListIdOfAnnotation(annotationId);
+    return analysisListStorage.getAssignableCategoriesOfAnalysisList(mediumAnalysisListId, searchText);
   }
 
   public List<Category> updateCategoriesOfAnnotation(int annotationId, Collection<Integer> categoryIds) throws DbTransactionExecutionException {
@@ -273,6 +284,13 @@ public class AnnotationStorage extends DbStorage<Annotation, AnnotationFilterCri
 
       return false;
     });
+  }
+
+  private int getMediumAnalysisListIdOfAnnotation(int id) {
+    logger.log(Level.FINE, "Loading medium analysis list id from annotation {0}", new Object[]{id});
+    return this.executeDbTransaction(entityManager -> entityManager.createQuery(
+            "select mediumAnalysisList.id from Annotation annotation join annotation.mediumAnalysisList mediumAnalysisList where annotation.id = :annotationId",
+            Integer.class).setParameter("annotationId", id).getSingleResult());
   }
 
   public MediumAnalysisList getMediumAnalysisListOfAnnotation(@PathParam("id") int id) {

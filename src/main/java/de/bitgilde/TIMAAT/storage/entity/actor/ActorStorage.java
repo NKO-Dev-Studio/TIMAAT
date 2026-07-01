@@ -24,9 +24,11 @@ import de.bitgilde.TIMAAT.model.FIPOP.CategorySet;
 import de.bitgilde.TIMAAT.model.FIPOP.CategorySet_;
 import de.bitgilde.TIMAAT.model.FIPOP.Category_;
 import de.bitgilde.TIMAAT.model.FIPOP.UserAccount;
+import de.bitgilde.TIMAAT.storage.api.ReducedEntity;
 import de.bitgilde.TIMAAT.storage.db.DbStorage;
 import de.bitgilde.TIMAAT.storage.entity.actor.api.ActorFilterCriteria;
 import de.bitgilde.TIMAAT.storage.entity.actor.api.ActorSortingField;
+import jakarta.annotation.Nullable;
 import jakarta.inject.Inject;
 import jakarta.persistence.EntityManagerFactory;
 import jakarta.persistence.LockModeType;
@@ -61,7 +63,7 @@ public class ActorStorage extends DbStorage<Actor, ActorFilterCriteria, ActorSor
   protected List<Predicate> createPredicates(ActorFilterCriteria filter, Root<Actor> root, CriteriaBuilder criteriaBuilder, CriteriaQuery<?> criteriaQuery, UserAccount userAccount) {
     List<Predicate> predicates = new ArrayList<>();
 
-    if(filter != null){
+    if (filter != null) {
       if (filter.getActorNameSearch().isPresent()) {
         String searchText = filter.getActorNameSearch().get();
         predicates.add(criteriaBuilder.like(root.get(Actor_.displayName).get(ActorName_.name), "%" + searchText + "%"));
@@ -116,10 +118,42 @@ public class ActorStorage extends DbStorage<Actor, ActorFilterCriteria, ActorSor
     });
   }
 
-  public Stream<Category> getAssignableCategoriesOfActor(int actorId) {
-    return executeStreamDbTransaction(entityManager -> entityManager.createQuery(
-            "select distinct category from Actor actor join actor.categorySets categorySet join categorySet.categorySetHasCategories cshc join cshc.category category where actor.id = :actorId",
-            Category.class).setParameter("actorId", actorId).getResultStream());
+  /**
+   * Calculates the assignable categories of the actor
+   * @param actorId
+   * @param searchText
+   * @return the assignable categories as {@link Stream} of {@link ReducedEntity}
+   */
+  @SuppressWarnings("unchecked")
+  public Stream<ReducedEntity<Integer>> getAssignableCategoriesOfActor(int actorId, @Nullable String searchText) {
+    return executeStreamDbTransaction(entityManager -> {
+      boolean hasCategorySets = (long) entityManager.createNativeQuery(
+                                                            "select count(1) from actor_has_category_set ahcs where ahcs.actor_id = ?").setParameter(1, actorId)
+                                                    .getSingleResult() > 0;
+      Query query;
+      String likeName = searchText == null ? "" : searchText;
+
+      if (hasCategorySets) {
+        String sql = """
+                select distinct c.id, c.name from category c
+                join category_set_has_category cs on c.id = cs.category_id
+                where lower(c.name) like lower(concat('%', ?,'%'))
+                and cs.category_set_id in (
+                    select ahcs.category_set_id from actor_has_category_set ahcs
+                    where ahcs.actor_id = ?)
+                order by c.name asc
+                """;
+        query = entityManager.createNativeQuery(sql).setParameter(1, likeName).setParameter(2, actorId);
+      }
+      else {
+        String sql = "select c.id, c.name from category c where lower(c.name) like lower(concat('%', ?,'%')) order by c.name asc";
+        query = entityManager.createNativeQuery(sql).setParameter(1, likeName);
+      }
+
+      Stream<Object[]> resultStream = query.getResultStream();
+      return resultStream.map(
+              currentResult -> new ReducedEntity<>((Integer) currentResult[0], (String) currentResult[1]));
+    });
   }
 
   public Collection<CategorySet> updateAssignedCategorySetsOfActor(int actorId, List<Integer> categorySetIds) {

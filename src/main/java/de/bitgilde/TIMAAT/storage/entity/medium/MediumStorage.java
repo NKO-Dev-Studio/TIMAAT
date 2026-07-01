@@ -17,6 +17,7 @@ import de.bitgilde.TIMAAT.model.FIPOP.UserAccount;
 import de.bitgilde.TIMAAT.model.TimeRange;
 import de.bitgilde.TIMAAT.sse.EntityUpdateEventService;
 import de.bitgilde.TIMAAT.sse.api.EntityType;
+import de.bitgilde.TIMAAT.storage.api.ReducedEntity;
 import de.bitgilde.TIMAAT.storage.db.DbStorage;
 import de.bitgilde.TIMAAT.storage.entity.medium.api.MediumDefaultTranscriptionEntityUpdateMessage;
 import de.bitgilde.TIMAAT.storage.entity.medium.api.MediumFilterCriteria;
@@ -24,6 +25,7 @@ import de.bitgilde.TIMAAT.storage.entity.medium.api.MediumSortingField;
 import jakarta.annotation.Nullable;
 import jakarta.inject.Inject;
 import jakarta.persistence.EntityManagerFactory;
+import jakarta.persistence.Query;
 import jakarta.persistence.criteria.CriteriaBuilder;
 import jakarta.persistence.criteria.CriteriaQuery;
 import jakarta.persistence.criteria.Join;
@@ -36,6 +38,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.stream.Stream;
 
 /*
  Licensed under the Apache License, Version 2.0 (the "License");
@@ -77,6 +80,44 @@ public class MediumStorage extends DbStorage<Medium, MediumFilterCriteria, Mediu
    */
   public boolean existsById(int mediumId) {
     return executeDbTransaction(entityManager -> entityManager.find(Medium.class, mediumId) != null);
+  }
+
+
+  /**
+   * Calculates the assignable categories of the medium
+   * @param mediumId
+   * @param searchText
+   * @return the assignable categories as {@link Stream} of {@link ReducedEntity}
+   */
+  @SuppressWarnings("unchecked")
+  public Stream<ReducedEntity<Integer>> getAssignableCategoriesOfMedium(int mediumId, @Nullable String searchText) {
+    return executeStreamDbTransaction(entityManager -> {
+      boolean hasCategorySets = (long) entityManager.createNativeQuery(
+                                                            "select count(1) from medium_has_category_set mhcs where mhcs.medium_id = ?").setParameter(1, mediumId)
+                                                    .getSingleResult() > 0;
+      Query query;
+      String likeName = searchText == null ? "" : searchText;
+      if (hasCategorySets) {
+        String sql = """
+                select distinct c.id, c.name from category c
+                join category_set_has_category cs on c.id = cs.category_id
+                where lower(c.name) like lower(concat('%', ?,'%'))
+                and cs.category_set_id in (
+                    select mhcs.category_set_id from medium_has_category_set mhcs
+                    where mhcs.medium_id = ?)
+                order by c.name asc
+                """;
+        query = entityManager.createNativeQuery(sql).setParameter(1, likeName).setParameter(2, mediumId);
+      }
+      else {
+        String sql = "select c.id, c.name from category c where lower(c.name) like lower(concat('%', ?,'%')) order by c.name asc";
+        query = entityManager.createNativeQuery(sql).setParameter(1, likeName);
+      }
+
+      Stream<Object[]> resultStream = query.getResultStream();
+      return resultStream.map(
+              currentResult -> new ReducedEntity<>((Integer) currentResult[0], (String) currentResult[1]));
+    });
   }
 
   /**

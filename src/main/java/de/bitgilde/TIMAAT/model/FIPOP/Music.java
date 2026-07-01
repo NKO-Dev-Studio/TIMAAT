@@ -18,6 +18,7 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.NamedQuery;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.OneToOne;
+import jakarta.persistence.Table;
 import jakarta.persistence.Transient;
 
 import java.io.Serializable;
@@ -45,7 +46,8 @@ import java.util.Objects;
  * @author Mirko Scherf <mscherf@uni-mainz.de>
  */
 @Entity
-@NamedQuery(name="Music.findAll", query="SELECT m FROM Music m")
+@Table(name = "music")
+@NamedQuery(name = "Music.findAll", query = "SELECT m FROM Music m")
 public class Music implements Serializable {
   private static final long serialVersionUID = 1L;
 
@@ -53,591 +55,552 @@ public class Music implements Serializable {
   @GeneratedValue(strategy = GenerationType.IDENTITY)
   private int id;
 
-	private String beat;
+  private String beat;
 
-	private String harmony;
+  private String harmony;
 
-	private String instrumentation;
+  private String instrumentation;
 
-	private String melody;
+  private String melody;
 
-	private Short tempo;
+  private Short tempo;
 
-	private String remark;
+  private String remark;
 
-	@Column(name="created_at")
-	private Timestamp createdAt;
+  @Column(name = "created_at")
+  private Timestamp createdAt;
 
-	@Column(name="last_edited_at")
-	private Timestamp lastEditedAt;
+  @Column(name = "last_edited_at")
+  private Timestamp lastEditedAt;
 
-	//bi-directional many-to-one association to UserAccount
-	@ManyToOne
-	@JoinColumn(name="created_by_user_account_id")
-	@JsonBackReference(value = "Music-CreatedByUserAccount")
-	private UserAccount createdByUserAccount;
+  //bi-directional many-to-one association to UserAccount
+  @ManyToOne
+  @JoinColumn(name = "created_by_user_account_id")
+  @JsonBackReference(value = "Music-CreatedByUserAccount")
+  private UserAccount createdByUserAccount;
 
-	@Transient
-	@JsonProperty("createdByUserAccountId")
-	private int createdByUserAccountId;
+  @Transient
+  @JsonProperty("createdByUserAccountId")
+  private int createdByUserAccountId;
 
-	//bi-directional many-to-one association to UserAccount
-	@ManyToOne
-	@JoinColumn(name="last_edited_by_user_account_id")
-	@JsonBackReference(value = "Music-LastEditedByUserAccount")
-	private UserAccount lastEditedByUserAccount;
+  //bi-directional many-to-one association to UserAccount
+  @ManyToOne
+  @JoinColumn(name = "last_edited_by_user_account_id")
+  @JsonBackReference(value = "Music-LastEditedByUserAccount")
+  private UserAccount lastEditedByUserAccount;
 
-	@Transient
-	@JsonProperty("lastEditedByUserAccountId")
-	private int lastEditedByUserAccountId;
+  @Transient
+  @JsonProperty("lastEditedByUserAccountId")
+  private int lastEditedByUserAccountId;
 
-	//bi-directional many-to-one association to AudioPostProduction
-	@ManyToOne
-	@JoinColumn(name="audio_post_production_id")
-	private AudioPostProduction audioPostProduction;
+  //bi-directional many-to-one association to AudioPostProduction
+  @ManyToOne
+  @JoinColumn(name = "audio_post_production_id")
+  private AudioPostProduction audioPostProduction;
 
-	//bi-directional many-to-one association to DynamicMarking
-	@ManyToOne
-	@JoinColumn(name="dynamic_marking_id")
-	private DynamicMarking dynamicMarking;
+  //bi-directional many-to-one association to DynamicMarking
+  @ManyToOne
+  @JoinColumn(name = "dynamic_marking_id")
+  private DynamicMarking dynamicMarking;
 
-	//bi-directional many-to-one association to MusicType
-	@ManyToOne
-	@JoinColumn(name="music_type_id")
-	private MusicType musicType;
+  //bi-directional many-to-one association to MusicType
+  @ManyToOne
+  @JoinColumn(name = "music_type_id")
+  private MusicType musicType;
 
-	//bi-directional many-to-one association to MusicalKey
-	@ManyToOne
-	@JoinColumn(name="musical_key_id")
-	private MusicalKey musicalKey;
+  //bi-directional many-to-one association to MusicalKey
+  @ManyToOne
+  @JoinColumn(name = "musical_key_id")
+  private MusicalKey musicalKey;
 
-	//bi-directional many-to-many association to ActorHasRole
-	@ManyToMany
-	@JoinTable(
-		name="music_has_actor_with_role"
-		, joinColumns={
-			@JoinColumn(name="music_id")
-			}
-		, inverseJoinColumns={
-			@JoinColumn(name="actor_has_role_actor_id", referencedColumnName="actor_id"),
-			@JoinColumn(name="actor_has_role_role_id", referencedColumnName="role_id")
-			}
-		)
-	@JsonIgnore
-	private List<ActorHasRole> actorHasRoles;
+  //bi-directional many-to-many association to ActorHasRole
+  @ManyToMany
+  @JoinTable(name = "music_has_actor_with_role", joinColumns = {@JoinColumn(name = "music_id")}, inverseJoinColumns = {@JoinColumn(name = "actor_has_role_actor_id", referencedColumnName = "actor_id"), @JoinColumn(name = "actor_has_role_role_id", referencedColumnName = "role_id")})
+  @JsonIgnore
+  private List<ActorHasRole> actorHasRoles;
 
-	//bi-directional many-to-one association to MusicHasActorWithRole
-	@OneToMany(mappedBy="music")
-	private List<MusicHasActorWithRole> musicHasActorWithRoles;
+  //bi-directional many-to-one association to MusicHasActorWithRole
+  @OneToMany(mappedBy = "music")
+  private List<MusicHasActorWithRole> musicHasActorWithRoles;
 
-	//bi-directional many-to-many association to CategorySet
-	@ManyToMany
-	@JoinTable(
-		name="music_has_category_set"
-		, joinColumns={
-			@JoinColumn(name="music_id")
-			}
-		, inverseJoinColumns={
-			@JoinColumn(name="category_set_id")
-			}
-		)
-	private List<CategorySet> categorySets;
+  //bi-directional many-to-many association to CategorySet
+  @ManyToMany
+  @JoinTable(name = "music_has_category_set", joinColumns = {@JoinColumn(name = "music_id")}, inverseJoinColumns = {@JoinColumn(name = "category_set_id")})
+  private List<CategorySet> categorySets;
 
-	//bi-directional many-to-many association to Category
-	@ManyToMany
-	@JoinTable(
-		name="music_has_category"
-		, joinColumns={
-			@JoinColumn(name="music_id")
-			}
-		, inverseJoinColumns={
-			@JoinColumn(name="category_id")
-			}
-		)
-	private List<Category> categories;
+  //bi-directional many-to-many association to Category
+  @ManyToMany
+  @JoinTable(name = "music_has_category", joinColumns = {@JoinColumn(name = "music_id")}, inverseJoinColumns = {@JoinColumn(name = "category_id")})
+  private List<Category> categories;
 
-	//bi-directional many-to-many association to Tag
-	@ManyToMany
-	@JoinTable(
-		name="music_has_tag"
-		, inverseJoinColumns={
-			@JoinColumn(name="tag_id")
-			}
-		, joinColumns={
-			@JoinColumn(name="music_id")
-			}
-		)
-	private List<Tag> tags;
+  //bi-directional many-to-many association to Tag
+  @ManyToMany
+  @JoinTable(name = "music_has_tag", inverseJoinColumns = {@JoinColumn(name = "tag_id")}, joinColumns = {@JoinColumn(name = "music_id")})
+  private List<Tag> tags;
 
-	//bi-directional many-to-many association to VoiceLeadingPattern
-	@ManyToMany
-	@JoinTable(
-		name="music_has_voice_leading_pattern"
-		, inverseJoinColumns={
-			@JoinColumn(name="voice_leading_pattern_id")
-			}
-		, joinColumns={
-			@JoinColumn(name="music_id")
-			}
-		)
-	private List<VoiceLeadingPattern> voiceLeadingPatternList;
+  //bi-directional many-to-many association to VoiceLeadingPattern
+  @ManyToMany
+  @JoinTable(name = "music_has_voice_leading_pattern", inverseJoinColumns = {@JoinColumn(name = "voice_leading_pattern_id")}, joinColumns = {@JoinColumn(name = "music_id")})
+  private List<VoiceLeadingPattern> voiceLeadingPatternList;
 
-	//bi-directional many-to-one association to Title
-	@ManyToOne(cascade = CascadeType.PERSIST)
-	@JoinColumn(name="display_title_title_id")
-	private Title displayTitle;
+  //bi-directional many-to-one association to Title
+  @ManyToOne(cascade = CascadeType.PERSIST)
+  @JoinColumn(name = "display_title_title_id")
+  private Title displayTitle;
 
-	//bi-directional many-to-one association to Title
-	@ManyToOne(cascade = CascadeType.PERSIST)
-	@JoinColumn(name="original_title_title_id")
-	private Title originalTitle;
+  //bi-directional many-to-one association to Title
+  @ManyToOne(cascade = CascadeType.PERSIST)
+  @JoinColumn(name = "original_title_title_id")
+  private Title originalTitle;
 
-	//bi-directional many-to-many association to Title
-	@ManyToMany(mappedBy="musicList")
-	private List<Title> titleList;
+  //bi-directional many-to-many association to Title
+  @ManyToMany(mappedBy = "musicList")
+  private List<Title> titleList;
 
-	//bi-directional one-to-one association to MusicNashid
-	@OneToOne(mappedBy="music")
-	private MusicNashid musicNashid;
+  //bi-directional one-to-one association to MusicNashid
+  @OneToOne(mappedBy = "music")
+  private MusicNashid musicNashid;
 
-	//bi-directional one-to-one association to MusicChurchMusic
-	@OneToOne(mappedBy="music")
-	private MusicChurchMusic musicChurchMusic;
+  //bi-directional one-to-one association to MusicChurchMusic
+  @OneToOne(mappedBy = "music")
+  private MusicChurchMusic musicChurchMusic;
 
-	//bi-directional many-to-one association to TempoMarking
-	@ManyToOne
-	@JoinColumn(name="tempo_marking_id")
-	private TempoMarking tempoMarking;
+  //bi-directional many-to-one association to TempoMarking
+  @ManyToOne
+  @JoinColumn(name = "tempo_marking_id")
+  private TempoMarking tempoMarking;
 
-	//bi-directional many-to-one association to MusicTextSettingElementType
-	@ManyToOne
-	@JoinColumn(name="music_text_setting_element_type_id")
-	private MusicTextSettingElementType musicTextSettingElementType;
+  //bi-directional many-to-one association to MusicTextSettingElementType
+  @ManyToOne
+  @JoinColumn(name = "music_text_setting_element_type_id")
+  private MusicTextSettingElementType musicTextSettingElementType;
 
-	//bi-directional many-to-one association to MusicFormElement
-	@OneToMany(mappedBy="music")
+  //bi-directional many-to-one association to MusicFormElement
+  @OneToMany(mappedBy = "music")
   @JsonManagedReference(value = "Music-MusicFormElement")
-	private List<MusicFormElement> musicFormElementList;
+  private List<MusicFormElement> musicFormElementList;
 
-	//bi-directional many-to-one association to MusicChangeInTempoElement
-	@OneToMany(mappedBy="music")
-	@JsonManagedReference(value = "Music-MusicChangeInTempoElement")
-	private List<MusicChangeInTempoElement> musicChangeInTempoElementList;
+  //bi-directional many-to-one association to MusicChangeInTempoElement
+  @OneToMany(mappedBy = "music")
+  @JsonManagedReference(value = "Music-MusicChangeInTempoElement")
+  private List<MusicChangeInTempoElement> musicChangeInTempoElementList;
 
-	//bi-directional many-to-one association to MusicArticulationElement
-	@OneToMany(mappedBy="music")
-	@JsonManagedReference(value = "Music-MusicArticulationElement")
-	private List<MusicArticulationElement> musicArticulationElementList;
+  //bi-directional many-to-one association to MusicArticulationElement
+  @OneToMany(mappedBy = "music")
+  @JsonManagedReference(value = "Music-MusicArticulationElement")
+  private List<MusicArticulationElement> musicArticulationElementList;
 
-	//bi-directional many-to-one association to MusicTextSettingElement
-	@OneToMany(mappedBy="music")
-	@JsonManagedReference(value = "Music-MusicTextSettingElement")
-	private List<MusicTextSettingElement> musicTextSettingElementList;
+  //bi-directional many-to-one association to MusicTextSettingElement
+  @OneToMany(mappedBy = "music")
+  @JsonManagedReference(value = "Music-MusicTextSettingElement")
+  private List<MusicTextSettingElement> musicTextSettingElementList;
 
-	//bi-directional many-to-one association to MusicDynamicsElement
-	@OneToMany(mappedBy="music")
-	@JsonManagedReference(value = "Music-MusicDynamicsElement")
-	private List<MusicDynamicsElement> musicDynamicsElementList;
+  //bi-directional many-to-one association to MusicDynamicsElement
+  @OneToMany(mappedBy = "music")
+  @JsonManagedReference(value = "Music-MusicDynamicsElement")
+  private List<MusicDynamicsElement> musicDynamicsElementList;
 
-    @OneToMany(mappedBy="music")
-    @JsonManagedReference(value = "Music-MusicTranslation")
-    private List<MusicTranslation> musicTranslationList;
+  @OneToMany(mappedBy = "music")
+  @JsonManagedReference(value = "Music-MusicTranslation")
+  private List<MusicTranslation> musicTranslationList;
 
-	//bi-directional many-to-one association to MediumHasMusic
-	@OneToMany(mappedBy="music")
-	@JsonManagedReference(value = "Music-MediumHasMusic")
-	private List<MediumHasMusic> mediumHasMusicList;
+  //bi-directional many-to-one association to MediumHasMusic
+  @OneToMany(mappedBy = "music")
+  @JsonManagedReference(value = "Music-MediumHasMusic")
+  private List<MediumHasMusic> mediumHasMusicList;
 
-	// bi-directional one-to-one association to Medium
-	// @Transient
-	@OneToOne(mappedBy="music")
-	// @JsonManagedReference(value="Medium-Music")
-	private Medium medium;
+  // bi-directional one-to-one association to Medium
+  // @Transient
+  @OneToOne(mappedBy = "music")
+  // @JsonManagedReference(value="Medium-Music")
+  private Medium medium;
 
   @OneToMany(mappedBy = "music")
   @JsonIgnoreProperties("music")
   private List<AnnotationHasMusic> annotationHasMusic;
 
-	public Music() {
-	}
-
-	public int getId() {
-		return this.id;
-	}
-
-	public void setId(int id) {
-		this.id = id;
-	}
-
-	public Timestamp getCreatedAt() {
-		return this.createdAt;
-	}
-
-	public void setCreatedAt(Timestamp createdAt) {
-		this.createdAt = createdAt;
-	}
-
-	public UserAccount getCreatedByUserAccount() {
-		return this.createdByUserAccount;
-	}
-
-	public void setCreatedByUserAccount(UserAccount createdByUserAccount) {
-		this.createdByUserAccount = createdByUserAccount;
-	}
-
-	public Timestamp getLastEditedAt() {
-		return this.lastEditedAt;
-	}
-
-	public void setLastEditedAt(Timestamp lastEditedAt) {
-		this.lastEditedAt = lastEditedAt;
-	}
-
-	public int getCreatedByUserAccountId() {
-		return this.getCreatedByUserAccount().getId();
-	}
-
-	public UserAccount getLastEditedByUserAccount() {
-		return this.lastEditedByUserAccount;
-	}
-
-	public void setLastEditedByUserAccount(UserAccount lastEditedByUserAccount) {
-		this.lastEditedByUserAccount = lastEditedByUserAccount;
-	}
-
-	public int getLastEditedByUserAccountId() {
-		if (Objects.isNull(this.getLastEditedByUserAccount())) return 0;
-		return this.getLastEditedByUserAccount().getId();
-	}
-
-	public String getBeat() {
-		return this.beat;
-	}
+  public Music() {
+  }
+
+  public int getId() {
+    return this.id;
+  }
+
+  public void setId(int id) {
+    this.id = id;
+  }
+
+  public Timestamp getCreatedAt() {
+    return this.createdAt;
+  }
+
+  public void setCreatedAt(Timestamp createdAt) {
+    this.createdAt = createdAt;
+  }
+
+  public UserAccount getCreatedByUserAccount() {
+    return this.createdByUserAccount;
+  }
+
+  public void setCreatedByUserAccount(UserAccount createdByUserAccount) {
+    this.createdByUserAccount = createdByUserAccount;
+  }
+
+  public Timestamp getLastEditedAt() {
+    return this.lastEditedAt;
+  }
+
+  public void setLastEditedAt(Timestamp lastEditedAt) {
+    this.lastEditedAt = lastEditedAt;
+  }
+
+  public int getCreatedByUserAccountId() {
+    return this.getCreatedByUserAccount().getId();
+  }
+
+  public UserAccount getLastEditedByUserAccount() {
+    return this.lastEditedByUserAccount;
+  }
+
+  public void setLastEditedByUserAccount(UserAccount lastEditedByUserAccount) {
+    this.lastEditedByUserAccount = lastEditedByUserAccount;
+  }
+
+  public int getLastEditedByUserAccountId() {
+    if (Objects.isNull(this.getLastEditedByUserAccount())) {
+      return 0;
+    }
+    return this.getLastEditedByUserAccount().getId();
+  }
+
+  public String getBeat() {
+    return this.beat;
+  }
+
+  public void setBeat(String beat) {
+    this.beat = beat;
+  }
+
+  public String getHarmony() {
+    return this.harmony;
+  }
+
+  public void setHarmony(String harmony) {
+    this.harmony = harmony;
+  }
+
+  public String getInstrumentation() {
+    return this.instrumentation;
+  }
+
+  public void setInstrumentation(String instrumentation) {
+    this.instrumentation = instrumentation;
+  }
+
+  public String getMelody() {
+    return this.melody;
+  }
+
+  public void setMelody(String melody) {
+    this.melody = melody;
+  }
+
+  public Short getTempo() {
+    return this.tempo;
+  }
+
+  public void setTempo(Short tempo) {
+    this.tempo = tempo;
+  }
+
+  public String getRemark() {
+    return this.remark;
+  }
+
+  public void setRemark(String remark) {
+    this.remark = remark;
+  }
 
-	public void setBeat(String beat) {
-		this.beat = beat;
-	}
+  public AudioPostProduction getAudioPostProduction() {
+    return this.audioPostProduction;
+  }
 
-	public String getHarmony() {
-		return this.harmony;
-	}
+  public void setAudioPostProduction(AudioPostProduction audioPostProduction) {
+    this.audioPostProduction = audioPostProduction;
+  }
 
-	public void setHarmony(String harmony) {
-		this.harmony = harmony;
-	}
+  public DynamicMarking getDynamicMarking() {
+    return this.dynamicMarking;
+  }
 
-	public String getInstrumentation() {
-		return this.instrumentation;
-	}
+  public void setDynamicMarking(DynamicMarking dynamicMarking) {
+    this.dynamicMarking = dynamicMarking;
+  }
 
-	public void setInstrumentation(String instrumentation) {
-		this.instrumentation = instrumentation;
-	}
+  public MusicType getMusicType() {
+    return this.musicType;
+  }
 
-	public String getMelody() {
-		return this.melody;
-	}
+  public void setMusicType(MusicType musicType) {
+    this.musicType = musicType;
+  }
 
-	public void setMelody(String melody) {
-		this.melody = melody;
-	}
+  public MusicalKey getMusicalKey() {
+    return this.musicalKey;
+  }
 
-	public Short getTempo() {
-		return this.tempo;
-	}
+  public void setMusicalKey(MusicalKey musicalKey) {
+    this.musicalKey = musicalKey;
+  }
 
-	public void setTempo(Short tempo) {
-		this.tempo = tempo;
-	}
+  public List<ActorHasRole> getActorHasRoles() {
+    return this.actorHasRoles;
+  }
 
-	public String getRemark() {
-		return this.remark;
-	}
+  public void setActorHasRoles(List<ActorHasRole> actorHasRoles) {
+    this.actorHasRoles = actorHasRoles;
+  }
 
-	public void setRemark(String remark) {
-		this.remark = remark;
-	}
+  public List<MusicHasActorWithRole> getMusicHasActorWithRoles() {
+    return this.musicHasActorWithRoles;
+  }
 
-	public AudioPostProduction getAudioPostProduction() {
-		return this.audioPostProduction;
-	}
+  public void setMusicHasActorWithRoles(List<MusicHasActorWithRole> musicHasActorWithRoles) {
+    this.musicHasActorWithRoles = musicHasActorWithRoles;
+  }
 
-	public void setAudioPostProduction(AudioPostProduction audioPostProduction) {
-		this.audioPostProduction = audioPostProduction;
-	}
+  public MusicHasActorWithRole addMusicHasActorWithRole(MusicHasActorWithRole musicHasActorWithRole) {
+    getMusicHasActorWithRoles().add(musicHasActorWithRole);
+    musicHasActorWithRole.setMusic(this);
 
-	public DynamicMarking getDynamicMarking() {
-		return this.dynamicMarking;
-	}
+    return musicHasActorWithRole;
+  }
 
-	public void setDynamicMarking(DynamicMarking dynamicMarking) {
-		this.dynamicMarking = dynamicMarking;
-	}
+  public MusicHasActorWithRole removeMusicHasActorWithRole(MusicHasActorWithRole musicHasActorWithRole) {
+    getMusicHasActorWithRoles().remove(musicHasActorWithRole);
+    musicHasActorWithRole.setMusic(null);
 
-	public MusicType getMusicType() {
-		return this.musicType;
-	}
+    return musicHasActorWithRole;
+  }
 
-	public void setMusicType(MusicType musicType) {
-		this.musicType = musicType;
-	}
+  public List<Title> getTitles() {
+    return this.titleList;
+  }
 
-	public MusicalKey getMusicalKey() {
-		return this.musicalKey;
-	}
+  public void setTitles(List<Title> titles) {
+    this.titleList = titles;
+  }
 
-	public void setMusicalKey(MusicalKey musicalKey) {
-		this.musicalKey = musicalKey;
-	}
+  public Title getDisplayTitle() {
+    return this.displayTitle;
+  }
 
-	public List<ActorHasRole> getActorHasRoles() {
-		return this.actorHasRoles;
-	}
+  public void setDisplayTitle(Title title) {
+    this.displayTitle = title;
+  }
 
-	public void setActorHasRoles(List<ActorHasRole> actorHasRoles) {
-		this.actorHasRoles = actorHasRoles;
-	}
+  public Title getOriginalTitle() {
+    return this.originalTitle;
+  }
 
-	public List<MusicHasActorWithRole> getMusicHasActorWithRoles() {
-		return this.musicHasActorWithRoles;
-	}
+  public void setOriginalTitle(Title title) {
+    this.originalTitle = title;
+  }
 
-	public void setMusicHasActorWithRoles(List<MusicHasActorWithRole> musicHasActorWithRoles) {
-		this.musicHasActorWithRoles = musicHasActorWithRoles;
-	}
+  public List<CategorySet> getCategorySets() {
+    return this.categorySets;
+  }
 
-	public MusicHasActorWithRole addMusicHasActorWithRole(MusicHasActorWithRole musicHasActorWithRole) {
-		getMusicHasActorWithRoles().add(musicHasActorWithRole);
-		musicHasActorWithRole.setMusic(this);
+  public void setCategorySets(List<CategorySet> categorySets) {
+    this.categorySets = categorySets;
+  }
 
-		return musicHasActorWithRole;
-	}
+  public List<Category> getCategories() {
+    return this.categories;
+  }
 
-	public MusicHasActorWithRole removeMusicHasActorWithRole(MusicHasActorWithRole musicHasActorWithRole) {
-		getMusicHasActorWithRoles().remove(musicHasActorWithRole);
-		musicHasActorWithRole.setMusic(null);
+  public void setCategories(List<Category> categories) {
+    this.categories = categories;
+  }
 
-		return musicHasActorWithRole;
-	}
-
-	public List<Title> getTitles() {
-		return this.titleList;
-	}
+  public List<Tag> getTags() {
+    return this.tags;
+  }
 
-	public void setTitles(List<Title> titles) {
-		this.titleList = titles;
-	}
+  public void setTags(List<Tag> tags) {
+    this.tags = tags;
+  }
 
-	public Title getDisplayTitle() {
-		return this.displayTitle;
-	}
+  public MusicNashid getMusicNashid() {
+    return this.musicNashid;
+  }
 
-	public void setDisplayTitle(Title title) {
-		this.displayTitle = title;
-	}
+  public void setMusicNashid(MusicNashid musicNashid) {
+    this.musicNashid = musicNashid;
+  }
 
-	public Title getOriginalTitle() {
-		return this.originalTitle;
-	}
+  public MusicChurchMusic getMusicChurchMusic() {
+    return this.musicChurchMusic;
+  }
 
-	public void setOriginalTitle(Title title) {
-		this.originalTitle = title;
-	}
+  public void setMusicChurchMusic(MusicChurchMusic musicChurchMusic) {
+    this.musicChurchMusic = musicChurchMusic;
+  }
 
-	public List<CategorySet> getCategorySets() {
-		return this.categorySets;
-	}
+  public TempoMarking getTempoMarking() {
+    return this.tempoMarking;
+  }
 
-	public void setCategorySets(List<CategorySet> categorySets) {
-		this.categorySets = categorySets;
-	}
+  public void setTempoMarking(TempoMarking tempoMarking) {
+    this.tempoMarking = tempoMarking;
+  }
 
-	public List<Category> getCategories() {
-		return this.categories;
-	}
+  public MusicTextSettingElementType getMusicTextSettingElementType() {
+    return this.musicTextSettingElementType;
+  }
 
-	public void setCategories(List<Category> categories) {
-		this.categories = categories;
-	}
+  public void setTextSetting(MusicTextSettingElementType musicTextSettingElementType) {
+    this.musicTextSettingElementType = musicTextSettingElementType;
+  }
 
-	public List<Tag> getTags() {
-		return this.tags;
-	}
+  public List<VoiceLeadingPattern> getVoiceLeadingPatternList() {
+    return this.voiceLeadingPatternList;
+  }
 
-	public void setTags(List<Tag> tags) {
-		this.tags = tags;
-	}
+  public void setVoiceLeadingPatternList(List<VoiceLeadingPattern> voiceLeadingPatternList) {
+    this.voiceLeadingPatternList = voiceLeadingPatternList;
+  }
 
-	public MusicNashid getMusicNashid() {
-		return this.musicNashid;
-	}
+  public List<MusicFormElement> getMusicFormElementList() {
+    return this.musicFormElementList;
+  }
 
-	public void setMusicNashid(MusicNashid musicNashid) {
-		this.musicNashid = musicNashid;
-	}
+  public void setMusicFormElementList(List<MusicFormElement> musicFormElementList) {
+    this.musicFormElementList = musicFormElementList;
+  }
 
-	public MusicChurchMusic getMusicChurchMusic() {
-		return this.musicChurchMusic;
-	}
+  public MusicFormElement addMusicFormElement(MusicFormElement musicFormElement) {
+    getMusicFormElementList().add(musicFormElement);
+    musicFormElement.setMusic(this);
 
-	public void setMusicChurchMusic(MusicChurchMusic musicChurchMusic) {
-		this.musicChurchMusic = musicChurchMusic;
-	}
+    return musicFormElement;
+  }
 
-	public TempoMarking getTempoMarking() {
-		return this.tempoMarking;
-	}
+  public MusicFormElement removeMusicFormElement(MusicFormElement musicFormElement) {
+    getMusicFormElementList().remove(musicFormElement);
 
-	public void setTempoMarking(TempoMarking tempoMarking) {
-		this.tempoMarking = tempoMarking;
-	}
+    return musicFormElement;
+  }
 
-	public MusicTextSettingElementType getMusicTextSettingElementType() {
-		return this.musicTextSettingElementType;
-	}
+  public List<MusicChangeInTempoElement> getMusicChangeInTempoElementList() {
+    return this.musicChangeInTempoElementList;
+  }
 
-	public void setTextSetting(MusicTextSettingElementType musicTextSettingElementType) {
-		this.musicTextSettingElementType = musicTextSettingElementType;
-	}
+  public void setMusicChangeInTempoElementList(List<MusicChangeInTempoElement> musicChangeInTempoElementList) {
+    this.musicChangeInTempoElementList = musicChangeInTempoElementList;
+  }
 
-	public List<VoiceLeadingPattern> getVoiceLeadingPatternList() {
-		return this.voiceLeadingPatternList;
-	}
+  public MusicChangeInTempoElement addMusicChangeInTempoElement(MusicChangeInTempoElement musicChangeInTempoElement) {
+    getMusicChangeInTempoElementList().add(musicChangeInTempoElement);
+    musicChangeInTempoElement.setMusic(this);
 
-	public void setVoiceLeadingPatternList(List<VoiceLeadingPattern> voiceLeadingPatternList) {
-		this.voiceLeadingPatternList = voiceLeadingPatternList;
-	}
+    return musicChangeInTempoElement;
+  }
 
-	public List<MusicFormElement> getMusicFormElementList() {
-		return this.musicFormElementList;
-	}
+  public MusicChangeInTempoElement removeMusicChangeInTempoElement(MusicChangeInTempoElement musicChangeInTempoElement) {
+    getMusicChangeInTempoElementList().remove(musicChangeInTempoElement);
+    musicChangeInTempoElement.setMusic(null);
 
-	public void setMusicFormElementList(List<MusicFormElement> musicFormElementList) {
-		this.musicFormElementList = musicFormElementList;
-	}
+    return musicChangeInTempoElement;
+  }
 
-	public MusicFormElement addMusicFormElement(MusicFormElement musicFormElement) {
-		getMusicFormElementList().add(musicFormElement);
-		musicFormElement.setMusic(this);
+  public List<MusicArticulationElement> getMusicArticulationElementList() {
+    return this.musicArticulationElementList;
+  }
 
-		return musicFormElement;
-	}
+  public void setMusicArticulationElementList(List<MusicArticulationElement> musicArticulationElementList) {
+    this.musicArticulationElementList = musicArticulationElementList;
+  }
 
-	public MusicFormElement removeMusicFormElement(MusicFormElement musicFormElement) {
-		getMusicFormElementList().remove(musicFormElement);
+  public MusicArticulationElement addMusicArticulationElement(MusicArticulationElement musicArticulationElement) {
+    getMusicArticulationElementList().add(musicArticulationElement);
+    musicArticulationElement.setMusic(this);
 
-		return musicFormElement;
-	}
+    return musicArticulationElement;
+  }
 
-	public List<MusicChangeInTempoElement> getMusicChangeInTempoElementList() {
-		return this.musicChangeInTempoElementList;
-	}
+  public MusicArticulationElement removeMusicArticulationElement(MusicArticulationElement musicArticulationElement) {
+    getMusicArticulationElementList().remove(musicArticulationElement);
+    musicArticulationElement.setMusic(null);
 
-	public void setMusicChangeInTempoElementList(List<MusicChangeInTempoElement> musicChangeInTempoElementList) {
-		this.musicChangeInTempoElementList = musicChangeInTempoElementList;
-	}
+    return musicArticulationElement;
+  }
 
-	public MusicChangeInTempoElement addMusicChangeInTempoElement(MusicChangeInTempoElement musicChangeInTempoElement) {
-		getMusicChangeInTempoElementList().add(musicChangeInTempoElement);
-		musicChangeInTempoElement.setMusic(this);
+  public List<MusicDynamicsElement> getMusicDynamicsElementList() {
+    return this.musicDynamicsElementList;
+  }
 
-		return musicChangeInTempoElement;
-	}
+  public void setMusicDynamicsElementList(List<MusicDynamicsElement> musicDynamicsElementList) {
+    this.musicDynamicsElementList = musicDynamicsElementList;
+  }
 
-	public MusicChangeInTempoElement removeMusicChangeInTempoElement(MusicChangeInTempoElement musicChangeInTempoElement) {
-		getMusicChangeInTempoElementList().remove(musicChangeInTempoElement);
-		musicChangeInTempoElement.setMusic(null);
+  public MusicDynamicsElement addMusicDynamicsElement(MusicDynamicsElement musicDynamicsElement) {
+    getMusicDynamicsElementList().add(musicDynamicsElement);
+    musicDynamicsElement.setMusic(this);
 
-		return musicChangeInTempoElement;
-	}
+    return musicDynamicsElement;
+  }
 
-	public List<MusicArticulationElement> getMusicArticulationElementList() {
-		return this.musicArticulationElementList;
-	}
+  public MusicDynamicsElement removeMusicDynamicsElement(MusicDynamicsElement musicDynamicsElement) {
+    getMusicDynamicsElementList().remove(musicDynamicsElement);
+    musicDynamicsElement.setMusic(null);
 
-	public void setMusicArticulationElementList(List<MusicArticulationElement> musicArticulationElementList) {
-		this.musicArticulationElementList = musicArticulationElementList;
-	}
+    return musicDynamicsElement;
+  }
 
-	public MusicArticulationElement addMusicArticulationElement(MusicArticulationElement musicArticulationElement) {
-		getMusicArticulationElementList().add(musicArticulationElement);
-		musicArticulationElement.setMusic(this);
+  public List<MusicTextSettingElement> getMusicTextSettingElementList() {
+    return this.musicTextSettingElementList;
+  }
 
-		return musicArticulationElement;
-	}
+  public void setMusicTextSettingElementList(List<MusicTextSettingElement> musicTextSettingElementList) {
+    this.musicTextSettingElementList = musicTextSettingElementList;
+  }
 
-	public MusicArticulationElement removeMusicArticulationElement(MusicArticulationElement musicArticulationElement) {
-		getMusicArticulationElementList().remove(musicArticulationElement);
-		musicArticulationElement.setMusic(null);
+  public MusicTextSettingElement addMusicTextSettingElement(MusicTextSettingElement musicTextSettingElement) {
+    getMusicTextSettingElementList().add(musicTextSettingElement);
+    musicTextSettingElement.setMusic(this);
 
-		return musicArticulationElement;
-	}
+    return musicTextSettingElement;
+  }
 
-	public List<MusicDynamicsElement> getMusicDynamicsElementList() {
-		return this.musicDynamicsElementList;
-	}
+  public MusicTextSettingElement removeMusicTextSettingElement(MusicTextSettingElement musicTextSettingElement) {
+    getMusicTextSettingElementList().remove(musicTextSettingElement);
+    musicTextSettingElement.setMusic(null);
 
-	public void setMusicDynamicsElementList(List<MusicDynamicsElement> musicDynamicsElementList) {
-		this.musicDynamicsElementList = musicDynamicsElementList;
-	}
+    return musicTextSettingElement;
+  }
 
-	public MusicDynamicsElement addMusicDynamicsElement(MusicDynamicsElement musicDynamicsElement) {
-		getMusicDynamicsElementList().add(musicDynamicsElement);
-		musicDynamicsElement.setMusic(this);
+  public List<MediumHasMusic> getMediumHasMusicList() {
+    return this.mediumHasMusicList;
+  }
 
-		return musicDynamicsElement;
-	}
+  public void setMediumHasMusicList(List<MediumHasMusic> mediumHasMusicList) {
+    this.mediumHasMusicList = mediumHasMusicList;
+  }
 
-	public MusicDynamicsElement removeMusicDynamicsElement(MusicDynamicsElement musicDynamicsElement) {
-		getMusicDynamicsElementList().remove(musicDynamicsElement);
-		musicDynamicsElement.setMusic(null);
+  public MediumHasMusic addMediumHasMusic(MediumHasMusic mediumHasMusic) {
+    getMediumHasMusicList().add(mediumHasMusic);
+    mediumHasMusic.setMusic(this);
 
-		return musicDynamicsElement;
-	}
+    return mediumHasMusic;
+  }
 
-	public List<MusicTextSettingElement> getMusicTextSettingElementList() {
-		return this.musicTextSettingElementList;
-	}
+  public MediumHasMusic removeMediumHasMusic(MediumHasMusic mediumHasMusic) {
+    getMediumHasMusicList().remove(mediumHasMusic);
+    mediumHasMusic.setMusic(null);
 
-	public void setMusicTextSettingElementList(List<MusicTextSettingElement> musicTextSettingElementList) {
-		this.musicTextSettingElementList = musicTextSettingElementList;
-	}
-
-	public MusicTextSettingElement addMusicTextSettingElement(MusicTextSettingElement musicTextSettingElement) {
-		getMusicTextSettingElementList().add(musicTextSettingElement);
-		musicTextSettingElement.setMusic(this);
-
-		return musicTextSettingElement;
-	}
-
-	public MusicTextSettingElement removeMusicTextSettingElement(MusicTextSettingElement musicTextSettingElement) {
-		getMusicTextSettingElementList().remove(musicTextSettingElement);
-		musicTextSettingElement.setMusic(null);
-
-		return musicTextSettingElement;
-	}
-
-	public List<MediumHasMusic> getMediumHasMusicList() {
-		return this.mediumHasMusicList;
-	}
-
-	public void setMediumHasMusicList(List<MediumHasMusic> mediumHasMusicList) {
-		this.mediumHasMusicList = mediumHasMusicList;
-	}
-
-	public MediumHasMusic addMediumHasMusic(MediumHasMusic mediumHasMusic) {
-		getMediumHasMusicList().add(mediumHasMusic);
-		mediumHasMusic.setMusic(this);
-
-		return mediumHasMusic;
-	}
-
-	public MediumHasMusic removeMediumHasMusic(MediumHasMusic mediumHasMusic) {
-		getMediumHasMusicList().remove(mediumHasMusic);
-		mediumHasMusic.setMusic(null);
-
-		return mediumHasMusic;
-	}
+    return mediumHasMusic;
+  }
 
   public void setCreatedByUserAccountId(int createdByUserAccountId) {
     this.createdByUserAccountId = createdByUserAccountId;
@@ -651,7 +614,7 @@ public class Music implements Serializable {
     this.annotationHasMusic = annotationHasMusic;
   }
 
-    public void setMusicTextSettingElementType(MusicTextSettingElementType musicTextSettingElementType) {
-        this.musicTextSettingElementType = musicTextSettingElementType;
-    }
+  public void setMusicTextSettingElementType(MusicTextSettingElementType musicTextSettingElementType) {
+    this.musicTextSettingElementType = musicTextSettingElementType;
+  }
 }
