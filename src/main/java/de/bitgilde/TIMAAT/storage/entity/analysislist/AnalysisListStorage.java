@@ -1,6 +1,7 @@
 package de.bitgilde.TIMAAT.storage.entity.analysislist;
 
 import de.bitgilde.TIMAAT.db.DbAccessComponent;
+import de.bitgilde.TIMAAT.model.FIPOP.Category;
 import de.bitgilde.TIMAAT.model.FIPOP.CategorySet;
 import de.bitgilde.TIMAAT.model.FIPOP.MediumAnalysisList;
 import de.bitgilde.TIMAAT.storage.api.ReducedEntity;
@@ -70,6 +71,15 @@ public class AnalysisListStorage extends DbAccessComponent {
     });
   }
 
+  //TODO: Implement method
+  public List<Category> getRemovedCategoriesAfterCategorySetChange(int analysisListId, Collection<Integer> categorySetIds) {
+    if (categorySetIds.isEmpty()) {
+      return Collections.emptyList();
+    }
+
+
+    return Collections.emptyList();
+  }
 
   public List<CategorySet> updateCategorySets(int analysisListId, Collection<Integer> categorySetIds) {
     logger.log(Level.FINE, "Update category sets of analysis list having id {0}", analysisListId);

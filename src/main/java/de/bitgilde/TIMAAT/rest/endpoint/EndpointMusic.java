@@ -838,6 +838,15 @@ public class EndpointMusic {
     return musicStorage.updateCategorySetsOfMusic(musicId, updateMusicCategorySetsPayload.getCategorySetIds());
   }
 
+  @POST
+  @Produces(MediaType.APPLICATION_JSON)
+  @Consumes(MediaType.APPLICATION_JSON)
+  @Path("{musicId}/categorySets/preview-removed-categories")
+  public List<Category> getRemovedCategoriesAfterCategorySetChange(@PathParam("musicId") int musicId, UpdateMusicCategorySetsPayload updateMusicCategorySetsPayload) throws DbTransactionExecutionException {
+    return musicStorage.getRemovedCategoriesAfterCategorySetChange(musicId,
+            updateMusicCategorySetsPayload.getCategorySetIds());
+  }
+
   @PUT
   @Produces(MediaType.APPLICATION_JSON)
   @Consumes(MediaType.APPLICATION_JSON)

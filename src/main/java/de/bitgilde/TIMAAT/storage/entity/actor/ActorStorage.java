@@ -14,6 +14,7 @@ package de.bitgilde.TIMAAT.storage.entity.actor;
    limitations under the License.
  */
 
+import de.bitgilde.TIMAAT.db.util.DbQueryStringUtil;
 import de.bitgilde.TIMAAT.model.FIPOP.Actor;
 import de.bitgilde.TIMAAT.model.FIPOP.ActorName_;
 import de.bitgilde.TIMAAT.model.FIPOP.ActorType;
@@ -153,6 +154,33 @@ public class ActorStorage extends DbStorage<Actor, ActorFilterCriteria, ActorSor
       Stream<Object[]> resultStream = query.getResultStream();
       return resultStream.map(
               currentResult -> new ReducedEntity<>((Integer) currentResult[0], (String) currentResult[1]));
+    });
+  }
+
+  public List<Category> getRemovedCategoriesAfterCategorySetChange(int actorId, Collection<Integer> categorySetIds) {
+    if (categorySetIds.isEmpty()) {
+      return Collections.emptyList();
+    }
+    String inPlaceHolder = DbQueryStringUtil.createInPlaceHolderValue(categorySetIds.size());
+
+    String queryString = """
+                     select c.id, c.name
+                     from actor_has_category ahc
+                     join category c on c.id = ahc.category_id
+                     where ahc.actor_id = ? and not exists(select 1
+                                      from category_set_has_category cshc
+                                      where cshc.category_id = ahc.category_id and cshc.category_set_id in %s)
+            """.formatted(inPlaceHolder);
+
+    return executeDbTransaction(entityManager -> {
+      Query query = entityManager.createNativeQuery(queryString, Category.class).setParameter(1, actorId);
+
+      int currentParameterIndex = 2;
+      for (int currentCategorySetId : categorySetIds) {
+        query.setParameter(currentParameterIndex++, currentCategorySetId);
+      }
+
+      return query.getResultList();
     });
   }
 

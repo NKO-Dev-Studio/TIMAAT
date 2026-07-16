@@ -33,6 +33,7 @@ import de.bitgilde.TIMAAT.rest.Secured;
 import de.bitgilde.TIMAAT.rest.filter.AuthenticationFilter;
 import de.bitgilde.TIMAAT.rest.model.analysislist.UpdateAnalysisListCategorySetsPayload;
 import de.bitgilde.TIMAAT.rest.model.category.UpdateAssignedCategoriesPayload;
+import de.bitgilde.TIMAAT.rest.model.music.UpdateMusicCategorySetsPayload;
 import de.bitgilde.TIMAAT.rest.security.authorization.AnalysisListAuthorizationVerifier;
 import de.bitgilde.TIMAAT.security.UserLogManager;
 import de.bitgilde.TIMAAT.storage.api.ReducedEntity;
@@ -2166,6 +2167,15 @@ public class EndpointAnalysisList {
             de.bitgilde.TIMAAT.rest.security.authorization.PermissionType.WRITE);
     return analysisListStorage.updateCategorySets(analysisListId,
             updateAnalysisListCategorySetsPayload.getCategorySetIds());
+  }
+
+  @POST
+  @Produces(MediaType.APPLICATION_JSON)
+  @Consumes(MediaType.APPLICATION_JSON)
+  @Path("{id}/categorySets/preview-removed-categories")
+  public List<Category> getRemovedCategoriesAfterCategorySetChange(@PathParam("id") int id, UpdateMusicCategorySetsPayload updateMusicCategorySetsPayload) throws DbTransactionExecutionException {
+    return analysisListStorage.getRemovedCategoriesAfterCategorySetChange(id,
+            updateMusicCategorySetsPayload.getCategorySetIds());
   }
 
 

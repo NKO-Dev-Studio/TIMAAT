@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import de.bitgilde.TIMAAT.PropertyConstants;
 import de.bitgilde.TIMAAT.SelectElement;
 import de.bitgilde.TIMAAT.TIMAATApp;
+import de.bitgilde.TIMAAT.db.exception.DbTransactionExecutionException;
 import de.bitgilde.TIMAAT.model.DataTableInfo;
 import de.bitgilde.TIMAAT.model.FIPOP.Actor;
 import de.bitgilde.TIMAAT.model.FIPOP.ActorCollective;
@@ -42,6 +43,7 @@ import de.bitgilde.TIMAAT.rest.filter.AuthenticationFilter;
 import de.bitgilde.TIMAAT.rest.model.actor.ActorListingQueryParameter;
 import de.bitgilde.TIMAAT.rest.model.category.UpdateAssignedCategoriesPayload;
 import de.bitgilde.TIMAAT.rest.model.categoryset.UpdateAssignedCategorySetsPayload;
+import de.bitgilde.TIMAAT.rest.model.music.UpdateMusicCategorySetsPayload;
 import de.bitgilde.TIMAAT.security.UserLogManager;
 import de.bitgilde.TIMAAT.storage.api.ReducedEntity;
 import de.bitgilde.TIMAAT.storage.entity.actor.ActorStorage;
@@ -167,6 +169,16 @@ public class EndpointActor {
   public Collection<CategorySet> updateCategorySetsOfActor(@PathParam("id") Integer id, UpdateAssignedCategorySetsPayload updateAssignedCategorySetsPayload) {
     return actorStorage.updateAssignedCategorySetsOfActor(id, updateAssignedCategorySetsPayload.getCategorySetIds());
   }
+
+  @POST
+  @Produces(MediaType.APPLICATION_JSON)
+  @Consumes(MediaType.APPLICATION_JSON)
+  @Path("{id}/categorySets/preview-removed-categories")
+  public List<Category> getRemovedCategoriesAfterCategorySetChange(@PathParam("id") int id, UpdateMusicCategorySetsPayload updateMusicCategorySetsPayload) throws DbTransactionExecutionException {
+    return actorStorage.getRemovedCategoriesAfterCategorySetChange(id,
+            updateMusicCategorySetsPayload.getCategorySetIds());
+  }
+
 
   @GET
   @Produces(MediaType.APPLICATION_JSON)

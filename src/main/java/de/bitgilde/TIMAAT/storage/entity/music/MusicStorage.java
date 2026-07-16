@@ -1,6 +1,7 @@
 package de.bitgilde.TIMAAT.storage.entity.music;
 
 import de.bitgilde.TIMAAT.db.exception.DbTransactionExecutionException;
+import de.bitgilde.TIMAAT.db.util.DbQueryStringUtil;
 import de.bitgilde.TIMAAT.model.FIPOP.Category;
 import de.bitgilde.TIMAAT.model.FIPOP.CategorySet;
 import de.bitgilde.TIMAAT.model.FIPOP.CategorySet_;
@@ -30,6 +31,7 @@ import de.bitgilde.TIMAAT.storage.entity.music.api.MusicFilterCriteria;
 import de.bitgilde.TIMAAT.storage.entity.music.api.MusicSortingField;
 import jakarta.inject.Inject;
 import jakarta.persistence.EntityManagerFactory;
+import jakarta.persistence.Query;
 import jakarta.persistence.criteria.CriteriaBuilder;
 import jakarta.persistence.criteria.CriteriaQuery;
 import jakarta.persistence.criteria.Join;
@@ -40,6 +42,7 @@ import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -86,7 +89,7 @@ public class MusicStorage extends DbStorage<Music, MusicFilterCriteria, MusicSor
   protected List<Predicate> createPredicates(MusicFilterCriteria filter, Root<Music> root, CriteriaBuilder criteriaBuilder, CriteriaQuery<?> criteriaQuery, UserAccount userAccount) {
     List<Predicate> predicates = new ArrayList<>();
 
-    if(filter != null) {
+    if (filter != null) {
       if (filter.getMusicNameSearch().isPresent()) {
         String musicNameSearchText = filter.getMusicNameSearch().get();
         predicates.add(
@@ -336,6 +339,34 @@ public class MusicStorage extends DbStorage<Music, MusicFilterCriteria, MusicSor
       music.setCategories(updatedCategories);
 
       return updatedCategories;
+    });
+  }
+
+  @SuppressWarnings("unchecked")
+  public List<Category> getRemovedCategoriesAfterCategorySetChange(int musicId, Collection<Integer> categorySetIds) {
+    if (categorySetIds.isEmpty()) {
+      return Collections.emptyList();
+    }
+    String inPlaceHolder = DbQueryStringUtil.createInPlaceHolderValue(categorySetIds.size());
+
+    String queryString = """
+                     select c.id, c.name
+                     from music_has_category mhc
+                     join category c on c.id = mhc.category_id
+                     where mhc.music_id = ? and not exists(select 1
+                                      from category_set_has_category cshc
+                                      where cshc.category_id = mhc.category_id and cshc.category_set_id in %s)
+            """.formatted(inPlaceHolder);
+
+    return executeDbTransaction(entityManager -> {
+      Query query = entityManager.createNativeQuery(queryString, Category.class).setParameter(1, musicId);
+
+      int currentParameterIndex = 2;
+      for (int currentCategorySetId : categorySetIds) {
+        query.setParameter(currentParameterIndex++, currentCategorySetId);
+      }
+
+      return query.getResultList();
     });
   }
 

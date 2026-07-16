@@ -6,6 +6,7 @@ import de.bitgilde.TIMAAT.PropertyConstants;
 import de.bitgilde.TIMAAT.SelectElement;
 import de.bitgilde.TIMAAT.SelectElementWithToken;
 import de.bitgilde.TIMAAT.TIMAATApp;
+import de.bitgilde.TIMAAT.db.exception.DbTransactionExecutionException;
 import de.bitgilde.TIMAAT.model.DataTableInfo;
 import de.bitgilde.TIMAAT.model.FIPOP.Actor;
 import de.bitgilde.TIMAAT.model.FIPOP.AudioPostProduction;
@@ -52,6 +53,7 @@ import de.bitgilde.TIMAAT.rest.model.medium.UpdateMediumDefaultTranscriptionPayl
 import de.bitgilde.TIMAAT.rest.model.medium.UpdateMediumHasMusicListPayload;
 import de.bitgilde.TIMAAT.rest.model.medium.UpdateMediumHasMusicListPayload.MediumHasMusicListEntry;
 import de.bitgilde.TIMAAT.rest.model.medium.UpdateMediumVideoThumbnailPayload;
+import de.bitgilde.TIMAAT.rest.model.music.UpdateMusicCategorySetsPayload;
 import de.bitgilde.TIMAAT.rest.model.transcription.CreateTranscriptionRequest;
 import de.bitgilde.TIMAAT.rest.model.transcription.ImportTranscriptionRequest;
 import de.bitgilde.TIMAAT.rest.model.transcription.TranscriptionDto;
@@ -1069,6 +1071,16 @@ public class EndpointMedium {
     }
 
     return Response.ok().entity(roleList).build();
+  }
+
+
+  @POST
+  @Produces(jakarta.ws.rs.core.MediaType.APPLICATION_JSON)
+  @Consumes(jakarta.ws.rs.core.MediaType.APPLICATION_JSON)
+  @Path("{id}/categorySets/preview-removed-categories")
+  public List<Category> getRemovedCategoriesAfterCategorySetChange(@PathParam("id") int id, UpdateMusicCategorySetsPayload updateMusicCategorySetsPayload) throws DbTransactionExecutionException {
+    return mediumStorage.getRemovedCategoriesAfterCategorySetChange(id,
+            updateMusicCategorySetsPayload.getCategorySetIds());
   }
 
   @GET

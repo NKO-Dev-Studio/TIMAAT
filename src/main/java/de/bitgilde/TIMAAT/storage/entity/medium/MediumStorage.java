@@ -1,5 +1,6 @@
 package de.bitgilde.TIMAAT.storage.entity.medium;
 
+import de.bitgilde.TIMAAT.db.util.DbQueryStringUtil;
 import de.bitgilde.TIMAAT.model.FIPOP.Category;
 import de.bitgilde.TIMAAT.model.FIPOP.CategorySet;
 import de.bitgilde.TIMAAT.model.FIPOP.CategorySet_;
@@ -34,6 +35,7 @@ import jakarta.persistence.criteria.Root;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.logging.Level;
@@ -117,6 +119,33 @@ public class MediumStorage extends DbStorage<Medium, MediumFilterCriteria, Mediu
       Stream<Object[]> resultStream = query.getResultStream();
       return resultStream.map(
               currentResult -> new ReducedEntity<>((Integer) currentResult[0], (String) currentResult[1]));
+    });
+  }
+
+  public List<Category> getRemovedCategoriesAfterCategorySetChange(int mediumId, Collection<Integer> categorySetIds) {
+    if (categorySetIds.isEmpty()) {
+      return Collections.emptyList();
+    }
+    String inPlaceHolder = DbQueryStringUtil.createInPlaceHolderValue(categorySetIds.size());
+
+    String queryString = """
+                     select c.id, c.name
+                     from medium_has_category mhc
+                     join category c on c.id = mhc.category_id
+                     where mhc.medium_id = ? and not exists(select 1
+                                      from category_set_has_category cshc
+                                      where cshc.category_id = mhc.category_id and cshc.category_set_id in %s)
+            """.formatted(inPlaceHolder);
+
+    return executeDbTransaction(entityManager -> {
+      Query query = entityManager.createNativeQuery(queryString, Category.class).setParameter(1, mediumId);
+
+      int currentParameterIndex = 2;
+      for (int currentCategorySetId : categorySetIds) {
+        query.setParameter(currentParameterIndex++, currentCategorySetId);
+      }
+
+      return query.getResultList();
     });
   }
 
