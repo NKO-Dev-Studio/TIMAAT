@@ -44,7 +44,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /**
@@ -110,12 +109,30 @@ public class ActorStorage extends DbStorage<Actor, ActorFilterCriteria, ActorSor
   public Collection<Category> updateAssignedCategoriesOfActor(int actorId, List<Integer> categoryIds) {
     return executeDbTransaction(entityManager -> {
       Actor actor = entityManager.find(Actor.class, actorId, LockModeType.PESSIMISTIC_WRITE);
+      String inPlaceHolder = DbQueryStringUtil.createInPlaceHolderValue(categoryIds.size());
+      String query = """
+              select distinct c.id, c.name
+              from category c
+                       left join category_set_has_category cshc on c.id = cshc.category_id
+              where (not exists(select 1
+                                from actor_has_category_set ahcs
+                                where ahcs.actor_id = ?) or exists(select 1
+                                                                   from actor_has_category_set ahcs
+                                                                   where ahcs.actor_id = ?
+                                                                     and cshc.category_set_id = ahcs.category_set_id))
+                    and c.id in %s
+              """.formatted(inPlaceHolder);
+      Query categoryQuery = entityManager.createNativeQuery(query, Category.class).setParameter(1, actorId)
+                                         .setParameter(2, actorId);
 
-      List<Category> categories = categoryIds.isEmpty() ? Collections.emptyList() : entityManager.createQuery(
-              "select category from Actor actor join actor.categorySets categorySets join categorySets.categorySetHasCategories cshc join cshc.category category where category.id in :categoryIds",
-              Category.class).setParameter("categoryIds", categoryIds).getResultList();
-      actor.setCategories(categories);
-      return categories;
+      for (int i = 0; i < categoryIds.size(); i++) {
+        int parameterIndex = i + 3;
+        categoryQuery.setParameter(parameterIndex, categoryIds.get(i));
+      }
+      List<Category> updatedCategories = categoryQuery.getResultList();
+
+      actor.setCategories(updatedCategories);
+      return updatedCategories;
     });
   }
 
@@ -193,25 +210,24 @@ public class ActorStorage extends DbStorage<Actor, ActorFilterCriteria, ActorSor
               CategorySet.class).setParameter("categorySetIds", categorySetIds).getResultList();
       actor.setCategorySets(categorySets);
 
-      //Delete categories not part of the new assigned category sets
-      if (categorySetIds.isEmpty()) {
-        entityManager.createNativeQuery("delete from actor_has_category where actor_id = ?").setParameter(1, actorId)
-                     .executeUpdate();
-      }
-      else {
-        String placeholders = categorySetIds.stream().map(id -> "?").collect(Collectors.joining(","));
-        Query query = entityManager.createNativeQuery(
-                                           "delete from actor_has_category where actor_id = ? and not exists (select 1 from category_set_has_category cshc where cshc.category_id = actor_has_category.category_id and cshc.category_set_id in (" + placeholders + "))")
-                                   .setParameter(1, actorId);
+      if (!categorySetIds.isEmpty()) {
+        String inPlaceHolder = DbQueryStringUtil.createInPlaceHolderValue(categorySetIds.size());
+        String deleteQueryStatement = """
+                delete from actor_has_category ahc where ahc.actor_id = ? and not exists (
+                    select 1 from category c
+                        join category_set_has_category cshc on cshc.category_id = c.id
+                        where c.id = ahc.category_id and cshc.category_set_id in %s
+                    )
+                """.formatted(inPlaceHolder);
+        Query deleteQuery = entityManager.createNativeQuery(deleteQueryStatement).setParameter(1, actorId);
 
-        int index = 2;
-        for (Integer currentCategorySetId : categorySetIds) {
-          query.setParameter(index++, currentCategorySetId);
+        for (int i = 0; i < categorySetIds.size(); i++) {
+          int parameterIndex = i + 2;
+          deleteQuery.setParameter(parameterIndex, categorySetIds.get(i));
         }
 
-        query.executeUpdate();
+        deleteQuery.executeUpdate();
       }
-
       return categorySets;
     });
   }
