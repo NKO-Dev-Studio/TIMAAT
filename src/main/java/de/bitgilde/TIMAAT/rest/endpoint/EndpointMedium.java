@@ -13,7 +13,6 @@ import de.bitgilde.TIMAAT.model.FIPOP.AudioPostProduction;
 import de.bitgilde.TIMAAT.model.FIPOP.AudioPostProductionTranslation;
 import de.bitgilde.TIMAAT.model.FIPOP.Category;
 import de.bitgilde.TIMAAT.model.FIPOP.CategorySet;
-import de.bitgilde.TIMAAT.model.FIPOP.CategorySetHasCategory;
 import de.bitgilde.TIMAAT.model.FIPOP.Language;
 import de.bitgilde.TIMAAT.model.FIPOP.MediaType;
 import de.bitgilde.TIMAAT.model.FIPOP.Medium;
@@ -48,6 +47,8 @@ import de.bitgilde.TIMAAT.processing.video.exception.VideoEngineException;
 import de.bitgilde.TIMAAT.rest.RangedStreamingOutput;
 import de.bitgilde.TIMAAT.rest.Secured;
 import de.bitgilde.TIMAAT.rest.filter.AuthenticationFilter;
+import de.bitgilde.TIMAAT.rest.model.category.UpdateAssignedCategoriesPayload;
+import de.bitgilde.TIMAAT.rest.model.categoryset.UpdateAssignedCategorySetsPayload;
 import de.bitgilde.TIMAAT.rest.model.medium.MediumListingQueryParameter;
 import de.bitgilde.TIMAAT.rest.model.medium.UpdateMediumDefaultTranscriptionPayload;
 import de.bitgilde.TIMAAT.rest.model.medium.UpdateMediumHasMusicListPayload;
@@ -143,7 +144,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
@@ -1333,10 +1333,6 @@ public class EndpointMedium {
     }
     medium.setMusic(updatedMedium.getMusic());
     medium.setOriginalTitle(updatedMedium.getOriginalTitle()); // originalTitle can be set to null
-    List<CategorySet> oldCategorySets = medium.getCategorySets();
-    medium.setCategorySets(updatedMedium.getCategorySets());
-    List<Category> oldCategories = medium.getCategories();
-    medium.setCategories(updatedMedium.getCategories());
     List<Tag> oldTags = medium.getTags();
     medium.setTags(updatedMedium.getTags());
 
@@ -1364,13 +1360,7 @@ public class EndpointMedium {
     for (CategorySet categorySet : medium.getCategorySets()) {
       entityManager.refresh(categorySet);
     }
-    for (CategorySet categorySet : oldCategorySets) {
-      entityManager.refresh(categorySet);
-    }
     for (Category category : medium.getCategories()) {
-      entityManager.refresh(category);
-    }
-    for (Category category : oldCategories) {
       entityManager.refresh(category);
     }
     for (Tag tag : medium.getTags()) {
@@ -3505,6 +3495,22 @@ public class EndpointMedium {
     return Response.status(Status.NOT_FOUND).build();
   }
 
+  @PUT
+  @Produces(jakarta.ws.rs.core.MediaType.APPLICATION_JSON)
+  @Secured
+  @Path("{id}/categorySets")
+  public Collection<CategorySet> updateCategorySetsOfActor(@PathParam("id") Integer id, UpdateAssignedCategorySetsPayload updateAssignedCategorySetsPayload) {
+    return mediumStorage.updateCategorySetsOfMedium(id, updateAssignedCategorySetsPayload.getCategorySetIds());
+  }
+
+  @PUT
+  @Produces(jakarta.ws.rs.core.MediaType.APPLICATION_JSON)
+  @Secured
+  @Path("{id}/categories")
+  public Collection<Category> updateCategoriesOfActor(@PathParam("id") Integer id, UpdateAssignedCategoriesPayload updateAssignedCategoriesPayload) {
+    return mediumStorage.updateAssignedCategoriesOfMedium(id, updateAssignedCategoriesPayload.getCategoryIds());
+  }
+
   @HEAD
   @Path("video/{id}/download")
   @Produces("video/mp4")
@@ -3921,148 +3927,6 @@ public class EndpointMedium {
     entityTransaction.commit();
     entityManager.refresh(medium);
 
-    return Response.ok().build();
-  }
-
-  @POST
-  @Produces(jakarta.ws.rs.core.MediaType.APPLICATION_JSON)
-  @Path("{mediumId}/categorySet/{categorySetId}")
-  @Secured
-  public Response addExistingCategorySet(@PathParam("mediumId") int mediumId, @PathParam("categorySetId") int categorySetId) {
-
-    EntityManager entityManager = TIMAATApp.emf.createEntityManager();
-    Medium medium = entityManager.find(Medium.class, mediumId);
-    if (medium == null) {
-      return Response.status(Status.NOT_FOUND).build();
-    }
-    CategorySet categorySet = entityManager.find(CategorySet.class, categorySetId);
-    if (categorySet == null) {
-      return Response.status(Status.NOT_FOUND).build();
-    }
-
-    // attach categorySet to annotation and vice versa
-    EntityTransaction entityTransaction = entityManager.getTransaction();
-    entityTransaction.begin();
-    medium.getCategorySets().add(categorySet);
-    categorySet.getMediums().add(medium);
-    entityManager.merge(categorySet);
-    entityManager.merge(medium);
-    entityManager.persist(medium);
-    entityManager.persist(categorySet);
-    entityTransaction.commit();
-    entityManager.refresh(medium);
-
-    return Response.ok().entity(categorySet).build();
-  }
-
-  @DELETE
-  @Produces(jakarta.ws.rs.core.MediaType.APPLICATION_JSON)
-  @Path("{mediumId}/categorySet/{categorySetId}")
-  @Secured
-  public Response removeCategorySet(@PathParam("mediumId") int mediumId, @PathParam("categorySetId") int categorySetId) {
-
-    EntityManager entityManager = TIMAATApp.emf.createEntityManager();
-    Medium medium = entityManager.find(Medium.class, mediumId);
-    if (medium == null) {
-      return Response.status(Status.NOT_FOUND).build();
-    }
-    CategorySet categorySet = entityManager.find(CategorySet.class, categorySetId);
-    if (categorySet == null) {
-      return Response.status(Status.NOT_FOUND).build();
-    }
-    // TODO delete categories from media of matching categorySets
-    List<Category> categoryList = new ArrayList<>();
-    Set<CategorySetHasCategory> cshc = categorySet.getCategorySetHasCategories();
-    Iterator<CategorySetHasCategory> itr = cshc.iterator();
-    EntityTransaction entityTransaction = entityManager.getTransaction();
-
-    while (itr.hasNext()) {
-      categoryList.add(itr.next().getCategory());
-    }
-    // remove all categories from removed category set from the medium
-    List<Category> mediumCategoryList = medium.getCategories();
-    List<Category> categoriesToRemove = categoryList.stream().distinct().filter(mediumCategoryList::contains)
-                                                    .collect(Collectors.toList());
-    entityTransaction.begin();
-    for (Category category : categoriesToRemove) {
-      medium.getCategories().remove(category);
-    }
-    entityManager.merge(medium);
-    entityManager.persist(medium);
-    entityTransaction.commit();
-    entityManager.refresh(medium);
-
-    // attach categorySet to medium and vice versa
-    entityTransaction.begin();
-    medium.getCategorySets().remove(categorySet);
-    categorySet.getMediums().remove(medium);
-    entityManager.merge(categorySet);
-    entityManager.merge(medium);
-    entityManager.persist(medium);
-    entityManager.persist(categorySet);
-    entityTransaction.commit();
-    entityManager.refresh(medium);
-
-    return Response.ok().build();
-  }
-
-  @POST
-  @Produces(jakarta.ws.rs.core.MediaType.APPLICATION_JSON)
-  @Path("{mediumId}/category/{categoryId}")
-  @Secured
-  public Response addExistingCategory(@PathParam("mediumId") int mediumId, @PathParam("categoryId") int categoryId) {
-    EntityManager entityManager = TIMAATApp.emf.createEntityManager();
-    Medium medium = entityManager.find(Medium.class, mediumId);
-    if (medium == null) {
-      return Response.status(Status.NOT_FOUND).build();
-    }
-    Category category = entityManager.find(Category.class, categoryId);
-    if (category == null) {
-      return Response.status(Status.NOT_FOUND).build();
-    }
-
-    // attach category to annotation and vice versa
-    EntityTransaction entityTransaction = entityManager.getTransaction();
-    entityTransaction.begin();
-    medium.getCategories().add(category);
-    category.getMediums().add(medium);
-    entityManager.merge(category);
-    entityManager.merge(medium);
-    entityManager.persist(medium);
-    entityManager.persist(category);
-    entityTransaction.commit();
-    entityManager.refresh(medium);
-
-    return Response.ok().entity(category).build();
-  }
-
-  @DELETE
-  @Produces(jakarta.ws.rs.core.MediaType.APPLICATION_JSON)
-  @Path("{mediumId}/category/{categoryId}")
-  @Secured
-  public Response removeCategory(@PathParam("mediumId") int mediumId, @PathParam("categoryId") int categoryId) {
-    // System.out.println("TCL: EndpointMedium - removeCategory");
-    EntityManager entityManager = TIMAATApp.emf.createEntityManager();
-    Medium medium = entityManager.find(Medium.class, mediumId);
-    if (medium == null) {
-      return Response.status(Status.NOT_FOUND).build();
-    }
-    Category category = entityManager.find(Category.class, categoryId);
-    if (category == null) {
-      return Response.status(Status.NOT_FOUND).build();
-    }
-
-    // attach category to medium and vice versa
-    EntityTransaction entityTransaction = entityManager.getTransaction();
-    entityTransaction.begin();
-    medium.getCategories().remove(category);
-    category.getMediums().remove(medium);
-    entityManager.merge(category);
-    entityManager.merge(medium);
-    entityManager.persist(medium);
-    entityManager.persist(category);
-    entityTransaction.commit();
-    entityManager.refresh(medium);
     return Response.ok().build();
   }
 

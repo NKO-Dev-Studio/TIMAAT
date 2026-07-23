@@ -1,5 +1,6 @@
 package de.bitgilde.TIMAAT.storage.entity.medium;
 
+import de.bitgilde.TIMAAT.db.exception.DbTransactionExecutionException;
 import de.bitgilde.TIMAAT.db.util.DbQueryStringUtil;
 import de.bitgilde.TIMAAT.model.FIPOP.Category;
 import de.bitgilde.TIMAAT.model.FIPOP.CategorySet;
@@ -26,6 +27,7 @@ import de.bitgilde.TIMAAT.storage.entity.medium.api.MediumSortingField;
 import jakarta.annotation.Nullable;
 import jakarta.inject.Inject;
 import jakarta.persistence.EntityManagerFactory;
+import jakarta.persistence.LockModeType;
 import jakarta.persistence.Query;
 import jakarta.persistence.criteria.CriteriaBuilder;
 import jakarta.persistence.criteria.CriteriaQuery;
@@ -119,6 +121,69 @@ public class MediumStorage extends DbStorage<Medium, MediumFilterCriteria, Mediu
       Stream<Object[]> resultStream = query.getResultStream();
       return resultStream.map(
               currentResult -> new ReducedEntity<>((Integer) currentResult[0], (String) currentResult[1]));
+    });
+  }
+
+  public Collection<Category> updateAssignedCategoriesOfMedium(int mediumId, List<Integer> categoryIds) {
+    return executeDbTransaction(entityManager -> {
+      Medium medium = entityManager.find(Medium.class, mediumId, LockModeType.PESSIMISTIC_WRITE);
+      String inPlaceHolder = DbQueryStringUtil.createInPlaceHolderValue(categoryIds.size());
+      String query = """
+              select distinct c.id, c.name
+              from category c
+                       left join category_set_has_category cshc on c.id = cshc.category_id
+              where (not exists(select 1
+                                from medium_has_category_set mhcs
+                                where mhcs.medium_id = ?) or exists(select 1
+                                                                   from medium_has_category_set mhcs
+                                                                   where mhcs.medium_id = ?
+                                                                     and cshc.category_set_id = mhcs.category_set_id))
+                    and c.id in %s
+              """.formatted(inPlaceHolder);
+      Query categoryQuery = entityManager.createNativeQuery(query, Category.class).setParameter(1, mediumId)
+                                         .setParameter(2, mediumId);
+
+      for (int i = 0; i < categoryIds.size(); i++) {
+        int parameterIndex = i + 3;
+        categoryQuery.setParameter(parameterIndex, categoryIds.get(i));
+      }
+      List<Category> updatedCategories = categoryQuery.getResultList();
+
+      medium.setCategories(updatedCategories);
+      return updatedCategories;
+    });
+  }
+
+  public List<CategorySet> updateCategorySetsOfMedium(int mediumId, List<Integer> categorySetIds) throws DbTransactionExecutionException {
+    logger.log(Level.FINE, "Updating category sets of medium with id " + mediumId);
+    return executeDbTransaction(entityManager -> {
+      Medium medium = entityManager.find(Medium.class, mediumId, LockModeType.PESSIMISTIC_WRITE);
+      List<CategorySet> updatedCategorySets = categorySetIds.isEmpty() ? Collections.emptyList() : entityManager.createQuery(
+              "select categorySet from CategorySet categorySet where categorySet.id in :categorySetIds",
+              CategorySet.class).setParameter("categorySetIds", categorySetIds).getResultList();
+
+      if (!categorySetIds.isEmpty()) {
+        String inPlaceHolder = DbQueryStringUtil.createInPlaceHolderValue(categorySetIds.size());
+        String deleteQueryStatement = """
+                delete from medium_has_category mhc where mhc.medium_id = ? and not exists (
+                    select 1 from category c
+                        join category_set_has_category cshc on cshc.category_id = c.id
+                        where c.id = mhc.category_id and cshc.category_set_id in %s
+                    )
+                """.formatted(inPlaceHolder);
+        Query deleteQuery = entityManager.createNativeQuery(deleteQueryStatement).setParameter(1, mediumId);
+
+        for (int i = 0; i < categorySetIds.size(); i++) {
+          int parameterIndex = i + 2;
+          deleteQuery.setParameter(parameterIndex, categorySetIds.get(i));
+        }
+
+        deleteQuery.executeUpdate();
+      }
+
+
+      medium.setCategorySets(updatedCategorySets);
+      return updatedCategorySets;
     });
   }
 
