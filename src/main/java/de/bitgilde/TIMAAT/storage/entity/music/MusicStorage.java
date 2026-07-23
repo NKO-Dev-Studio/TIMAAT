@@ -31,6 +31,7 @@ import de.bitgilde.TIMAAT.storage.entity.music.api.MusicFilterCriteria;
 import de.bitgilde.TIMAAT.storage.entity.music.api.MusicSortingField;
 import jakarta.inject.Inject;
 import jakarta.persistence.EntityManagerFactory;
+import jakarta.persistence.LockModeType;
 import jakarta.persistence.Query;
 import jakarta.persistence.criteria.CriteriaBuilder;
 import jakarta.persistence.criteria.CriteriaQuery;
@@ -320,11 +321,32 @@ public class MusicStorage extends DbStorage<Music, MusicFilterCriteria, MusicSor
   public List<CategorySet> updateCategorySetsOfMusic(int musicId, List<Integer> categorySetIds) throws DbTransactionExecutionException {
     logger.log(Level.FINE, "Updating category sets of music with id " + musicId);
     return executeDbTransaction(entityManager -> {
-      Music music = entityManager.find(Music.class, musicId);
-      List<CategorySet> updatedCategorySets = categorySetIds.stream().map(currentCategorySetId -> entityManager.find(
-              CategorySet.class, currentCategorySetId)).collect(Collectors.toList());
-      music.setCategorySets(updatedCategorySets);
+      Music music = entityManager.find(Music.class, musicId, LockModeType.PESSIMISTIC_WRITE);
+      List<CategorySet> updatedCategorySets = categorySetIds.isEmpty() ? Collections.emptyList() : entityManager.createQuery(
+              "select categorySet from CategorySet categorySet where categorySet.id in :categorySetIds",
+              CategorySet.class).setParameter("categorySetIds", categorySetIds).getResultList();
 
+      if (!categorySetIds.isEmpty()) {
+        String inPlaceHolder = DbQueryStringUtil.createInPlaceHolderValue(categorySetIds.size());
+        String deleteQueryStatement = """
+                delete from music_has_category mhc where mhc.music_id = ? and not exists (
+                    select 1 from category c
+                        join category_set_has_category cshc on cshc.category_id = c.id
+                        where c.id = mhc.category_id and cshc.category_set_id in %s
+                    )
+                """.formatted(inPlaceHolder);
+        Query deleteQuery = entityManager.createNativeQuery(deleteQueryStatement).setParameter(1, musicId);
+
+        for (int i = 0; i < categorySetIds.size(); i++) {
+          int parameterIndex = i + 2;
+          deleteQuery.setParameter(parameterIndex, categorySetIds.get(i));
+        }
+
+        deleteQuery.executeUpdate();
+      }
+
+
+      music.setCategorySets(updatedCategorySets);
       return updatedCategorySets;
     });
   }
@@ -332,10 +354,29 @@ public class MusicStorage extends DbStorage<Music, MusicFilterCriteria, MusicSor
   public List<Category> updateCategoriesOfMusic(int musicId, List<Integer> categoryIds) throws DbTransactionExecutionException {
     logger.log(Level.FINE, "Updating category sets of music with id " + musicId);
     return executeDbTransaction(entityManager -> {
-      Music music = entityManager.find(Music.class, musicId);
-      List<Category> updatedCategories = categoryIds.stream()
-                                                    .map(currentCategoryId -> entityManager.find(Category.class,
-                                                            categoryIds)).collect(Collectors.toList());
+      Music music = entityManager.find(Music.class, musicId, LockModeType.PESSIMISTIC_WRITE);
+
+      String inPlaceHolder = DbQueryStringUtil.createInPlaceHolderValue(categoryIds.size());
+      String query = """
+              select distinct c.id, c.name
+              from category c
+                       left join category_set_has_category cshc on c.id = cshc.category_id
+              where (not exists(select 1
+                                from music_has_category_set mhcs
+                                where mhcs.music_id = ?) or exists(select 1
+                                                                   from music_has_category_set mhcs
+                                                                   where mhcs.music_id = ?
+                                                                     and cshc.category_set_id = mhcs.category_set_id))
+                    and c.id in %s
+              """.formatted(inPlaceHolder);
+      Query categoryQuery = entityManager.createNativeQuery(query, Category.class).setParameter(1, musicId)
+                                         .setParameter(2, musicId);
+
+      for (int i = 0; i < categoryIds.size(); i++) {
+        int parameterIndex = i + 3;
+        categoryQuery.setParameter(parameterIndex, categoryIds.get(i));
+      }
+      List<Category> updatedCategories = categoryQuery.getResultList();
       music.setCategories(updatedCategories);
 
       return updatedCategories;
