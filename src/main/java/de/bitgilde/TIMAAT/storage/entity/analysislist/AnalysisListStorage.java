@@ -12,7 +12,6 @@ import jakarta.persistence.EntityManagerFactory;
 import jakarta.persistence.LockModeType;
 import jakarta.persistence.Query;
 
-import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.logging.Level;
@@ -71,15 +70,49 @@ public class AnalysisListStorage extends DbAccessComponent {
               currentResult -> new ReducedEntity<>((Integer) currentResult[0], (String) currentResult[1]));
     });
   }
-
-  //TODO: Implement method
-  public List<Category> getRemovedCategoriesAfterCategorySetChange(int analysisListId, Collection<Integer> categorySetIds) {
+  
+  @SuppressWarnings("unchecked")
+  public List<Category> getRemovedCategoriesAfterCategorySetChange(int analysisListId, List<Integer> categorySetIds) {
+    List<Category> removedCategories;
     if (categorySetIds.isEmpty()) {
-      return Collections.emptyList();
+      removedCategories = Collections.emptyList();
+
+    }
+    else {
+      String inPlaceHolder = DbQueryStringUtil.createInPlaceHolderValue(categorySetIds.size());
+      removedCategories = executeDbTransaction(entityManager -> {
+        String queryStatement = """
+                select distinct c.id, c.name
+                from category c
+                where c.id in (
+                    select ahc.category_id
+                    from annotation_has_category ahc
+                    join annotation a on a.id = ahc.annotation_id
+                    where a.medium_analysis_list_id = ?
+                    union
+                    select ashc.category_id
+                    from analysis_segement_has_category ashc
+                    join analysis_segment s on s.id = ashc.analysis_segment_id
+                    where s.analysis_list_id = ?
+                )
+                and c.id not in (
+                    select cscs.category_id
+                    from category_set_has_category_set cscs
+                    where cscs.category_set_id in %s
+                )
+                """.formatted(inPlaceHolder);
+        Query query = entityManager.createNativeQuery(queryStatement, Category.class).setParameter(1, analysisListId)
+                                   .setParameter(2, analysisListId);
+        for (int i = 0; i < categorySetIds.size(); i++) {
+          int parameterIndex = i + 3;
+          query.setParameter(parameterIndex, categorySetIds);
+        }
+
+        return query.getResultList();
+      });
     }
 
-
-    return Collections.emptyList();
+    return removedCategories;
   }
 
   public List<CategorySet> updateCategorySets(int analysisListId, List<Integer> categorySetIds) {
