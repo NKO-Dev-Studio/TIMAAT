@@ -57,24 +57,6 @@
           });
     },
 
-    // listMedia(callback) {
-    // 	jQuery.ajax({
-    // 		url:window.location.protocol+'//'+window.location.host+"/TIMAAT/api/medium/list",
-    // 		type:"GET",
-    // 		contentType:"application/json; charset=utf-8",
-    // 		dataType:"json",
-    // 		beforeSend: function (xhr) {
-    // 			xhr.setRequestHeader('Authorization', 'Bearer '+TIMAAT.Service.token);
-    // 		},
-    // 	}).done(function(data) {
-    // 		// console.log("TCL: listMedia -> data", data);
-    // 		callback(data);
-    // 	}).fail(function(error) {
-    // 		console.error("ERROR responseText: ", error.responseText);
-    // 		console.error("ERROR: ", error);
-    // 	});
-    // },
-
     async getMediaDatasetsTotal() {
       return new Promise(resolve => {
         $.ajax({
@@ -509,13 +491,16 @@
       });
     },
 
-    async addCategorySet(mediumId, categorySetId) {
-      // console.log("TCL: addCategorySet -> mediumId, categorySetId", mediumId, categorySetId);
+    async updateCategorySets(id, categorySetIds) {
+      const payload = {
+        categorySetIds
+      }
       return new Promise(resolve => {
         $.ajax({
-          url: window.location.protocol + '//' + window.location.host + "/TIMAAT/api/medium/" + mediumId + "/categorySet/" + categorySetId,
-          type: "POST",
+          url: window.location.protocol + '//' + window.location.host + "/TIMAAT/api/medium/" + id + "/categorySets",
+          type: "PUT",
           contentType: "application/json; charset=utf-8",
+          data: JSON.stringify(payload),
           dataType: "json",
           beforeSend: function (xhr) {
             xhr.setRequestHeader('Authorization', 'Bearer ' + TIMAAT.Service.token);
@@ -523,44 +508,24 @@
         }).done(function (data) {
           resolve(data);
         }).fail(function (error) {
+          console.error("ERROR responseText: ", error.responseText);
           console.error("ERROR: ", error);
-          console.error("ERROR responseText:", error.responseText);
         });
       }).catch((error) => {
         console.error("ERROR: ", error);
       });
     },
 
-    async removeCategorySet(mediumId, categorySetId) {
-      // console.log("TCL: removeCategorySet -> mediumId, categorySetName", mediumId, categorySetName);
+    async updateCategories(id, categoryIds) {
+      const payload = {
+        categoryIds
+      }
       return new Promise(resolve => {
         $.ajax({
-          url: window.location.protocol + '//' + window.location.host + "/TIMAAT/api/medium/" + mediumId + "/categorySet/" + categorySetId,
-          type: "DELETE",
+          url: window.location.protocol + '//' + window.location.host + "/TIMAAT/api/medium/" + id + "/categories",
+          type: "PUT",
           contentType: "application/json; charset=utf-8",
-          beforeSend: function (xhr) {
-            xhr.setRequestHeader('Authorization', 'Bearer ' + TIMAAT.Service.token);
-          },
-        }).done(function (data) {
-          // console.log("TCL: removeCategorySet -> data", data);
-          resolve(data);
-        })
-            .fail(function (error) {
-              console.error("ERROR: ", error);
-              console.error("ERROR responseText:", error.responseText);
-            });
-      }).catch((error) => {
-        console.error("ERROR: ", error);
-      });
-    },
-
-    async addCategory(mediumId, categoryId) {
-      // console.log("TCL: addCategory -> mediumId, categoryId", mediumId, categoryId);
-      return new Promise(resolve => {
-        $.ajax({
-          url: window.location.protocol + '//' + window.location.host + "/TIMAAT/api/medium/" + mediumId + "/category/" + categoryId,
-          type: "POST",
-          contentType: "application/json; charset=utf-8",
+          data: JSON.stringify(payload),
           dataType: "json",
           beforeSend: function (xhr) {
             xhr.setRequestHeader('Authorization', 'Bearer ' + TIMAAT.Service.token);
@@ -568,31 +533,9 @@
         }).done(function (data) {
           resolve(data);
         }).fail(function (error) {
+          console.error("ERROR responseText: ", error.responseText);
           console.error("ERROR: ", error);
-          console.error("ERROR responseText:", error.responseText);
         });
-      }).catch((error) => {
-        console.error("ERROR: ", error);
-      });
-    },
-
-    async removeCategory(mediumId, categoryId) {
-      // console.log("TCL: removeCategory -> mediumId, categoryId", mediumId, categoryId);
-      return new Promise(resolve => {
-        $.ajax({
-          url: window.location.protocol + '//' + window.location.host + "/TIMAAT/api/medium/" + mediumId + "/category/" + categoryId,
-          type: "DELETE",
-          contentType: "application/json; charset=utf-8",
-          beforeSend: function (xhr) {
-            xhr.setRequestHeader('Authorization', 'Bearer ' + TIMAAT.Service.token);
-          },
-        }).done(function (data) {
-          resolve(data);
-        })
-            .fail(function (error) {
-              console.error("ERROR: ", error);
-              console.error("ERROR responseText:", error.responseText);
-            });
       }).catch((error) => {
         console.error("ERROR: ", error);
       });

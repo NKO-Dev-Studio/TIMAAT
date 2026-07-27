@@ -630,31 +630,16 @@
       // submit category set modal button functionality
       $('#mediumDatasetsModalCategorySetSubmit').on('click', async function (event) {
         event.preventDefault();
-        // console.log("TCL: submit category set list");
-        var modal = $('#mediumDatasetsMediumCategorySetsModal');
-        if (!$('#mediumCategorySetsForm').valid())
+
+        const modal = $('#mediumDatasetsMediumCategorySetsModal');
+        if (!$('#mediumCategorySetsForm').valid()) {
           return false;
-        var medium = modal.data('medium');
-        // console.log("TCL: medium", medium);
-        var formDataRaw = $('#mediumCategorySetsForm').serializeArray();
-        // console.log("TCL: formDataRaw", formDataRaw);
-        var i = 0;
-        var categorySetIdList = [];
-        var newCategorySetList = [];
-        for (; i < formDataRaw.length; i++) {
-          if (isNaN(Number(formDataRaw[i].value))) {
-            newCategorySetList.push({id: 0, name: formDataRaw[i].value}); // new category sets that have to be added to the system first
-          } else {
-            categorySetIdList.push({id: formDataRaw[i].value});
-          }
         }
-        medium.model = await TIMAAT.MediumDatasets.updateMediumHasCategorySetsList(medium.model, categorySetIdList);
-        if (newCategorySetList.length > 0) {
-          var updatedMediumModel = await TIMAAT.MediumDatasets.addCategorySetsToMedium(medium.model, newCategorySetList);
-          // console.log("TCL: updatedMediumModel", updatedMediumModel);
-          medium.model.categorySets = updatedMediumModel.categorySets;
-        }
-        $('#mediumFormMetadata').data('medium', medium);
+
+        const medium = modal.data('medium');
+        const categorySetIds = $('#mediumCategorySetsForm').serializeArray().map(currentFormDataRaw => currentFormDataRaw.value);
+        medium.model.categorySets = await TIMAAT.MediumService.updateCategorySets(medium.model.id, categorySetIds)
+
         modal.modal('hide');
       });
 
@@ -739,31 +724,16 @@
       // submit category modal button functionality
       $('#mediumDatasetsModalCategorySubmit').on('click', async function (event) {
         event.preventDefault();
-        // console.log("TCL: submit category list");
-        var modal = $('#mediumDatasetsMediumCategoriesModal');
-        if (!$('#mediumCategoriesForm').valid())
+
+        const modal = $('#mediumDatasetsMediumCategoriesModal');
+        if (!$('#mediumCategoriesForm').valid()) {
           return false;
-        var medium = modal.data('medium');
-        // console.log("TCL: medium", medium);
-        var formDataRaw = $('#mediumCategoriesForm').serializeArray();
-        // console.log("TCL: formDataRaw", formDataRaw);
-        var i = 0;
-        var categoryIdList = [];
-        var newCategoryList = [];
-        for (; i < formDataRaw.length; i++) {
-          if (isNaN(Number(formDataRaw[i].value))) {
-            newCategoryList.push({id: 0, name: formDataRaw[i].value}); // new categories that have to be added to the system first
-          } else {
-            categoryIdList.push({id: formDataRaw[i].value});
-          }
         }
-        medium.model = await TIMAAT.MediumDatasets.updateMediumHasCategoriesList(medium.model, categoryIdList);
-        if (newCategoryList.length > 0) {
-          var updatedMediumModel = await TIMAAT.MediumDatasets.addCategoriesToMedium(medium.model, newCategoryList);
-          // console.log("TCL: updatedMediumModel", updatedMediumModel);
-          medium.model.categories = updatedMediumModel.categories;
-        }
-        $('#mediumFormMetadata').data('medium', medium);
+
+        const medium = modal.data('medium');
+        const categoryIds = $('#mediumCategoriesForm').serializeArray().map(currentFormDataRaw => currentFormDataRaw.value);
+
+        medium.model.categories = await TIMAAT.MediumService.updateCategories(medium.model.id, categoryIds);
         modal.modal('hide');
       });
 
@@ -4581,79 +4551,6 @@
       } catch (error) {
         console.error("ERROR: ", error);
       }
-      ;
-    },
-
-    updateMediumHasCategorySetsList: async function (mediumModel, categorySetIdList) {
-      // console.log("TCL: mediumModel, categorySetIdList", mediumModel, categorySetIdList);
-      try {
-        var existingMediumHasCategorySetsEntries = await TIMAAT.MediumService.getCategorySetList(mediumModel.id);
-        // console.log("TCL: existingMediumHasCategorySetsEntries", existingMediumHasCategorySetsEntries);
-        if (categorySetIdList == null) { //* all entries will be deleted
-          mediumModel.categorySets = [];
-          await TIMAAT.MediumService.updateMedium(mediumModel);
-        } else if (existingMediumHasCategorySetsEntries.length == 0) { //* all entries will be added
-          mediumModel.categorySets = categorySetIdList;
-          await TIMAAT.MediumService.updateMedium(mediumModel);
-        } else { //* delete removed entries
-          var entriesToDelete = [];
-          var i = 0;
-          for (; i < existingMediumHasCategorySetsEntries.length; i++) {
-            var deleteId = true;
-            var j = 0;
-            for (; j < categorySetIdList.length; j++) {
-              if (existingMediumHasCategorySetsEntries[i].id == categorySetIdList[j].id) {
-                deleteId = false;
-                break; // no need to check further if match was found
-              }
-            }
-            if (deleteId) { // id is in existingMediumHasCategorySetEntries but not in categorySetIdList
-              // console.log("TCL: deleteId", deleteId);
-              entriesToDelete.push(existingMediumHasCategorySetsEntries[i]);
-              existingMediumHasCategorySetsEntries.splice(i, 1); // remove entry so it won't have to be checked again in the next step when adding new ids
-              i--; // so the next list item is not jumped over due to the splicing
-            }
-          }
-          if (entriesToDelete.length > 0) { // anything to delete?
-            var i = 0;
-            for (; i < entriesToDelete.length; i++) {
-              var index = mediumModel.categorySets.findIndex(({id}) => id === entriesToDelete[i].id);
-              mediumModel.categorySets.splice(index, 1);
-              await TIMAAT.MediumService.removeCategorySet(mediumModel.id, entriesToDelete[i].id);
-            }
-          }
-          //* add existing categorySets
-          var idsToCreate = [];
-          i = 0;
-          for (; i < categorySetIdList.length; i++) {
-            var idExists = false;
-            var item = {id: 0};
-            var j = 0;
-            for (; j < existingMediumHasCategorySetsEntries.length; j++) {
-              if (categorySetIdList[i].id == existingMediumHasCategorySetsEntries[j].id) {
-                idExists = true;
-                break; // no need to check further if match was found
-              }
-            }
-            if (!idExists) {
-              item.id = categorySetIdList[i].id;
-              idsToCreate.push(item);
-            }
-          }
-          // console.log("TCL: idsToCreate", idsToCreate);
-          if (idsToCreate.length > 0) { // anything to add?
-            // console.log("TCL: idsToCreate", idsToCreate);
-            var i = 0;
-            for (; i < idsToCreate.length; i++) {
-              mediumModel.categorySets.push(idsToCreate[i]);
-              await TIMAAT.MediumService.addCategorySet(mediumModel.id, idsToCreate[i].id);
-            }
-          }
-        }
-      } catch (error) {
-        console.error("ERROR: ", error);
-      }
-      return mediumModel;
     },
 
     addCategorySetsToMedium: async function (mediumModel, newCategorySetList) {
@@ -4662,78 +4559,6 @@
       for (; i < newCategorySetList.length; i++) {
         await TIMAAT.MediumService.addCategorySet(mediumModel.id, newCategorySetList[i].id);
         mediumModel.categorySets.push(newCategorySetList[i]);
-      }
-      return mediumModel;
-    },
-
-    updateMediumHasCategoriesList: async function (mediumModel, categoryIdList) {
-      // console.log("TCL: mediumModel, categoryIdList", mediumModel, categoryIdList);
-      try {
-        var existingMediumHasCategoriesEntries = await TIMAAT.MediumService.getSelectedCategories(mediumModel.id);
-        // console.log("TCL: existingMediumHasCategoriesEntries", existingMediumHasCategoriesEntries);
-        if (categoryIdList == null) { //* all entries will be deleted
-          mediumModel.categories = [];
-          await TIMAAT.MediumService.updateMedium(mediumModel);
-        } else if (existingMediumHasCategoriesEntries.length == 0) { //* all entries will be added
-          mediumModel.categories = categoryIdList;
-          await TIMAAT.MediumService.updateMedium(mediumModel);
-        } else { //* delete removed entries
-          var entriesToDelete = [];
-          var i = 0;
-          for (; i < existingMediumHasCategoriesEntries.length; i++) {
-            var deleteId = true;
-            var j = 0;
-            for (; j < categoryIdList.length; j++) {
-              if (existingMediumHasCategoriesEntries[i].id == categoryIdList[j].id) {
-                deleteId = false;
-                break; // no need to check further if match was found
-              }
-            }
-            if (deleteId) { // id is in existingMediumHasCategoryEntries but not in categoryIdList
-              // console.log("TCL: deleteId", deleteId);
-              entriesToDelete.push(existingMediumHasCategoriesEntries[i]);
-              existingMediumHasCategoriesEntries.splice(i, 1); // remove entry so it won't have to be checked again in the next step when adding new ids
-              i--; // so the next list item is not jumped over due to the splicing
-            }
-          }
-          if (entriesToDelete.length > 0) { // anything to delete?
-            var i = 0;
-            for (; i < entriesToDelete.length; i++) {
-              var index = mediumModel.categories.findIndex(({id}) => id === entriesToDelete[i].id);
-              mediumModel.categories.splice(index, 1);
-              await TIMAAT.MediumService.removeCategory(mediumModel.id, entriesToDelete[i].id);
-            }
-          }
-          //* add existing categories
-          var idsToCreate = [];
-          i = 0;
-          for (; i < categoryIdList.length; i++) {
-            var idExists = false;
-            var item = {id: 0};
-            var j = 0;
-            for (; j < existingMediumHasCategoriesEntries.length; j++) {
-              if (categoryIdList[i].id == existingMediumHasCategoriesEntries[j].id) {
-                idExists = true;
-                break; // no need to check further if match was found
-              }
-            }
-            if (!idExists) {
-              item.id = categoryIdList[i].id;
-              idsToCreate.push(item);
-            }
-          }
-          // console.log("TCL: idsToCreate", idsToCreate);
-          if (idsToCreate.length > 0) { // anything to add?
-            // console.log("TCL: idsToCreate", idsToCreate);
-            var i = 0;
-            for (; i < idsToCreate.length; i++) {
-              mediumModel.categories.push(idsToCreate[i]);
-              await TIMAAT.MediumService.addCategory(mediumModel.id, idsToCreate[i].id);
-            }
-          }
-        }
-      } catch (error) {
-        console.error("ERROR: ", error);
       }
       return mediumModel;
     },

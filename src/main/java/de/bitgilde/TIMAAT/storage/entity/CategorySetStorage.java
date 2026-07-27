@@ -5,17 +5,22 @@ import de.bitgilde.TIMAAT.model.FIPOP.Category;
 import de.bitgilde.TIMAAT.model.FIPOP.CategorySet;
 import de.bitgilde.TIMAAT.model.FIPOP.CategorySetHasCategory;
 import de.bitgilde.TIMAAT.model.FIPOP.UserAccount;
+import de.bitgilde.TIMAAT.storage.db.CategoryReferencingEntityStorage;
 import jakarta.inject.Inject;
 import jakarta.persistence.EntityManagerFactory;
+import org.glassfish.hk2.api.IterableProvider;
 
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
 
 /**
  * Storage to access or modify category set entities
@@ -27,12 +32,16 @@ public class CategorySetStorage extends DbAccessComponent {
 
   private static final Logger logger = Logger.getLogger(CategorySetStorage.class.getName());
 
+  private final Collection<CategoryReferencingEntityStorage> categoryReferencingEntityStorages;
+
   @Inject
-  public CategorySetStorage(EntityManagerFactory emf) {
+  public CategorySetStorage(EntityManagerFactory emf, IterableProvider<CategoryReferencingEntityStorage> categoryReferencingEntityStoragesProvider) {
     super(emf);
+    this.categoryReferencingEntityStorages = StreamSupport.stream(
+            categoryReferencingEntityStoragesProvider.spliterator(), false).collect(Collectors.toSet());
   }
 
-  public CategorySet createCategorySet(String categorySetName, int executedByUserId){
+  public CategorySet createCategorySet(String categorySetName, int executedByUserId) {
     return executeDbTransaction(entityManager -> {
       UserAccount userAccount = entityManager.find(UserAccount.class, executedByUserId);
 
@@ -80,6 +89,11 @@ public class CategorySetStorage extends DbAccessComponent {
         entityManager.persist(categorySetHasCategory);
         result.add(categorySetHasCategory);
       }
+      entityManager.flush();
+
+      categoryReferencingEntityStorages.forEach(
+              currentCategoryReferencingEntityStorage -> currentCategoryReferencingEntityStorage.cleanupCategoryReferencesOfCategorySets(
+                      entityManager, Collections.singleton(categorySetId)));
 
       return result;
     });

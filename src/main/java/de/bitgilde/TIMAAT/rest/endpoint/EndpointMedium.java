@@ -6,13 +6,13 @@ import de.bitgilde.TIMAAT.PropertyConstants;
 import de.bitgilde.TIMAAT.SelectElement;
 import de.bitgilde.TIMAAT.SelectElementWithToken;
 import de.bitgilde.TIMAAT.TIMAATApp;
+import de.bitgilde.TIMAAT.db.exception.DbTransactionExecutionException;
 import de.bitgilde.TIMAAT.model.DataTableInfo;
 import de.bitgilde.TIMAAT.model.FIPOP.Actor;
 import de.bitgilde.TIMAAT.model.FIPOP.AudioPostProduction;
 import de.bitgilde.TIMAAT.model.FIPOP.AudioPostProductionTranslation;
 import de.bitgilde.TIMAAT.model.FIPOP.Category;
 import de.bitgilde.TIMAAT.model.FIPOP.CategorySet;
-import de.bitgilde.TIMAAT.model.FIPOP.CategorySetHasCategory;
 import de.bitgilde.TIMAAT.model.FIPOP.Language;
 import de.bitgilde.TIMAAT.model.FIPOP.MediaType;
 import de.bitgilde.TIMAAT.model.FIPOP.Medium;
@@ -47,11 +47,14 @@ import de.bitgilde.TIMAAT.processing.video.exception.VideoEngineException;
 import de.bitgilde.TIMAAT.rest.RangedStreamingOutput;
 import de.bitgilde.TIMAAT.rest.Secured;
 import de.bitgilde.TIMAAT.rest.filter.AuthenticationFilter;
+import de.bitgilde.TIMAAT.rest.model.category.UpdateAssignedCategoriesPayload;
+import de.bitgilde.TIMAAT.rest.model.categoryset.UpdateAssignedCategorySetsPayload;
 import de.bitgilde.TIMAAT.rest.model.medium.MediumListingQueryParameter;
 import de.bitgilde.TIMAAT.rest.model.medium.UpdateMediumDefaultTranscriptionPayload;
 import de.bitgilde.TIMAAT.rest.model.medium.UpdateMediumHasMusicListPayload;
 import de.bitgilde.TIMAAT.rest.model.medium.UpdateMediumHasMusicListPayload.MediumHasMusicListEntry;
 import de.bitgilde.TIMAAT.rest.model.medium.UpdateMediumVideoThumbnailPayload;
+import de.bitgilde.TIMAAT.rest.model.music.UpdateMusicCategorySetsPayload;
 import de.bitgilde.TIMAAT.rest.model.transcription.CreateTranscriptionRequest;
 import de.bitgilde.TIMAAT.rest.model.transcription.ImportTranscriptionRequest;
 import de.bitgilde.TIMAAT.rest.model.transcription.TranscriptionDto;
@@ -70,6 +73,7 @@ import de.bitgilde.TIMAAT.service.transcription.exception.TranscriptionException
 import de.bitgilde.TIMAAT.service.transcription.exception.TranscriptionFeatureDisabledException;
 import de.bitgilde.TIMAAT.service.transcription.exception.TranscriptionNotFoundException;
 import de.bitgilde.TIMAAT.storage.api.PagingParameter;
+import de.bitgilde.TIMAAT.storage.api.ReducedEntity;
 import de.bitgilde.TIMAAT.storage.api.SortingParameter;
 import de.bitgilde.TIMAAT.storage.entity.MediumVideoStorage;
 import de.bitgilde.TIMAAT.storage.entity.SystemSettingStorage;
@@ -140,10 +144,10 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /*
  Licensed under the Apache License, Version 2.0 (the "License");
@@ -1069,6 +1073,16 @@ public class EndpointMedium {
     return Response.ok().entity(roleList).build();
   }
 
+
+  @POST
+  @Produces(jakarta.ws.rs.core.MediaType.APPLICATION_JSON)
+  @Consumes(jakarta.ws.rs.core.MediaType.APPLICATION_JSON)
+  @Path("{id}/categorySets/preview-removed-categories")
+  public List<Category> getRemovedCategoriesAfterCategorySetChange(@PathParam("id") int id, UpdateMusicCategorySetsPayload updateMusicCategorySetsPayload) throws DbTransactionExecutionException {
+    return mediumStorage.getRemovedCategoriesAfterCategorySetChange(id,
+            updateMusicCategorySetsPayload.getCategorySetIds());
+  }
+
   @GET
   @Produces(jakarta.ws.rs.core.MediaType.APPLICATION_JSON)
   @Secured
@@ -1098,51 +1112,18 @@ public class EndpointMedium {
   @Produces(jakarta.ws.rs.core.MediaType.APPLICATION_JSON)
   @Secured
   @Path("{id}/category/selectList")
-  public Response getCategorySelectList(@PathParam("id") Integer id, @QueryParam("start") Integer start, @QueryParam("length") Integer length, @QueryParam("orderby") String orderby, @QueryParam("dir") String direction, @QueryParam("search") String search) {
-    // System.out.println("EndpointMedium: getCategorySelectList - Id: "+ id);
+  public List<SelectElement<Integer>> getCategorySelectList(@PathParam("id") Integer id, @QueryParam("start") Integer start, @QueryParam("length") Integer length, @QueryParam("search") String search) {
+    Stream<ReducedEntity<Integer>> assignableCategoryStream = mediumStorage.getAssignableCategoriesOfMedium(id, search);
 
-    EntityManager entityManager = TIMAATApp.emf.createEntityManager();
-    Medium medium = entityManager.find(Medium.class, id);
-    List<CategorySet> categorySetList = medium.getCategorySets();
-    List<Category> categoryList = new ArrayList<>();
-    List<SelectElement> categorySelectList = new ArrayList<>();
-
-    for (CategorySet categorySet : categorySetList) {
-      Set<CategorySetHasCategory> cshc = categorySet.getCategorySetHasCategories();
-      Iterator<CategorySetHasCategory> itr = cshc.iterator();
-      while (itr.hasNext()) {
-        categoryList.add(itr.next().getCategory());
-      }
+    if (start != null) {
+      assignableCategoryStream = assignableCategoryStream.skip(start);
+    }
+    if (length != null) {
+      assignableCategoryStream = assignableCategoryStream.limit(length);
     }
 
-    // search
-    Query query;
-    String sql;
-    if (search != null && search.length() > 0) {
-      // find all matching names
-      sql = "SELECT c FROM Category c WHERE lower(c.name) LIKE lower(concat('%', :name,'%')) ORDER BY c.name ASC";
-      query = entityManager.createQuery(sql).setParameter("name", search);
-      // find all categories belonging to those names
-      if (start != null && start > 0) {
-        query.setFirstResult(start);
-      }
-      if (length != null && length > 0) {
-        query.setMaxResults(length);
-      }
-      List<Category> searchCategoryList = castList(Category.class, query.getResultList());
-      for (Category category : searchCategoryList) {
-        if (categoryList.contains(category)) {
-          categorySelectList.add(new SelectElement<Integer>(category.getId(), category.getName()));
-        }
-      }
-    }
-    else {
-      for (Category category : categoryList) {
-        categorySelectList.add(new SelectElement<Integer>(category.getId(), category.getName()));
-      }
-    }
-
-    return Response.ok().entity(categorySelectList).build();
+    return assignableCategoryStream.map(
+            reducedEntity -> new SelectElement<>(reducedEntity.id(), reducedEntity.description())).toList();
   }
 
   @GET
@@ -1352,10 +1333,6 @@ public class EndpointMedium {
     }
     medium.setMusic(updatedMedium.getMusic());
     medium.setOriginalTitle(updatedMedium.getOriginalTitle()); // originalTitle can be set to null
-    List<CategorySet> oldCategorySets = medium.getCategorySets();
-    medium.setCategorySets(updatedMedium.getCategorySets());
-    List<Category> oldCategories = medium.getCategories();
-    medium.setCategories(updatedMedium.getCategories());
     List<Tag> oldTags = medium.getTags();
     medium.setTags(updatedMedium.getTags());
 
@@ -1383,13 +1360,7 @@ public class EndpointMedium {
     for (CategorySet categorySet : medium.getCategorySets()) {
       entityManager.refresh(categorySet);
     }
-    for (CategorySet categorySet : oldCategorySets) {
-      entityManager.refresh(categorySet);
-    }
     for (Category category : medium.getCategories()) {
-      entityManager.refresh(category);
-    }
-    for (Category category : oldCategories) {
       entityManager.refresh(category);
     }
     for (Tag tag : medium.getTags()) {
@@ -3524,6 +3495,22 @@ public class EndpointMedium {
     return Response.status(Status.NOT_FOUND).build();
   }
 
+  @PUT
+  @Produces(jakarta.ws.rs.core.MediaType.APPLICATION_JSON)
+  @Secured
+  @Path("{id}/categorySets")
+  public Collection<CategorySet> updateCategorySetsOfActor(@PathParam("id") Integer id, UpdateAssignedCategorySetsPayload updateAssignedCategorySetsPayload) {
+    return mediumStorage.updateCategorySetsOfMedium(id, updateAssignedCategorySetsPayload.getCategorySetIds());
+  }
+
+  @PUT
+  @Produces(jakarta.ws.rs.core.MediaType.APPLICATION_JSON)
+  @Secured
+  @Path("{id}/categories")
+  public Collection<Category> updateCategoriesOfActor(@PathParam("id") Integer id, UpdateAssignedCategoriesPayload updateAssignedCategoriesPayload) {
+    return mediumStorage.updateAssignedCategoriesOfMedium(id, updateAssignedCategoriesPayload.getCategoryIds());
+  }
+
   @HEAD
   @Path("video/{id}/download")
   @Produces("video/mp4")
@@ -3940,148 +3927,6 @@ public class EndpointMedium {
     entityTransaction.commit();
     entityManager.refresh(medium);
 
-    return Response.ok().build();
-  }
-
-  @POST
-  @Produces(jakarta.ws.rs.core.MediaType.APPLICATION_JSON)
-  @Path("{mediumId}/categorySet/{categorySetId}")
-  @Secured
-  public Response addExistingCategorySet(@PathParam("mediumId") int mediumId, @PathParam("categorySetId") int categorySetId) {
-
-    EntityManager entityManager = TIMAATApp.emf.createEntityManager();
-    Medium medium = entityManager.find(Medium.class, mediumId);
-    if (medium == null) {
-      return Response.status(Status.NOT_FOUND).build();
-    }
-    CategorySet categorySet = entityManager.find(CategorySet.class, categorySetId);
-    if (categorySet == null) {
-      return Response.status(Status.NOT_FOUND).build();
-    }
-
-    // attach categorySet to annotation and vice versa
-    EntityTransaction entityTransaction = entityManager.getTransaction();
-    entityTransaction.begin();
-    medium.getCategorySets().add(categorySet);
-    categorySet.getMediums().add(medium);
-    entityManager.merge(categorySet);
-    entityManager.merge(medium);
-    entityManager.persist(medium);
-    entityManager.persist(categorySet);
-    entityTransaction.commit();
-    entityManager.refresh(medium);
-
-    return Response.ok().entity(categorySet).build();
-  }
-
-  @DELETE
-  @Produces(jakarta.ws.rs.core.MediaType.APPLICATION_JSON)
-  @Path("{mediumId}/categorySet/{categorySetId}")
-  @Secured
-  public Response removeCategorySet(@PathParam("mediumId") int mediumId, @PathParam("categorySetId") int categorySetId) {
-
-    EntityManager entityManager = TIMAATApp.emf.createEntityManager();
-    Medium medium = entityManager.find(Medium.class, mediumId);
-    if (medium == null) {
-      return Response.status(Status.NOT_FOUND).build();
-    }
-    CategorySet categorySet = entityManager.find(CategorySet.class, categorySetId);
-    if (categorySet == null) {
-      return Response.status(Status.NOT_FOUND).build();
-    }
-    // TODO delete categories from media of matching categorySets
-    List<Category> categoryList = new ArrayList<>();
-    Set<CategorySetHasCategory> cshc = categorySet.getCategorySetHasCategories();
-    Iterator<CategorySetHasCategory> itr = cshc.iterator();
-    EntityTransaction entityTransaction = entityManager.getTransaction();
-
-    while (itr.hasNext()) {
-      categoryList.add(itr.next().getCategory());
-    }
-    // remove all categories from removed category set from the medium
-    List<Category> mediumCategoryList = medium.getCategories();
-    List<Category> categoriesToRemove = categoryList.stream().distinct().filter(mediumCategoryList::contains)
-                                                    .collect(Collectors.toList());
-    entityTransaction.begin();
-    for (Category category : categoriesToRemove) {
-      medium.getCategories().remove(category);
-    }
-    entityManager.merge(medium);
-    entityManager.persist(medium);
-    entityTransaction.commit();
-    entityManager.refresh(medium);
-
-    // attach categorySet to medium and vice versa
-    entityTransaction.begin();
-    medium.getCategorySets().remove(categorySet);
-    categorySet.getMediums().remove(medium);
-    entityManager.merge(categorySet);
-    entityManager.merge(medium);
-    entityManager.persist(medium);
-    entityManager.persist(categorySet);
-    entityTransaction.commit();
-    entityManager.refresh(medium);
-
-    return Response.ok().build();
-  }
-
-  @POST
-  @Produces(jakarta.ws.rs.core.MediaType.APPLICATION_JSON)
-  @Path("{mediumId}/category/{categoryId}")
-  @Secured
-  public Response addExistingCategory(@PathParam("mediumId") int mediumId, @PathParam("categoryId") int categoryId) {
-    EntityManager entityManager = TIMAATApp.emf.createEntityManager();
-    Medium medium = entityManager.find(Medium.class, mediumId);
-    if (medium == null) {
-      return Response.status(Status.NOT_FOUND).build();
-    }
-    Category category = entityManager.find(Category.class, categoryId);
-    if (category == null) {
-      return Response.status(Status.NOT_FOUND).build();
-    }
-
-    // attach category to annotation and vice versa
-    EntityTransaction entityTransaction = entityManager.getTransaction();
-    entityTransaction.begin();
-    medium.getCategories().add(category);
-    category.getMediums().add(medium);
-    entityManager.merge(category);
-    entityManager.merge(medium);
-    entityManager.persist(medium);
-    entityManager.persist(category);
-    entityTransaction.commit();
-    entityManager.refresh(medium);
-
-    return Response.ok().entity(category).build();
-  }
-
-  @DELETE
-  @Produces(jakarta.ws.rs.core.MediaType.APPLICATION_JSON)
-  @Path("{mediumId}/category/{categoryId}")
-  @Secured
-  public Response removeCategory(@PathParam("mediumId") int mediumId, @PathParam("categoryId") int categoryId) {
-    // System.out.println("TCL: EndpointMedium - removeCategory");
-    EntityManager entityManager = TIMAATApp.emf.createEntityManager();
-    Medium medium = entityManager.find(Medium.class, mediumId);
-    if (medium == null) {
-      return Response.status(Status.NOT_FOUND).build();
-    }
-    Category category = entityManager.find(Category.class, categoryId);
-    if (category == null) {
-      return Response.status(Status.NOT_FOUND).build();
-    }
-
-    // attach category to medium and vice versa
-    EntityTransaction entityTransaction = entityManager.getTransaction();
-    entityTransaction.begin();
-    medium.getCategories().remove(category);
-    category.getMediums().remove(medium);
-    entityManager.merge(category);
-    entityManager.merge(medium);
-    entityManager.persist(medium);
-    entityManager.persist(category);
-    entityTransaction.commit();
-    entityManager.refresh(medium);
     return Response.ok().build();
   }
 

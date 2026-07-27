@@ -1,5 +1,7 @@
 package de.bitgilde.TIMAAT.storage.entity.medium;
 
+import de.bitgilde.TIMAAT.db.exception.DbTransactionExecutionException;
+import de.bitgilde.TIMAAT.db.util.DbQueryStringUtil;
 import de.bitgilde.TIMAAT.model.FIPOP.Category;
 import de.bitgilde.TIMAAT.model.FIPOP.CategorySet;
 import de.bitgilde.TIMAAT.model.FIPOP.CategorySet_;
@@ -17,13 +19,18 @@ import de.bitgilde.TIMAAT.model.FIPOP.UserAccount;
 import de.bitgilde.TIMAAT.model.TimeRange;
 import de.bitgilde.TIMAAT.sse.EntityUpdateEventService;
 import de.bitgilde.TIMAAT.sse.api.EntityType;
+import de.bitgilde.TIMAAT.storage.api.ReducedEntity;
+import de.bitgilde.TIMAAT.storage.db.CategoryReferencingEntityStorage;
 import de.bitgilde.TIMAAT.storage.db.DbStorage;
 import de.bitgilde.TIMAAT.storage.entity.medium.api.MediumDefaultTranscriptionEntityUpdateMessage;
 import de.bitgilde.TIMAAT.storage.entity.medium.api.MediumFilterCriteria;
 import de.bitgilde.TIMAAT.storage.entity.medium.api.MediumSortingField;
 import jakarta.annotation.Nullable;
 import jakarta.inject.Inject;
+import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityManagerFactory;
+import jakarta.persistence.LockModeType;
+import jakarta.persistence.Query;
 import jakarta.persistence.criteria.CriteriaBuilder;
 import jakarta.persistence.criteria.CriteriaQuery;
 import jakarta.persistence.criteria.Join;
@@ -32,10 +39,12 @@ import jakarta.persistence.criteria.Root;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.stream.Stream;
 
 /*
  Licensed under the Apache License, Version 2.0 (the "License");
@@ -57,7 +66,7 @@ import java.util.logging.Logger;
  * @author Nico Kotlenga
  * @since 27.09.25
  */
-public class MediumStorage extends DbStorage<Medium, MediumFilterCriteria, MediumSortingField> {
+public class MediumStorage extends DbStorage<Medium, MediumFilterCriteria, MediumSortingField> implements CategoryReferencingEntityStorage {
 
   private static final Logger logger = Logger.getLogger(MediumStorage.class.getName());
 
@@ -77,6 +86,141 @@ public class MediumStorage extends DbStorage<Medium, MediumFilterCriteria, Mediu
    */
   public boolean existsById(int mediumId) {
     return executeDbTransaction(entityManager -> entityManager.find(Medium.class, mediumId) != null);
+  }
+
+
+  /**
+   * Calculates the assignable categories of the medium
+   * @param mediumId
+   * @param searchText
+   * @return the assignable categories as {@link Stream} of {@link ReducedEntity}
+   */
+  @SuppressWarnings("unchecked")
+  public Stream<ReducedEntity<Integer>> getAssignableCategoriesOfMedium(int mediumId, @Nullable String searchText) {
+    return executeStreamDbTransaction(entityManager -> {
+      boolean hasCategorySets = (long) entityManager.createNativeQuery(
+                                                            "select count(1) from medium_has_category_set mhcs where mhcs.medium_id = ?").setParameter(1, mediumId)
+                                                    .getSingleResult() > 0;
+      Query query;
+      String likeName = searchText == null ? "" : searchText;
+      if (hasCategorySets) {
+        String sql = """
+                select distinct c.id, c.name from category c
+                join category_set_has_category cs on c.id = cs.category_id
+                where lower(c.name) like lower(concat('%', ?,'%'))
+                and cs.category_set_id in (
+                    select mhcs.category_set_id from medium_has_category_set mhcs
+                    where mhcs.medium_id = ?)
+                order by c.name asc
+                """;
+        query = entityManager.createNativeQuery(sql).setParameter(1, likeName).setParameter(2, mediumId);
+      }
+      else {
+        String sql = "select c.id, c.name from category c where lower(c.name) like lower(concat('%', ?,'%')) order by c.name asc";
+        query = entityManager.createNativeQuery(sql).setParameter(1, likeName);
+      }
+
+      Stream<Object[]> resultStream = query.getResultStream();
+      return resultStream.map(
+              currentResult -> new ReducedEntity<>((Integer) currentResult[0], (String) currentResult[1]));
+    });
+  }
+
+  public Collection<Category> updateAssignedCategoriesOfMedium(int mediumId, List<Integer> categoryIds) {
+    return executeDbTransaction(entityManager -> {
+      Medium medium = entityManager.find(Medium.class, mediumId, LockModeType.PESSIMISTIC_READ);
+      List<Category> updatedCategories;
+
+      if (categoryIds.isEmpty()) {
+        updatedCategories = Collections.emptyList();
+      }
+      else {
+        String inPlaceHolder = DbQueryStringUtil.createInPlaceHolderValue(categoryIds.size());
+        String query = """
+                select distinct c.id, c.name
+                from category c
+                         left join category_set_has_category cshc on c.id = cshc.category_id
+                where (not exists(select 1
+                                  from medium_has_category_set mhcs
+                                  where mhcs.medium_id = ?) or exists(select 1
+                                                                     from medium_has_category_set mhcs
+                                                                     where mhcs.medium_id = ?
+                                                                       and cshc.category_set_id = mhcs.category_set_id))
+                      and c.id in %s
+                """.formatted(inPlaceHolder);
+        Query categoryQuery = entityManager.createNativeQuery(query, Category.class).setParameter(1, mediumId)
+                                           .setParameter(2, mediumId);
+
+        for (int i = 0; i < categoryIds.size(); i++) {
+          int parameterIndex = i + 3;
+          categoryQuery.setParameter(parameterIndex, categoryIds.get(i));
+        }
+        updatedCategories = categoryQuery.getResultList();
+      }
+
+      medium.setCategories(updatedCategories);
+      return updatedCategories;
+    });
+  }
+
+  public List<CategorySet> updateCategorySetsOfMedium(int mediumId, List<Integer> categorySetIds) throws DbTransactionExecutionException {
+    logger.log(Level.FINE, "Updating category sets of medium with id " + mediumId);
+    return executeDbTransaction(entityManager -> {
+      Medium medium = entityManager.find(Medium.class, mediumId, LockModeType.PESSIMISTIC_WRITE);
+      List<CategorySet> updatedCategorySets = categorySetIds.isEmpty() ? Collections.emptyList() : entityManager.createQuery(
+              "select categorySet from CategorySet categorySet where categorySet.id in :categorySetIds",
+              CategorySet.class).setParameter("categorySetIds", categorySetIds).getResultList();
+
+      if (!categorySetIds.isEmpty()) {
+        String inPlaceHolder = DbQueryStringUtil.createInPlaceHolderValue(categorySetIds.size());
+        String deleteQueryStatement = """
+                delete from medium_has_category mhc where mhc.medium_id = ? and not exists (
+                    select 1 from category c
+                        join category_set_has_category cshc on cshc.category_id = c.id
+                        where c.id = mhc.category_id and cshc.category_set_id in %s
+                    )
+                """.formatted(inPlaceHolder);
+        Query deleteQuery = entityManager.createNativeQuery(deleteQueryStatement).setParameter(1, mediumId);
+
+        for (int i = 0; i < categorySetIds.size(); i++) {
+          int parameterIndex = i + 2;
+          deleteQuery.setParameter(parameterIndex, categorySetIds.get(i));
+        }
+
+        deleteQuery.executeUpdate();
+      }
+
+
+      medium.setCategorySets(updatedCategorySets);
+      return updatedCategorySets;
+    });
+  }
+
+  public List<Category> getRemovedCategoriesAfterCategorySetChange(int mediumId, Collection<Integer> categorySetIds) {
+    if (categorySetIds.isEmpty()) {
+      return Collections.emptyList();
+    }
+    String inPlaceHolder = DbQueryStringUtil.createInPlaceHolderValue(categorySetIds.size());
+
+    String queryString = """
+                     select c.id, c.name
+                     from medium_has_category mhc
+                     join category c on c.id = mhc.category_id
+                     where mhc.medium_id = ? and not exists(select 1
+                                      from category_set_has_category cshc
+                                      where cshc.category_id = mhc.category_id and cshc.category_set_id in %s)
+            """.formatted(inPlaceHolder);
+
+    return executeDbTransaction(entityManager -> {
+      Query query = entityManager.createNativeQuery(queryString, Category.class).setParameter(1, mediumId);
+
+      int currentParameterIndex = 2;
+      for (int currentCategorySetId : categorySetIds) {
+        query.setParameter(currentParameterIndex++, currentCategorySetId);
+      }
+
+      return query.getResultList();
+    });
   }
 
   /**
@@ -236,5 +380,48 @@ public class MediumStorage extends DbStorage<Medium, MediumFilterCriteria, Mediu
     }
 
     return predicates;
+  }
+
+  @Override
+  public void cleanupCategoryReferencesOfCategorySets(EntityManager entityManager, Collection<Integer> categorySetIds) {
+    logger.log(Level.FINE, "Cleanup category references of medium entities related to category sets {0}",
+            categorySetIds);
+    String idInPlaceholder = DbQueryStringUtil.createInPlaceHolderValue(categorySetIds.size());
+    String idQueryStatement = """
+            select m.id from medium m
+            where m.id in (
+                select mhcs.medium_id from medium_has_category_set mhcs
+                                     where mhcs.category_set_id in %s
+            )
+            order by m.id asc
+            for share
+            """.formatted(idInPlaceholder);
+    Query idQuery = entityManager.createNativeQuery(idQueryStatement);
+    int currentIdQueryParameterIndex = 1;
+    for (int currentCategorySetId : categorySetIds) {
+      idQuery.setParameter(currentIdQueryParameterIndex++, currentCategorySetId);
+    }
+    List<Integer> ids = ((List<Number>) idQuery.getResultList()).stream().map(Number::intValue).toList();
+
+    if (!ids.isEmpty()) {
+      String deleteUnreferencedInPlaceHolder = DbQueryStringUtil.createInPlaceHolderValue(ids.size());
+      String deleteUnreferencedCategoriesQueryStatement = """
+              delete from medium_has_category mhc
+              where mhc.medium_id in %s
+              and mhc.category_id not in (
+                  select cscs.category_id from medium_has_category_set mhcs
+                  join category_set_has_category cscs on mhcs.category_set_id = cscs.category_set_id
+                  where mhcs.medium_id = mhc.medium_id
+              )
+              """.formatted(deleteUnreferencedInPlaceHolder);
+      Query deleteUnreferencedCategoriesQuery = entityManager.createNativeQuery(
+              deleteUnreferencedCategoriesQueryStatement);
+      int currentDeleteUnreferencedCategoriesQueryParameterIndex = 1;
+      for (int currentId : ids) {
+        deleteUnreferencedCategoriesQuery.setParameter(currentDeleteUnreferencedCategoriesQueryParameterIndex++,
+                currentId);
+      }
+      deleteUnreferencedCategoriesQuery.executeUpdate();
+    }
   }
 }
