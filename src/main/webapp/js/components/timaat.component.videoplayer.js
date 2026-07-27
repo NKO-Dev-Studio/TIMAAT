@@ -1300,6 +1300,23 @@
         await TIMAAT.MediumService.updateMediumThumbnail(mediumId, currentPlayerPositionMillis)
       })
 
+      $('#mediumPlayerDownloadThumbnailButton').on('click', () => {
+        const videoElement = TIMAAT.VideoPlayer.overlay.getElement();
+
+        const canvas = document.createElement("canvas");
+        canvas.width = videoElement.videoWidth;
+        canvas.height = videoElement.videoHeight;
+
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
+        const fileName = TIMAAT.VideoPlayer.model.medium.originalTitle.name + "_" + Math.round(TIMAAT.VideoPlayer.medium.currentTime) + ".png"
+        const link = document.createElement('a');
+        link.href = canvas.toDataURL('image/png');
+        link.download = fileName;
+        link.click();
+      });
+
+
       $('.volumeControlInput').on('input change', function () {
         if (!TIMAAT.VideoPlayer.medium) return;
         TIMAAT.VideoPlayer.medium.volume = $(this).val() / 100;
@@ -1593,10 +1610,12 @@
             case 'audio':
               $('#timelineLayerCheckboxes').hide();
               $('#mediumPlayerSetThumbnailButton').hide();
+              $('#mediumPlayerDownloadThumbnailButton').hide();
               break;
             case 'video':
               $('#timelineLayerCheckboxes').show();
               $('#mediumPlayerSetThumbnailButton').show();
+              $('#mediumPlayerDownloadThumbnailButton').show();
               break;
           }
 
