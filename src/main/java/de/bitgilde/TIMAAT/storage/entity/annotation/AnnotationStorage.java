@@ -178,6 +178,7 @@ public class AnnotationStorage extends DbStorage<Annotation, AnnotationFilterCri
       annotation.setStartTime(createAnnotation.getStartTime());
       annotation.setEndTime(createAnnotation.getEndTime());
       annotation.setLayerVisual(createAnnotation.isLayerVisual());
+      annotation.setThumbnailPositionMs(createAnnotation.getStartTime());
       annotation.setLayerAudio(createAnnotation.isLayerAudio());
       annotation.setCreatedByUserAccount(userAccount);
       annotation.setCreatedAt(Timestamp.from(Instant.now()));
