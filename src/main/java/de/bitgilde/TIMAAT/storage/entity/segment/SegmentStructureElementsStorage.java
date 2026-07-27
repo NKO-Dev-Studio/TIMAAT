@@ -1,5 +1,6 @@
 package de.bitgilde.TIMAAT.storage.entity.segment;
 
+import de.bitgilde.TIMAAT.db.util.DbQueryStringUtil;
 import de.bitgilde.TIMAAT.model.FIPOP.AnalysisAction;
 import de.bitgilde.TIMAAT.model.FIPOP.AnalysisScene;
 import de.bitgilde.TIMAAT.model.FIPOP.AnalysisSegment;
@@ -28,6 +29,8 @@ import de.bitgilde.TIMAAT.storage.entity.segment.api.SegmentStructureSortingFiel
 import jakarta.annotation.Nullable;
 import jakarta.inject.Inject;
 import jakarta.persistence.EntityManagerFactory;
+import jakarta.persistence.LockModeType;
+import jakarta.persistence.Query;
 import jakarta.persistence.criteria.CriteriaBuilder;
 import jakarta.persistence.criteria.CriteriaQuery;
 import jakarta.persistence.criteria.Join;
@@ -35,7 +38,6 @@ import jakarta.persistence.criteria.Predicate;
 import jakarta.persistence.criteria.Root;
 
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -64,21 +66,45 @@ public class SegmentStructureElementsStorage extends DbStorage<AnalysisSegmentSt
     this.analysisListStorage = analysisListStorage;
   }
 
-  public List<Category> updateCategories(int segmentStructureId, SegmentStructureElementType segmentStructureElementType, Collection<Integer> categoryIds) {
+  public List<Category> updateCategories(int segmentStructureId, SegmentStructureElementType segmentStructureElementType, List<Integer> categoryIds) {
     return executeDbTransaction(entityManager -> {
       Class<? extends SegmentStructureEntity> segmentTypeEntityClass = SEGMENT_STRUCTURE_ENTITY_CLASS_BY_SEGMENT_STRUCTURE_TYPE.get(
               segmentStructureElementType);
 
       SegmentStructureEntity segmentStructureEntity = entityManager.find(segmentTypeEntityClass, segmentStructureId);
       int mediumAnalysisListId = segmentStructureEntity.getMediumAnalysisList().getId();
+      entityManager.lock(segmentStructureEntity.getMediumAnalysisList(), LockModeType.PESSIMISTIC_READ);
 
-      List<Category> categories = categoryIds.isEmpty() ? Collections.emptyList() : entityManager.createQuery(
-              "select category from Category category where category.id in (select cshs.category.id from MediumAnalysisList mediumAnalysisList join mediumAnalysisList.categorySets categorySets join categorySets.categorySetHasCategories cshs where mediumAnalysisList.id = :mediumAnalysisListId and cshs.category.id in :categoryIds)",
-              Category.class).setParameter("categoryIds", categoryIds).setParameter("mediumAnalysisListId",
-              mediumAnalysisListId).getResultList();
+      List<Category> updatedCategories;
+      if (categoryIds.isEmpty()) {
+        updatedCategories = Collections.emptyList();
+      }
+      else {
+        String inPlaceHolder = DbQueryStringUtil.createInPlaceHolderValue(categoryIds.size());
+        String query = """
+                select distinct c.id, c.name
+                from category c
+                         left join category_set_has_category cshc on c.id = cshc.category_id
+                where (not exists(select 1
+                                  from medium_analysis_list_has_category_set mhcs
+                                  where mhcs.medium_analysis_list_id = ?) or exists(select 1
+                                                                     from medium_analysis_list_has_category_set mhcs
+                                                                     where mhcs.medium_analysis_list_id = ?
+                                                                       and cshc.category_set_id = mhcs.category_set_id))
+                      and c.id in %s
+                """.formatted(inPlaceHolder);
+        Query categoryQuery = entityManager.createNativeQuery(query, Category.class)
+                                           .setParameter(1, mediumAnalysisListId).setParameter(2, mediumAnalysisListId);
 
-      segmentStructureEntity.setCategories(categories);
-      return categories;
+        for (int i = 0; i < categoryIds.size(); i++) {
+          int parameterIndex = i + 3;
+          categoryQuery.setParameter(parameterIndex, categoryIds.get(i));
+        }
+        updatedCategories = categoryQuery.getResultList();
+      }
+
+      segmentStructureEntity.setCategories(updatedCategories);
+      return updatedCategories;
     });
   }
 

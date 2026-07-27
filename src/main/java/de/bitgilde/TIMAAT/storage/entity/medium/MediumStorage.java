@@ -126,28 +126,35 @@ public class MediumStorage extends DbStorage<Medium, MediumFilterCriteria, Mediu
 
   public Collection<Category> updateAssignedCategoriesOfMedium(int mediumId, List<Integer> categoryIds) {
     return executeDbTransaction(entityManager -> {
-      Medium medium = entityManager.find(Medium.class, mediumId, LockModeType.PESSIMISTIC_WRITE);
-      String inPlaceHolder = DbQueryStringUtil.createInPlaceHolderValue(categoryIds.size());
-      String query = """
-              select distinct c.id, c.name
-              from category c
-                       left join category_set_has_category cshc on c.id = cshc.category_id
-              where (not exists(select 1
-                                from medium_has_category_set mhcs
-                                where mhcs.medium_id = ?) or exists(select 1
-                                                                   from medium_has_category_set mhcs
-                                                                   where mhcs.medium_id = ?
-                                                                     and cshc.category_set_id = mhcs.category_set_id))
-                    and c.id in %s
-              """.formatted(inPlaceHolder);
-      Query categoryQuery = entityManager.createNativeQuery(query, Category.class).setParameter(1, mediumId)
-                                         .setParameter(2, mediumId);
+      Medium medium = entityManager.find(Medium.class, mediumId, LockModeType.PESSIMISTIC_READ);
+      List<Category> updatedCategories;
 
-      for (int i = 0; i < categoryIds.size(); i++) {
-        int parameterIndex = i + 3;
-        categoryQuery.setParameter(parameterIndex, categoryIds.get(i));
+      if (categoryIds.isEmpty()) {
+        updatedCategories = Collections.emptyList();
       }
-      List<Category> updatedCategories = categoryQuery.getResultList();
+      else {
+        String inPlaceHolder = DbQueryStringUtil.createInPlaceHolderValue(categoryIds.size());
+        String query = """
+                select distinct c.id, c.name
+                from category c
+                         left join category_set_has_category cshc on c.id = cshc.category_id
+                where (not exists(select 1
+                                  from medium_has_category_set mhcs
+                                  where mhcs.medium_id = ?) or exists(select 1
+                                                                     from medium_has_category_set mhcs
+                                                                     where mhcs.medium_id = ?
+                                                                       and cshc.category_set_id = mhcs.category_set_id))
+                      and c.id in %s
+                """.formatted(inPlaceHolder);
+        Query categoryQuery = entityManager.createNativeQuery(query, Category.class).setParameter(1, mediumId)
+                                           .setParameter(2, mediumId);
+
+        for (int i = 0; i < categoryIds.size(); i++) {
+          int parameterIndex = i + 3;
+          categoryQuery.setParameter(parameterIndex, categoryIds.get(i));
+        }
+        updatedCategories = categoryQuery.getResultList();
+      }
 
       medium.setCategories(updatedCategories);
       return updatedCategories;

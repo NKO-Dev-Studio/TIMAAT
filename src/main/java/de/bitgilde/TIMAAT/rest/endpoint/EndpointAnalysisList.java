@@ -18,7 +18,6 @@ import de.bitgilde.TIMAAT.model.FIPOP.AnalysisTakeTranslation;
 import de.bitgilde.TIMAAT.model.FIPOP.Annotation;
 import de.bitgilde.TIMAAT.model.FIPOP.Category;
 import de.bitgilde.TIMAAT.model.FIPOP.CategorySet;
-import de.bitgilde.TIMAAT.model.FIPOP.CategorySetHasCategory;
 import de.bitgilde.TIMAAT.model.FIPOP.Language;
 import de.bitgilde.TIMAAT.model.FIPOP.Medium;
 import de.bitgilde.TIMAAT.model.FIPOP.MediumAnalysisList;
@@ -69,11 +68,8 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Comparator;
-import java.util.Iterator;
 import java.util.List;
-import java.util.Set;
 import java.util.UUID;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /*
@@ -2113,50 +2109,6 @@ public class EndpointAnalysisList {
     return Response.ok().build();
   }
 
-  @POST
-  @Produces(MediaType.APPLICATION_JSON)
-  @Path("{analysisListId}/categorySet/{categorySetId}")
-  @Secured
-  public Response addExistingCategorySet(@PathParam("analysisListId") int mediumAnalysisListId, @PathParam("categorySetId") int categorySetId, @QueryParam("authToken") String authToken) {
-
-    EntityManager entityManager = TIMAATApp.emf.createEntityManager();
-    MediumAnalysisList mediumAnalysisList = entityManager.find(MediumAnalysisList.class, mediumAnalysisListId);
-    if (mediumAnalysisList == null) {
-      return Response.status(Status.NOT_FOUND).build();
-    }
-    CategorySet categorySet = entityManager.find(CategorySet.class, categorySetId);
-    if (categorySet == null) {
-      return Response.status(Status.NOT_FOUND).build();
-    }
-
-    // verify auth token
-    int userId = 0;
-    if (AuthenticationFilter.isTokenValid(authToken)) {
-      userId = AuthenticationFilter.getTokenClaimUserId(authToken);
-    }
-    else {
-      return Response.status(Status.UNAUTHORIZED).build();
-    }
-    // check for permission level
-    if (EndpointUserAccount.getPermissionLevelForAnalysisList(userId, mediumAnalysisListId) < 2) {
-      return Response.status(Status.FORBIDDEN).build();
-    }
-
-    // attach categorySet to annotation and vice versa
-    EntityTransaction entityTransaction = entityManager.getTransaction();
-    entityTransaction.begin();
-    mediumAnalysisList.getCategorySets().add(categorySet);
-    categorySet.getMediumAnalysisLists().add(mediumAnalysisList);
-    entityManager.merge(categorySet);
-    entityManager.merge(mediumAnalysisList);
-    entityManager.persist(mediumAnalysisList);
-    entityManager.persist(categorySet);
-    entityTransaction.commit();
-    entityManager.refresh(mediumAnalysisList);
-
-    return Response.ok().entity(categorySet).build();
-  }
-
   @PUT
   @Produces(MediaType.APPLICATION_JSON)
   @Consumes(MediaType.APPLICATION_JSON)
@@ -2176,157 +2128,6 @@ public class EndpointAnalysisList {
   public List<Category> getRemovedCategoriesAfterCategorySetChange(@PathParam("id") int id, UpdateMusicCategorySetsPayload updateMusicCategorySetsPayload) throws DbTransactionExecutionException {
     return analysisListStorage.getRemovedCategoriesAfterCategorySetChange(id,
             updateMusicCategorySetsPayload.getCategorySetIds());
-  }
-
-
-  @DELETE
-  @Produces(MediaType.APPLICATION_JSON)
-  @Path("{analysisListId}/categorySet/{categorySetId}")
-  @Secured
-  public Response removeCategorySet(@PathParam("analysisListId") int mediumAnalysisListId, @PathParam("categorySetId") int categorySetId, @QueryParam("authToken") String authToken) {
-
-    EntityManager entityManager = TIMAATApp.emf.createEntityManager();
-    MediumAnalysisList mediumAnalysisList = entityManager.find(MediumAnalysisList.class, mediumAnalysisListId);
-    if (mediumAnalysisList == null) {
-      return Response.status(Status.NOT_FOUND).build();
-    }
-    CategorySet categorySet = entityManager.find(CategorySet.class, categorySetId);
-    if (categorySet == null) {
-      return Response.status(Status.NOT_FOUND).build();
-    }
-
-    // verify auth token
-    int userId = 0;
-    if (AuthenticationFilter.isTokenValid(authToken)) {
-      userId = AuthenticationFilter.getTokenClaimUserId(authToken);
-    }
-    else {
-      return Response.status(Status.UNAUTHORIZED).build();
-    }
-    // check for permission level
-    if (EndpointUserAccount.getPermissionLevelForAnalysisList(userId, mediumAnalysisListId) < 2) {
-      return Response.status(Status.FORBIDDEN).build();
-    }
-
-    // delete categories of matching categorySets from annotations and segment structure elements
-    List<Category> categoryList = new ArrayList<>();
-    Set<CategorySetHasCategory> cshc = categorySet.getCategorySetHasCategories();
-    Iterator<CategorySetHasCategory> itr = cshc.iterator();
-    EntityTransaction entityTransaction = entityManager.getTransaction();
-
-    // fill categoryList will all categories of the category set that will be deleted
-    while (itr.hasNext()) {
-      categoryList.add(itr.next().getCategory());
-    }
-
-    // remove categories from removed category set from all associated annotations of the analysis list the category set is removed from
-    for (Annotation annotation : mediumAnalysisList.getAnnotations()) {
-      List<Category> annotationCategoryList = annotation.getCategories();
-      List<Category> categoriesToRemove = categoryList.stream().distinct().filter(annotationCategoryList::contains)
-                                                      .collect(Collectors.toList());
-      entityTransaction.begin();
-      for (Category category : categoriesToRemove) {
-        annotation.getCategories().remove(category);
-      }
-      entityManager.merge(annotation);
-      entityManager.persist(annotation);
-      entityTransaction.commit();
-      entityManager.refresh(annotation);
-    }
-
-    // remove categories from removed category set from all associated segments of the analysis list the category set is removed from
-    for (AnalysisSegment analysisSegment : mediumAnalysisList.getAnalysisSegments()) {
-      List<Category> analysisSegmentCategoryList = analysisSegment.getCategories();
-      List<Category> segmentCategoriesToRemove = categoryList.stream().distinct()
-                                                             .filter(analysisSegmentCategoryList::contains)
-                                                             .collect(Collectors.toList());
-      entityTransaction.begin();
-      for (Category category : segmentCategoriesToRemove) {
-        analysisSegment.getCategories().remove(category);
-      }
-      entityManager.merge(analysisSegment);
-      entityManager.persist(analysisSegment);
-      entityTransaction.commit();
-      entityManager.refresh(analysisSegment);
-
-      // remove categories from removed category set from all associated sequences of the analysis list the category set is removed from
-      for (AnalysisSequence analysisSequence : analysisSegment.getAnalysisSequences()) {
-        List<Category> analysisSequenceCategoryList = analysisSequence.getCategories();
-        List<Category> sequenceCategoriesToRemove = categoryList.stream().distinct()
-                                                                .filter(analysisSequenceCategoryList::contains)
-                                                                .collect(Collectors.toList());
-        entityTransaction.begin();
-        for (Category category : sequenceCategoriesToRemove) {
-          analysisSequence.getCategories().remove(category);
-        }
-        entityManager.merge(analysisSequence);
-        entityManager.persist(analysisSequence);
-        entityTransaction.commit();
-        entityManager.refresh(analysisSequence);
-
-        // remove categories from removed category set from all associated takes of the analysis list the category set is removed from
-        for (AnalysisTake analysisTake : analysisSequence.getAnalysisTakes()) {
-          List<Category> analysisTakeCategoryList = analysisTake.getCategories();
-          List<Category> takeCategoriesToRemove = categoryList.stream().distinct()
-                                                              .filter(analysisTakeCategoryList::contains)
-                                                              .collect(Collectors.toList());
-          entityTransaction.begin();
-          for (Category category : takeCategoriesToRemove) {
-            analysisTake.getCategories().remove(category);
-          }
-          entityManager.merge(analysisTake);
-          entityManager.persist(analysisTake);
-          entityTransaction.commit();
-          entityManager.refresh(analysisTake);
-        }
-      }
-
-      // remove categories from removed category set from all associated scenes of the analysis list the category set is removed from
-      for (AnalysisScene analysisScene : analysisSegment.getAnalysisScenes()) {
-        List<Category> analysisSceneCategoryList = analysisScene.getCategories();
-        List<Category> sceneCategoriesToRemove = categoryList.stream().distinct()
-                                                             .filter(analysisSceneCategoryList::contains)
-                                                             .collect(Collectors.toList());
-        entityTransaction.begin();
-        for (Category category : sceneCategoriesToRemove) {
-          analysisScene.getCategories().remove(category);
-        }
-        entityManager.merge(analysisScene);
-        entityManager.persist(analysisScene);
-        entityTransaction.commit();
-        entityManager.refresh(analysisScene);
-
-        // remove categories from removed category set from all associated actions of the analysis list the category set is removed from
-        for (AnalysisAction analysisAction : analysisScene.getAnalysisActions()) {
-          List<Category> analysisActionCategoryList = analysisAction.getCategories();
-          List<Category> actionCategoriesToRemove = categoryList.stream().distinct()
-                                                                .filter(analysisActionCategoryList::contains)
-                                                                .collect(Collectors.toList());
-          entityTransaction.begin();
-          for (Category category : actionCategoriesToRemove) {
-            analysisAction.getCategories().remove(category);
-          }
-          entityManager.merge(analysisAction);
-          entityManager.persist(analysisAction);
-          entityTransaction.commit();
-          entityManager.refresh(analysisAction);
-        }
-      }
-    }
-
-
-    // attach categorySet to annotation and vice versa
-    entityTransaction.begin();
-    mediumAnalysisList.getCategorySets().remove(categorySet);
-    categorySet.getMediumAnalysisLists().remove(mediumAnalysisList);
-    entityManager.merge(categorySet);
-    entityManager.merge(mediumAnalysisList);
-    entityManager.persist(mediumAnalysisList);
-    entityManager.persist(categorySet);
-    entityTransaction.commit();
-    entityManager.refresh(mediumAnalysisList);
-
-    return Response.ok().build();
   }
 
   @POST

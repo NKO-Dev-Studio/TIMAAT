@@ -1,6 +1,7 @@
 package de.bitgilde.TIMAAT.storage.entity.analysislist;
 
 import de.bitgilde.TIMAAT.db.DbAccessComponent;
+import de.bitgilde.TIMAAT.db.util.DbQueryStringUtil;
 import de.bitgilde.TIMAAT.model.FIPOP.Category;
 import de.bitgilde.TIMAAT.model.FIPOP.CategorySet;
 import de.bitgilde.TIMAAT.model.FIPOP.MediumAnalysisList;
@@ -8,6 +9,7 @@ import de.bitgilde.TIMAAT.storage.api.ReducedEntity;
 import jakarta.annotation.Nullable;
 import jakarta.inject.Inject;
 import jakarta.persistence.EntityManagerFactory;
+import jakarta.persistence.LockModeType;
 import jakarta.persistence.Query;
 
 import java.util.Collection;
@@ -15,7 +17,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /**
@@ -81,33 +82,53 @@ public class AnalysisListStorage extends DbAccessComponent {
     return Collections.emptyList();
   }
 
-  public List<CategorySet> updateCategorySets(int analysisListId, Collection<Integer> categorySetIds) {
+  public List<CategorySet> updateCategorySets(int analysisListId, List<Integer> categorySetIds) {
     logger.log(Level.FINE, "Update category sets of analysis list having id {0}", analysisListId);
 
     return executeDbTransaction(entityManager -> {
-      MediumAnalysisList analysisList = entityManager.find(MediumAnalysisList.class, analysisListId);
+      MediumAnalysisList analysisList = entityManager.find(MediumAnalysisList.class, analysisListId,
+              LockModeType.PESSIMISTIC_WRITE);
       List<CategorySet> categorySets = categorySetIds.isEmpty() ? Collections.emptyList() : entityManager.createQuery(
               "select categorySet from CategorySet categorySet where categorySet.id in :categorySetIds",
               CategorySet.class).setParameter("categorySetIds", categorySetIds).getResultList();
-
       analysisList.setCategorySets(categorySets);
 
-      //TODO: add cleanup for segment structures
-      if (categorySetIds.isEmpty()) {
-        entityManager.createNativeQuery(
-                             "delete from annotation_has_category where annotation_id in " + "(select annotation.id from annotation where annotation.medium_analysis_list_id = ?)")
-                     .setParameter(1, analysisListId).executeUpdate();
-      }
-      else {
-        String placeholders = categorySetIds.stream().map(id -> "?").collect(Collectors.joining(","));
-        Query query = entityManager.createNativeQuery(
-                                           "delete from annotation_has_category where annotation_id in " + "(select annotation.id from annotation where annotation.medium_analysis_list_id = ?) " + "and category_id not in (select categorySetHasCategory.category_id from category_set_has_category categorySetHasCategory " + "where categorySetHasCategory.category_set_id in (" + placeholders + "))")
-                                   .setParameter(1, analysisListId);
+      if (!categorySets.isEmpty()) {
+        String inPlaceHolder = DbQueryStringUtil.createInPlaceHolderValue(categorySetIds.size());
+        String deleteAnnotationCategoryQueryStatement = """
+                delete from annotation_has_category ahc where ahc.annotation_id in
+                    (select a.id from annotation a
+                        where a.medium_analysis_list_id = ?)
+                and not exists (
+                    select 1 from category c
+                        join category_set_has_category cshc on cshc.category_id = c.id
+                        where c.id = ahc.category_id and cshc.category_set_id in %s
+                )
+                """.formatted(inPlaceHolder);
+        Query deleteAnnotationCategoryQuery = entityManager.createNativeQuery(deleteAnnotationCategoryQueryStatement)
+                                                           .setParameter(1, analysisListId);
 
-        int index = 2;
-        for (Integer currentCategorySetId : categorySetIds) {
-          query.setParameter(index++, currentCategorySetId);
+        String deleteSegmentStructureElementCategoryQueryStatement = """
+                delete from analysis_segment_has_category ashc where ashc.analysis_segment_id in
+                   (select a.id from analysis_segment a
+                        where a.analysis_list_id = ?)
+                and not exists (
+                        select 1 from category c
+                        join category_set_has_category cshc on cshc.category_id = c.id
+                        where c.id = ashc.category_id and cshc.category_set_id in %s
+                )
+                """.formatted(inPlaceHolder);
+        Query deleteSegmentStructureElementCategoryQuery = entityManager.createNativeQuery(
+                deleteSegmentStructureElementCategoryQueryStatement).setParameter(1, analysisListId);
+
+        for (int i = 0; i < categorySetIds.size(); i++) {
+          int parameterIndex = i + 2;
+          deleteAnnotationCategoryQuery.setParameter(parameterIndex, categorySetIds.get(i));
+          deleteSegmentStructureElementCategoryQuery.setParameter(parameterIndex, categorySetIds.get(i));
         }
+
+        deleteAnnotationCategoryQuery.executeUpdate();
+        deleteSegmentStructureElementCategoryQuery.executeUpdate();
       }
 
       return categorySets;

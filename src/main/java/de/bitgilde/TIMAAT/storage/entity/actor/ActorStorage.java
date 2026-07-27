@@ -108,28 +108,35 @@ public class ActorStorage extends DbStorage<Actor, ActorFilterCriteria, ActorSor
 
   public Collection<Category> updateAssignedCategoriesOfActor(int actorId, List<Integer> categoryIds) {
     return executeDbTransaction(entityManager -> {
-      Actor actor = entityManager.find(Actor.class, actorId, LockModeType.PESSIMISTIC_WRITE);
-      String inPlaceHolder = DbQueryStringUtil.createInPlaceHolderValue(categoryIds.size());
-      String query = """
-              select distinct c.id, c.name
-              from category c
-                       left join category_set_has_category cshc on c.id = cshc.category_id
-              where (not exists(select 1
-                                from actor_has_category_set ahcs
-                                where ahcs.actor_id = ?) or exists(select 1
-                                                                   from actor_has_category_set ahcs
-                                                                   where ahcs.actor_id = ?
-                                                                     and cshc.category_set_id = ahcs.category_set_id))
-                    and c.id in %s
-              """.formatted(inPlaceHolder);
-      Query categoryQuery = entityManager.createNativeQuery(query, Category.class).setParameter(1, actorId)
-                                         .setParameter(2, actorId);
+      Actor actor = entityManager.find(Actor.class, actorId, LockModeType.PESSIMISTIC_READ);
+      List<Category> updatedCategories;
 
-      for (int i = 0; i < categoryIds.size(); i++) {
-        int parameterIndex = i + 3;
-        categoryQuery.setParameter(parameterIndex, categoryIds.get(i));
+      if (categoryIds.isEmpty()) {
+        updatedCategories = Collections.emptyList();
       }
-      List<Category> updatedCategories = categoryQuery.getResultList();
+      else {
+        String inPlaceHolder = DbQueryStringUtil.createInPlaceHolderValue(categoryIds.size());
+        String query = """
+                select distinct c.id, c.name
+                from category c
+                         left join category_set_has_category cshc on c.id = cshc.category_id
+                where (not exists(select 1
+                                  from actor_has_category_set ahcs
+                                  where ahcs.actor_id = ?) or exists(select 1
+                                                                     from actor_has_category_set ahcs
+                                                                     where ahcs.actor_id = ?
+                                                                       and cshc.category_set_id = ahcs.category_set_id))
+                      and c.id in %s
+                """.formatted(inPlaceHolder);
+        Query categoryQuery = entityManager.createNativeQuery(query, Category.class).setParameter(1, actorId)
+                                           .setParameter(2, actorId);
+
+        for (int i = 0; i < categoryIds.size(); i++) {
+          int parameterIndex = i + 3;
+          categoryQuery.setParameter(parameterIndex, categoryIds.get(i));
+        }
+        updatedCategories = categoryQuery.getResultList();
+      }
 
       actor.setCategories(updatedCategories);
       return updatedCategories;

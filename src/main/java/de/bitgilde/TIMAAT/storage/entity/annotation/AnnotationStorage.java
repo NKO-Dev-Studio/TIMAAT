@@ -1,6 +1,7 @@
 package de.bitgilde.TIMAAT.storage.entity.annotation;
 
 import de.bitgilde.TIMAAT.db.exception.DbTransactionExecutionException;
+import de.bitgilde.TIMAAT.db.util.DbQueryStringUtil;
 import de.bitgilde.TIMAAT.model.FIPOP.Annotation;
 import de.bitgilde.TIMAAT.model.FIPOP.AnnotationHasMusic;
 import de.bitgilde.TIMAAT.model.FIPOP.AnnotationHasMusicPK;
@@ -37,6 +38,8 @@ import de.bitgilde.TIMAAT.storage.entity.annotation.api.AnnotationType;
 import jakarta.annotation.Nullable;
 import jakarta.inject.Inject;
 import jakarta.persistence.EntityManagerFactory;
+import jakarta.persistence.LockModeType;
+import jakarta.persistence.Query;
 import jakarta.persistence.criteria.CriteriaBuilder;
 import jakarta.persistence.criteria.CriteriaQuery;
 import jakarta.persistence.criteria.Join;
@@ -119,16 +122,43 @@ public class AnnotationStorage extends DbStorage<Annotation, AnnotationFilterCri
     return analysisListStorage.getAssignableCategoriesOfAnalysisList(mediumAnalysisListId, searchText);
   }
 
-  public List<Category> updateCategoriesOfAnnotation(int annotationId, Collection<Integer> categoryIds) throws DbTransactionExecutionException {
+  public List<Category> updateCategoriesOfAnnotation(int annotationId, List<Integer> categoryIds) throws DbTransactionExecutionException {
     return executeDbTransaction(entityManager -> {
       Annotation currentAnnotation = entityManager.find(Annotation.class, annotationId);
+      entityManager.lock(currentAnnotation.getMediumAnalysisList(), LockModeType.PESSIMISTIC_READ);
+      int mediumAnalysisListId = currentAnnotation.getMediumAnalysisList().getId();
 
-      List<Category> categories = categoryIds.isEmpty() ? Collections.emptyList() : entityManager.createQuery(
-              "select category from Category category where category.id in (select categorySetHasCategories.category.id from MediumAnalysisList mediumAnalysisList join mediumAnalysisList.categorySets categorySets join categorySets.categorySetHasCategories categorySetHasCategories where categorySetHasCategories.category.id in :categoryIds)",
-              Category.class).setParameter("categoryIds", categoryIds).getResultList();
 
-      currentAnnotation.setCategories(categories);
-      return categories;
+      List<Category> updatedCategories;
+      if (categoryIds.isEmpty()) {
+        updatedCategories = Collections.emptyList();
+      }
+      else {
+        String inPlaceHolder = DbQueryStringUtil.createInPlaceHolderValue(categoryIds.size());
+        String query = """
+                select distinct c.id, c.name
+                from category c
+                         left join category_set_has_category cshc on c.id = cshc.category_id
+                where (not exists(select 1
+                                  from medium_analysis_list_has_category_set mhcs
+                                  where mhcs.medium_analysis_list_id = ?) or exists(select 1
+                                                                     from medium_analysis_list_has_category_set mhcs
+                                                                     where mhcs.medium_analysis_list_id = ?
+                                                                       and cshc.category_set_id = mhcs.category_set_id))
+                      and c.id in %s
+                """.formatted(inPlaceHolder);
+        Query categoryQuery = entityManager.createNativeQuery(query, Category.class)
+                                           .setParameter(1, mediumAnalysisListId).setParameter(2, mediumAnalysisListId);
+
+        for (int i = 0; i < categoryIds.size(); i++) {
+          int parameterIndex = i + 3;
+          categoryQuery.setParameter(parameterIndex, categoryIds.get(i));
+        }
+        updatedCategories = categoryQuery.getResultList();
+      }
+
+      currentAnnotation.setCategories(updatedCategories);
+      return updatedCategories;
     });
   }
 
