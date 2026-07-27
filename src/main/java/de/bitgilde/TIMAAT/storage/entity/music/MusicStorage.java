@@ -25,11 +25,13 @@ import de.bitgilde.TIMAAT.model.FIPOP.Title_;
 import de.bitgilde.TIMAAT.model.FIPOP.UserAccount;
 import de.bitgilde.TIMAAT.model.FIPOP.VoiceLeadingPattern;
 import de.bitgilde.TIMAAT.model.TimeRange;
+import de.bitgilde.TIMAAT.storage.db.CategoryReferencingEntityStorage;
 import de.bitgilde.TIMAAT.storage.db.DbStorage;
 import de.bitgilde.TIMAAT.storage.entity.TagStorage;
 import de.bitgilde.TIMAAT.storage.entity.music.api.MusicFilterCriteria;
 import de.bitgilde.TIMAAT.storage.entity.music.api.MusicSortingField;
 import jakarta.inject.Inject;
+import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityManagerFactory;
 import jakarta.persistence.LockModeType;
 import jakarta.persistence.Query;
@@ -74,7 +76,7 @@ import java.util.stream.Collectors;
  * @author Nico Kotlenga
  * @since 27.08.25
  */
-public class MusicStorage extends DbStorage<Music, MusicFilterCriteria, MusicSortingField> {
+public class MusicStorage extends DbStorage<Music, MusicFilterCriteria, MusicSortingField> implements CategoryReferencingEntityStorage {
 
   private static final Logger logger = Logger.getLogger(MusicStorage.class.getName());
 
@@ -446,6 +448,50 @@ public class MusicStorage extends DbStorage<Music, MusicFilterCriteria, MusicSor
         return Optional.of(music.getDisplayTitle());
       }
     });
+  }
+
+  @SuppressWarnings("unchecked")
+  @Override
+  public void cleanupCategoryReferencesOfCategorySets(EntityManager entityManager, Collection<Integer> categorySetIds) {
+    logger.log(Level.FINE, "Cleanup category references of music entities related to category sets {0}",
+            categorySetIds);
+    String musicIdInPlaceholder = DbQueryStringUtil.createInPlaceHolderValue(categorySetIds.size());
+    String musicIdQueryStatement = """
+            select m.id from music m
+            where m.id in (
+                select mhcs.music_id from music_has_category_set mhcs
+                                     where mhcs.category_set_id in %s
+            )
+            order by m.id asc
+            for share
+            """.formatted(musicIdInPlaceholder);
+    Query musicIdQuery = entityManager.createNativeQuery(musicIdQueryStatement);
+    int currentMusicIdQueryParameterIndex = 1;
+    for (int currentCategorySetId : categorySetIds) {
+      musicIdQuery.setParameter(currentMusicIdQueryParameterIndex++, currentCategorySetId);
+    }
+    List<Integer> musicIds = ((List<Number>) musicIdQuery.getResultList()).stream().map(Number::intValue).toList();
+
+    if (!musicIds.isEmpty()) {
+      String deleteUnreferencedInPlaceHolder = DbQueryStringUtil.createInPlaceHolderValue(musicIds.size());
+      String deleteUnreferencedCategoriesQueryStatement = """
+              delete from music_has_category mhc
+              where mhc.music_id in %s
+              and mhc.category_id not in (
+                  select cscs.category_id from music_has_category_set mhcs
+                  join category_set_has_category cscs on mhcs.category_set_id = cscs.category_set_id
+                  where mhcs.music_id = mhc.music_id
+              )
+              """.formatted(deleteUnreferencedInPlaceHolder);
+      Query deleteUnreferencedCategoriesQuery = entityManager.createNativeQuery(
+              deleteUnreferencedCategoriesQueryStatement);
+      int currentDeleteUnreferencedCategoriesQueryParameterIndex = 1;
+      for (int currentMusicId : musicIds) {
+        deleteUnreferencedCategoriesQuery.setParameter(currentDeleteUnreferencedCategoriesQueryParameterIndex++,
+                currentMusicId);
+      }
+      deleteUnreferencedCategoriesQuery.executeUpdate();
+    }
   }
 
   public static class CreateMusic {

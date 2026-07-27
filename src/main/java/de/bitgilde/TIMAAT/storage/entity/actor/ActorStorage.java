@@ -26,11 +26,13 @@ import de.bitgilde.TIMAAT.model.FIPOP.CategorySet_;
 import de.bitgilde.TIMAAT.model.FIPOP.Category_;
 import de.bitgilde.TIMAAT.model.FIPOP.UserAccount;
 import de.bitgilde.TIMAAT.storage.api.ReducedEntity;
+import de.bitgilde.TIMAAT.storage.db.CategoryReferencingEntityStorage;
 import de.bitgilde.TIMAAT.storage.db.DbStorage;
 import de.bitgilde.TIMAAT.storage.entity.actor.api.ActorFilterCriteria;
 import de.bitgilde.TIMAAT.storage.entity.actor.api.ActorSortingField;
 import jakarta.annotation.Nullable;
 import jakarta.inject.Inject;
+import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityManagerFactory;
 import jakarta.persistence.LockModeType;
 import jakarta.persistence.Query;
@@ -44,6 +46,8 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import java.util.stream.Stream;
 
 /**
@@ -52,7 +56,9 @@ import java.util.stream.Stream;
  * @author Nico Kotlenga
  * @since 27.12.25
  */
-public class ActorStorage extends DbStorage<Actor, ActorFilterCriteria, ActorSortingField> {
+public class ActorStorage extends DbStorage<Actor, ActorFilterCriteria, ActorSortingField> implements CategoryReferencingEntityStorage {
+
+  private static final Logger logger = Logger.getLogger(ActorStorage.class.getName());
 
   @Inject
   public ActorStorage(EntityManagerFactory emf) {
@@ -237,5 +243,49 @@ public class ActorStorage extends DbStorage<Actor, ActorFilterCriteria, ActorSor
       }
       return categorySets;
     });
+  }
+
+  @SuppressWarnings("unchecked")
+  @Override
+  public void cleanupCategoryReferencesOfCategorySets(EntityManager entityManager, Collection<Integer> categorySetIds) {
+    logger.log(Level.FINE, "Cleanup category references of actor entities related to category sets {0}",
+            categorySetIds);
+    String idInPlaceholder = DbQueryStringUtil.createInPlaceHolderValue(categorySetIds.size());
+    String idQueryStatement = """
+            select a.id from actor a
+            where a.id in (
+                select ahcs.actor_id from actor_has_category_set ahcs
+                                     where ahcs.category_set_id in %s
+            )
+            order by a.id asc
+            for share
+            """.formatted(idInPlaceholder);
+    Query idQuery = entityManager.createNativeQuery(idQueryStatement);
+    int currentIdQueryParameterIndex = 1;
+    for (int currentCategorySetId : categorySetIds) {
+      idQuery.setParameter(currentIdQueryParameterIndex++, currentCategorySetId);
+    }
+    List<Integer> ids = ((List<Number>) idQuery.getResultList()).stream().map(Number::intValue).toList();
+
+    if (!ids.isEmpty()) {
+      String deleteUnreferencedInPlaceHolder = DbQueryStringUtil.createInPlaceHolderValue(ids.size());
+      String deleteUnreferencedCategoriesQueryStatement = """
+              delete from actor_has_category ahc
+              where ahc.actor_id in %s
+              and ahc.category_id not in (
+                  select cscs.category_id from actor_has_category_set ahcs
+                  join category_set_has_category cscs on ahcs.category_set_id = cscs.category_set_id
+                  where ahcs.actor_id = ahc.actor_id
+              )
+              """.formatted(deleteUnreferencedInPlaceHolder);
+      Query deleteUnreferencedCategoriesQuery = entityManager.createNativeQuery(
+              deleteUnreferencedCategoriesQueryStatement);
+      int currentDeleteUnreferencedCategoriesQueryParameterIndex = 1;
+      for (int currentId : ids) {
+        deleteUnreferencedCategoriesQuery.setParameter(currentDeleteUnreferencedCategoriesQueryParameterIndex++,
+                currentId);
+      }
+      deleteUnreferencedCategoriesQuery.executeUpdate();
+    }
   }
 }

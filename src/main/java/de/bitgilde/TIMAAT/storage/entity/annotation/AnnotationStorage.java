@@ -29,6 +29,7 @@ import de.bitgilde.TIMAAT.model.FIPOP.UserAccountHasMediumAnalysisList_;
 import de.bitgilde.TIMAAT.model.FIPOP.UserAccount_;
 import de.bitgilde.TIMAAT.model.IndexBasedRange;
 import de.bitgilde.TIMAAT.storage.api.ReducedEntity;
+import de.bitgilde.TIMAAT.storage.db.CategoryReferencingEntityStorage;
 import de.bitgilde.TIMAAT.storage.db.DbStorage;
 import de.bitgilde.TIMAAT.storage.entity.TagStorage;
 import de.bitgilde.TIMAAT.storage.entity.analysislist.AnalysisListStorage;
@@ -37,6 +38,7 @@ import de.bitgilde.TIMAAT.storage.entity.annotation.api.AnnotationSortingField;
 import de.bitgilde.TIMAAT.storage.entity.annotation.api.AnnotationType;
 import jakarta.annotation.Nullable;
 import jakarta.inject.Inject;
+import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityManagerFactory;
 import jakarta.persistence.LockModeType;
 import jakarta.persistence.Query;
@@ -77,7 +79,7 @@ import java.util.stream.Stream;
  * @author Nico Kotlenga
  * @since 03.09.25
  */
-public class AnnotationStorage extends DbStorage<Annotation, AnnotationFilterCriteria, AnnotationSortingField> {
+public class AnnotationStorage extends DbStorage<Annotation, AnnotationFilterCriteria, AnnotationSortingField> implements CategoryReferencingEntityStorage {
 
   private static final Logger logger = Logger.getLogger(AnnotationStorage.class.getName());
 
@@ -413,6 +415,50 @@ public class AnnotationStorage extends DbStorage<Annotation, AnnotationFilterCri
       predicates.add(criteriaBuilder.or(mediumAnalysisListHasGlobalAccess, userHasAccess));
     }
     return predicates;
+  }
+
+  @Override
+  public void cleanupCategoryReferencesOfCategorySets(EntityManager entityManager, Collection<Integer> categorySetIds) {
+    logger.log(Level.FINE, "Cleanup category references of annotation entities related to category sets {0}",
+            categorySetIds);
+    String idInPlaceholder = DbQueryStringUtil.createInPlaceHolderValue(categorySetIds.size());
+    String idQueryStatement = """
+            select m.id from medium_analysis_list m
+            where m.id in (
+                select mhcs.medium_analysis_list_id from medium_analysis_list_has_category_set mhcs
+                                     where mhcs.category_set_id in %s
+            )
+            order by m.id asc
+            for share
+            """.formatted(idInPlaceholder);
+    Query idQuery = entityManager.createNativeQuery(idQueryStatement);
+    int currentIdQueryParameterIndex = 1;
+    for (int currentCategorySetId : categorySetIds) {
+      idQuery.setParameter(currentIdQueryParameterIndex++, currentCategorySetId);
+    }
+    List<Integer> ids = ((List<Number>) idQuery.getResultList()).stream().map(Number::intValue).toList();
+
+    if (!ids.isEmpty()) {
+      String deleteUnreferencedInPlaceHolder = DbQueryStringUtil.createInPlaceHolderValue(ids.size());
+      String deleteUnreferencedCategoriesQueryStatement = """
+              delete ahc from annotation_has_category ahc
+              join annotation a on ahc.annotation_id = a.id
+              where a.medium_analysis_list_id in %s
+              and ahc.category_id not in (
+                  select cscs.category_id from medium_analysis_list_has_category_set mhcs
+                  join category_set_has_category cscs on mhcs.category_set_id = cscs.category_set_id
+                  where mhcs.medium_analysis_list_id = a.medium_analysis_list_id
+              )
+              """.formatted(deleteUnreferencedInPlaceHolder);
+      Query deleteUnreferencedCategoriesQuery = entityManager.createNativeQuery(
+              deleteUnreferencedCategoriesQueryStatement);
+      int currentDeleteUnreferencedCategoriesQueryParameterIndex = 1;
+      for (int currentId : ids) {
+        deleteUnreferencedCategoriesQuery.setParameter(currentDeleteUnreferencedCategoriesQueryParameterIndex++,
+                currentId);
+      }
+      deleteUnreferencedCategoriesQuery.executeUpdate();
+    }
   }
 
   public static class CreateAnnotation {

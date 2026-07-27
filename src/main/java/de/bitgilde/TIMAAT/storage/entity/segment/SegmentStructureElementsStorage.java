@@ -21,6 +21,7 @@ import de.bitgilde.TIMAAT.model.FIPOP.UserAccountHasMediumAnalysisList;
 import de.bitgilde.TIMAAT.model.FIPOP.UserAccountHasMediumAnalysisList_;
 import de.bitgilde.TIMAAT.model.FIPOP.UserAccount_;
 import de.bitgilde.TIMAAT.storage.api.ReducedEntity;
+import de.bitgilde.TIMAAT.storage.db.CategoryReferencingEntityStorage;
 import de.bitgilde.TIMAAT.storage.db.DbStorage;
 import de.bitgilde.TIMAAT.storage.entity.analysislist.AnalysisListStorage;
 import de.bitgilde.TIMAAT.storage.entity.segment.api.SegmentStructureElementFilterCriteria;
@@ -28,6 +29,7 @@ import de.bitgilde.TIMAAT.storage.entity.segment.api.SegmentStructureElementType
 import de.bitgilde.TIMAAT.storage.entity.segment.api.SegmentStructureSortingField;
 import jakarta.annotation.Nullable;
 import jakarta.inject.Inject;
+import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityManagerFactory;
 import jakarta.persistence.LockModeType;
 import jakarta.persistence.Query;
@@ -38,9 +40,12 @@ import jakarta.persistence.criteria.Predicate;
 import jakarta.persistence.criteria.Root;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import java.util.stream.Stream;
 
 /**
@@ -49,7 +54,9 @@ import java.util.stream.Stream;
  * @author Nico Kotlenga
  * @since 31.12.25
  */
-public class SegmentStructureElementsStorage extends DbStorage<AnalysisSegmentStructureElement, SegmentStructureElementFilterCriteria, SegmentStructureSortingField> {
+public class SegmentStructureElementsStorage extends DbStorage<AnalysisSegmentStructureElement, SegmentStructureElementFilterCriteria, SegmentStructureSortingField> implements CategoryReferencingEntityStorage {
+
+  private static final Logger logger = Logger.getLogger(SegmentStructureElementsStorage.class.getName());
 
   private static final Map<SegmentStructureElementType, Class<? extends SegmentStructureEntity>> SEGMENT_STRUCTURE_ENTITY_CLASS_BY_SEGMENT_STRUCTURE_TYPE = Map.of(
           SegmentStructureElementType.SEGMENT, AnalysisSegment.class, SegmentStructureElementType.SEQUENCE,
@@ -188,5 +195,49 @@ public class SegmentStructureElementsStorage extends DbStorage<AnalysisSegmentSt
     }
 
     return predicates;
+  }
+
+  @Override
+  public void cleanupCategoryReferencesOfCategorySets(EntityManager entityManager, Collection<Integer> categorySetIds) {
+    logger.log(Level.FINE, "Cleanup category references of annotation entities related to category sets {0}",
+            categorySetIds);
+    String idInPlaceholder = DbQueryStringUtil.createInPlaceHolderValue(categorySetIds.size());
+    String idQueryStatement = """
+            select m.id from medium_analysis_list m
+            where m.id in (
+                select mhcs.medium_analysis_list_id from medium_analysis_list_has_category_set mhcs
+                                     where mhcs.category_set_id in %s
+            )
+            order by m.id asc
+            for share
+            """.formatted(idInPlaceholder);
+    Query idQuery = entityManager.createNativeQuery(idQueryStatement);
+    int currentIdQueryParameterIndex = 1;
+    for (int currentCategorySetId : categorySetIds) {
+      idQuery.setParameter(currentIdQueryParameterIndex++, currentCategorySetId);
+    }
+    List<Integer> ids = ((List<Number>) idQuery.getResultList()).stream().map(Number::intValue).toList();
+
+    if (!ids.isEmpty()) {
+      String deleteUnreferencedInPlaceHolder = DbQueryStringUtil.createInPlaceHolderValue(ids.size());
+      String deleteUnreferencedCategoriesQueryStatement = """
+              delete ahc from analysis_segment_has_category ahc
+              join analysis_segment a on ahc.analysis_segment_id = a.id
+              where a.analysis_list_id in %s
+              and ahc.category_id not in (
+                  select cscs.category_id from medium_analysis_list_has_category_set mhcs
+                  join category_set_has_category cscs on mhcs.category_set_id = cscs.category_set_id
+                  where mhcs.medium_analysis_list_id = a.analysis_list_id
+              )
+              """.formatted(deleteUnreferencedInPlaceHolder);
+      Query deleteUnreferencedCategoriesQuery = entityManager.createNativeQuery(
+              deleteUnreferencedCategoriesQueryStatement);
+      int currentDeleteUnreferencedCategoriesQueryParameterIndex = 1;
+      for (int currentId : ids) {
+        deleteUnreferencedCategoriesQuery.setParameter(currentDeleteUnreferencedCategoriesQueryParameterIndex++,
+                currentId);
+      }
+      deleteUnreferencedCategoriesQuery.executeUpdate();
+    }
   }
 }

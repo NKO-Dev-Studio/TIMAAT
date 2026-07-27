@@ -20,6 +20,7 @@ import de.bitgilde.TIMAAT.service.transcription.TranscriptionService;
 import de.bitgilde.TIMAAT.service.transcription.format.vtt.VttParser;
 import de.bitgilde.TIMAAT.service.transcription.format.vtt.VttWriter;
 import de.bitgilde.TIMAAT.sse.EntityUpdateEventService;
+import de.bitgilde.TIMAAT.storage.db.CategoryReferencingEntityStorage;
 import de.bitgilde.TIMAAT.storage.entity.AudioAnalysisResultStorage;
 import de.bitgilde.TIMAAT.storage.entity.CategorySetStorage;
 import de.bitgilde.TIMAAT.storage.entity.CategoryStorage;
@@ -93,17 +94,18 @@ public class TIMAATBinder extends AbstractBinder {
       bind(TranscriptionStorage.class).to(TranscriptionStorage.class).to(TaskStorage.class).in(Singleton.class);
       bind(TranscriptionService.class).to(TranscriptionService.class).to(TaskStateUpdater.class).in(Singleton.class);
 
-      bindAsContract(MusicStorage.class).in(Singleton.class);
-      bindAsContract(AnnotationStorage.class).in(Singleton.class);
+      bindAsContract(MusicStorage.class).to(CategoryReferencingEntityStorage.class).in(Singleton.class);
+      bindAsContract(AnnotationStorage.class).to(CategoryReferencingEntityStorage.class).in(Singleton.class);
       bindAsContract(TagStorage.class).in(Singleton.class);
-      bindAsContract(ActorStorage.class).in(Singleton.class);
-      bindAsContract(MediumStorage.class).in(Singleton.class);
+      bindAsContract(ActorStorage.class).to(CategoryReferencingEntityStorage.class).in(Singleton.class);
+      bindAsContract(MediumStorage.class).to(CategoryReferencingEntityStorage.class).in(Singleton.class);
       bindAsContract(AnalysisListStorage.class).in(Singleton.class);
       bindAsContract(MediumVideoStorage.class).in(Singleton.class);
       bindAsContract(AnnotationFileStorage.class).in(Singleton.class);
       bindAsContract(CategoryStorage.class).in(Singleton.class);
       bindAsContract(CategorySetStorage.class).in(Singleton.class);
-      bindAsContract(SegmentStructureElementsStorage.class).in(Singleton.class);
+      bindAsContract(SegmentStructureElementsStorage.class).to(CategoryReferencingEntityStorage.class)
+                                                           .in(Singleton.class);
 
       bind(DbAnnotationAuthorizationVerifier.class).to(AnnotationAuthorizationVerifier.class).in(Singleton.class);
       bindAsContract(AnalysisListAuthorizationVerifier.class).in(Singleton.class);
