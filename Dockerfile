@@ -2,7 +2,7 @@ FROM tomcat:10.1.47-jre25-temurin-noble
 LABEL org.opencontainers.image.title="TIMAAT Web Application"
 LABEL org.opencontainers.image.description="Java-based web application running on Tomcat, providing TIMAAT services."
 LABEL org.opencontainers.image.version="${TIMAAT_VERSION}"
-LABEL org.opencontainers.image.authors="Nico Kotlenga <nico@kotlenga.dev>"
+LABEL org.opencontainers.image.authors="Nico Kotlenga <nico@nko-dev.dev>"
 LABEL org.opencontainers.image.source="https://github.com/bitgilde/TIMAAT"
 LABEL org.opencontainers.image.licenses="Apache License 2.0"
 
@@ -13,6 +13,18 @@ ENV TIMAAT_VERSION=$TIMAAT_VERSION
 ENV APP_TASK_QUEUESIZE=1000
 ENV APP_TASK_COREPARALLELCOUNT=2
 ENV APP_TASK_MAXPARALLELCOUNT=4
+ENV STT_ENABLED="false"
+ENV STT_AUTH_ENABLED="false"
+ENV STT_TRANSFER_TYPE="STREAMING"
+
+ENV STT_HOST=
+ENV STT_PORT=
+ENV STT_TRANSFER_TYPE=
+ENV STT_TRUSTED_SERVER_CERTIFICATE_PATH=
+ENV STT_TRANSFER_SHARED_AUDIO_STORAGE_PATH=
+ENV STT_TRANSFER_SHARED_RESULT_STORAGE_PATH=
+ENV STT_AUTH_CERTIFICATE_PATH=
+ENV STT_AUTH_PRIVATE_KEY_PATH=
 
 
 # Copy entrypoint script into container
