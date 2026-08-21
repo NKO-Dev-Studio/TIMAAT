@@ -18,7 +18,7 @@
 
   <scm>
     <connection>scm:git:https://github.com/NKO-Dev-Studio/TIMAAT.git</connection>
-    <developerConnection>scm:git:ssh://git@github.com:NKO-Dev-Studio/TIMAAT.git</developerConnection>
+    <developerConnection>scm:git:ssh://git@github.com/NKO-Dev-Studio/TIMAAT.git</developerConnection>
     <url>https://github.com/NKO-Dev-Studio/TIMAAT</url>
     <tag>HEAD</tag>
   </scm>
