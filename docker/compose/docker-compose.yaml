@@ -14,7 +14,7 @@ services:
     secrets:
       - database-root-password
     healthcheck:
-      test: ["CMD-SHELL", "mariadb-admin ping -u root --password=$(cat /run/secrets/database-root-password)"]
+      test: [ "CMD-SHELL", "mariadb-admin ping -u root --password=$(cat /run/secrets/database-root-password)" ]
       interval: 5s
       timeout: 3s
       retries: 10
@@ -31,13 +31,33 @@ services:
       DATABASE_PASSWORD_FILE: /run/secrets/database-root-password
       DATABASE_HOST: db
       DATABASE_PORT: 3306
+      STT_ENABLED: true
+      STT_HOST: speechToTextService
+      STT_PORT: 8080
+      STT_TRANSFER_TYPE: STREAMING
+      STT_TRUSTED_SERVER_CERTIFICATE_PATH: /etc/timaat/certs/speechToTextService.crt
     volumes:
       - file-storage:/var/lib/timaat/storage
+      - ./certs/speechToTextService.crt:/etc/timaat/certs/speechToTextService.crt
     secrets:
       - database-root-password
     depends_on:
       db:
         condition: service_healthy
+      speechToTextService:
+        condition: service_started
+  speechToTextService:
+    image: ghcr.io/nko-dev-studio/speech-to-text-uni-erfurt:latest
+    pull_policy: always
+    networks:
+      - timaat-backend
+    volumes:
+      - ./certs:/etc/opt/speech-to-text-service/certs
+      - stt-service-data:/var/opt/speech-to-text-service/storage
+      - stt-shared-storage:/var/opt/speech-to-text-service/shared-storage
+    environment:
+      SPEECH_TO_TEXT_GRPC_SERVER_CERTIFICATE_PATH: /etc/opt/speech-to-text-service/certs/speechToTextService.crt
+      SPEECH_TO_TEXT_GRPC_SERVER_PRIVATE_KEY_PATH: /etc/opt/speech-to-text-service/certs/speechToTextService.key
 networks:
   timaat-backend:
     driver: bridge
@@ -45,6 +65,8 @@ networks:
 volumes:
   db-data:
   file-storage:
+  stt-service-data:
+  stt-shared-storage:
 secrets:
   database-root-password:
     file: passwords/database-root-password.txt
